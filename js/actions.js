@@ -108,6 +108,31 @@ if (manageMenu) {
 }
 
 $("#importBtn").onclick = () => $("#importFile").click();
+
+// Mobile hamburger: toggles the collapsed action bar (see the max-width:600px
+// block in styles.css). Desktop hides #navToggle, so this is a no-op there.
+const navToggle = $("#navToggle");
+const topActions = navToggle && navToggle.closest(".top-actions");
+if (navToggle && topActions) {
+    const closeNav = () => {
+        topActions.classList.remove("nav-open");
+        navToggle.setAttribute("aria-expanded", "false");
+    };
+    navToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const open = topActions.classList.toggle("nav-open");
+        navToggle.setAttribute("aria-expanded", String(open));
+    });
+    // Close after choosing an action, but keep it open when toggling the
+    // nested "Gestionar" <summary> (which isn't a <button>).
+    $("#navMenuItems").addEventListener("click", (e) => {
+        if (e.target.closest("button")) closeNav();
+    });
+    document.addEventListener("click", (e) => {
+        if (topActions.classList.contains("nav-open") && !topActions.contains(e.target))
+            closeNav();
+    });
+}
 $("#importFile").onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;

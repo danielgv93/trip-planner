@@ -94,6 +94,16 @@ button {
     display: flex;
     gap: 9px;
 }
+/* Action bar collapses into a hamburger on mobile. On desktop the items sit
+   inline and the hamburger trigger is hidden. */
+.nav-menu-items {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+.top-actions > .hamburger {
+    display: none;
+}
 .top button,
 .add-day {
     border: 1px solid #ffffff40;
@@ -1319,8 +1329,74 @@ body.preview-mode .spot {
         min-height: 68px;
         padding: 11px 16px;
     }
-    .top-actions button:not(.primary) {
+    /* Collapse the whole action bar behind a hamburger. */
+    .top-actions {
+        position: relative;
+    }
+    .top-actions > .hamburger {
+        display: grid;
+        gap: 4px;
+        justify-content: center;
+        align-content: center;
+        cursor: pointer;
+        padding: 9px;
+        border: 1px solid #ffffff40;
+        border-radius: 4px;
+        background: transparent;
+    }
+    .top-actions > .hamburger span {
+        display: block;
+        width: 20px;
+        height: 2px;
+        background: #fff;
+        border-radius: 2px;
+    }
+    .top-actions > .hamburger:hover {
+        background: #ffffff14;
+    }
+    /* Hidden until opened; when open, drop the items into a panel. */
+    .top-actions .nav-menu-items {
         display: none;
+    }
+    .top-actions.nav-open .nav-menu-items {
+        display: flex;
+        position: absolute;
+        right: 0;
+        top: calc(100% + 8px);
+        z-index: 40;
+        flex-direction: column;
+        align-items: stretch;
+        min-width: 200px;
+        padding: 7px;
+        background: #1d2d36;
+        border: 1px solid #ffffff26;
+        border-radius: 8px;
+        box-shadow: 0 12px 28px #0b141b66;
+    }
+    .top-actions.nav-open .nav-menu-items > button {
+        text-align: left;
+    }
+    /* Flatten the nested "Gestionar" menu so its options read as plain rows. */
+    .nav-menu-items .manage-menu > summary {
+        display: none;
+    }
+    .nav-menu-items .manage-menu-items {
+        position: static;
+        min-width: 0;
+        padding: 0;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        gap: 9px;
+    }
+    .nav-menu-items .manage-menu-items button {
+        color: #fff;
+        border: 1px solid #ffffff40;
+        padding: 9px 12px;
+        font-size: 13px;
+    }
+    .nav-menu-items .manage-menu-items button:hover {
+        background: #ffffff14;
     }
     .intro {
         display: block;

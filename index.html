@@ -31,17 +31,28 @@
                 </div>
             </div>
             <div class="top-actions">
-                <button id="previewBtn">Previsualizar</button
-                ><button id="resetBtn">Restaurar ejemplo</button
-                ><button id="importBtn">Importar</button
-                ><button class="primary" id="exportBtn">Exportar plan</button
-                ><details id="manageMenu" class="manage-menu">
-                    <summary>⚙ Gestionar</summary>
-                    <div class="manage-menu-items">
-                        <button id="manageTags">Etiquetas</button>
-                        <button id="manageCategories">Categorías</button>
-                    </div>
-                </details>
+                <button
+                    id="navToggle"
+                    class="hamburger"
+                    aria-label="Abrir menú"
+                    aria-expanded="false"
+                    aria-controls="navMenuItems"
+                >
+                    <span></span><span></span><span></span>
+                </button>
+                <div id="navMenuItems" class="nav-menu-items">
+                    <button id="previewBtn">Previsualizar</button>
+                    <button id="resetBtn">Restaurar ejemplo</button>
+                    <button id="importBtn">Importar</button>
+                    <button class="primary" id="exportBtn">Exportar plan</button>
+                    <details id="manageMenu" class="manage-menu">
+                        <summary>⚙ Gestionar</summary>
+                        <div class="manage-menu-items">
+                            <button id="manageTags">Etiquetas</button>
+                            <button id="manageCategories">Categorías</button>
+                        </div>
+                    </details>
+                </div>
                 <input
                     id="importFile"
                     type="file"
