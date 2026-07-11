@@ -1,0 +1,1253 @@
+:root {
+    --ink: #1d2730;
+    --muted: #6c7479;
+    --paper: #fbfaf7;
+    --line: #e6e3dc;
+    --red: #d44d43;
+    --red-dark: #b4352d;
+    --green: #386f66;
+    --sand: #f1e8d5;
+    --card: #fff;
+    --shadow: 0 9px 25px #24323a0d;
+}
+* {
+    box-sizing: border-box;
+}
+body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "DM Sans", sans-serif;
+}
+button,
+input,
+textarea {
+    font: inherit;
+}
+button {
+    cursor: pointer;
+}
+.top {
+    height: 72px;
+    background: #1d2d36;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 clamp(20px, 4vw, 58px);
+    border-bottom: 3px solid var(--red);
+}
+.brand {
+    display: flex;
+    gap: 13px;
+    align-items: center;
+}
+.stamp {
+    width: 33px;
+    height: 33px;
+    border: 1px solid #ffffff80;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: #f1c865;
+    font-size: 19px;
+}
+.brand h1 {
+    font-family: "Playfair Display", serif;
+    font-size: 21px;
+    margin: 0;
+    letter-spacing: 0.2px;
+}
+.brand small {
+    display: block;
+    font: 11px "DM Mono";
+    letter-spacing: 1px;
+    color: #bcc8c8;
+    margin-top: 2px;
+}
+.brand .trip-title {
+    font-family: "Playfair Display", serif;
+    font-size: 21px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.2px;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px dashed transparent;
+    color: #fff;
+    width: min(52vw, 360px);
+    max-width: 100%;
+    padding: 1px 0;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+.brand .trip-title::placeholder {
+    color: #ffffff66;
+}
+.brand .trip-title:hover {
+    border-bottom-color: #ffffff45;
+}
+.brand .trip-title:focus {
+    border-bottom-color: var(--red);
+}
+.top-actions {
+    display: flex;
+    gap: 9px;
+}
+.top button,
+.add-day {
+    border: 1px solid #ffffff40;
+    background: transparent;
+    color: #fff;
+    padding: 9px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+.top button:hover {
+    background: #ffffff14;
+}
+.top .primary {
+    background: #d44d43;
+    border-color: #d44d43;
+    font-weight: 600;
+}
+.top .primary:hover {
+    background: #b4352d;
+}
+.top #previewBtn.active {
+    background: var(--ink);
+    border-color: var(--ink);
+    font-weight: 600;
+}
+.top #previewBtn.active:hover {
+    background: #2c3944;
+}
+main {
+    max-width: 1480px;
+    margin: auto;
+    padding: 30px clamp(18px, 4vw, 58px) 42px;
+}
+.intro {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    margin-bottom: 22px;
+}
+.eyebrow {
+    font: 11px "DM Mono";
+    color: var(--red);
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+}
+.intro h2 {
+    font: 700 30px "Playfair Display";
+    margin: 5px 0 0;
+}
+.intro p {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 0;
+    max-width: 390px;
+    text-align: right;
+}
+.workspace {
+    display: grid;
+    grid-template-columns: minmax(450px, 1.02fr) minmax(
+            430px,
+            0.98fr
+        );
+    gap: 23px;
+    align-items: start;
+}
+.planner {
+    min-width: 0;
+}
+.days {
+    display: grid;
+    gap: 13px;
+}
+.day {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+.day.active {
+    border-color: #d44d4390;
+    box-shadow: 0 9px 25px #d44d4312;
+}
+.day-head {
+    display: flex;
+    align-items: center;
+    padding: 13px 15px;
+    border-bottom: 1px solid var(--line);
+    gap: 11px;
+}
+.date-box {
+    background: var(--sand);
+    border-radius: 4px;
+    width: 47px;
+    text-align: center;
+    padding: 5px 3px;
+    flex: none;
+    position: relative;
+    transition: 0.18s ease;
+}
+.date-box:hover {
+    background: #eadcbc;
+    transform: translateY(-1px);
+}
+.date-box span {
+    display: block;
+    font: 10px "DM Mono";
+    text-transform: uppercase;
+    color: #876d48;
+    letter-spacing: 0.6px;
+}
+.date-box strong {
+    font: 700 20px "Playfair Display";
+    line-height: 19px;
+}
+.date-box.editable {
+    cursor: pointer;
+}
+.date-box.editable::after {
+    content: "✎";
+    position: absolute;
+    right: -5px;
+    top: -6px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: #fff;
+    color: var(--red);
+    font-size: 9px;
+    border: 1px solid var(--line);
+    box-shadow: 0 2px 6px #00000012;
+    opacity: 0;
+    transform: scale(0.85);
+    transition: 0.18s ease;
+}
+.day:hover .date-box.editable::after,
+.date-box.editable:focus-within::after {
+    opacity: 1;
+    transform: scale(1);
+}
+.date-box input[type="date"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    pointer-events: none;
+}
+.date-box:focus-within {
+    outline: 2px solid #d44d4340;
+    outline-offset: 2px;
+}
+.day-title {
+    flex: 1;
+    min-width: 0;
+}
+.title-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.day-name {
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    min-width: 0;
+}
+.backlog .day-name {
+    cursor: default;
+}
+.title-edit {
+    border: 0;
+    background: transparent;
+    color: var(--red);
+    font-size: 12px;
+    line-height: 1;
+    padding: 2px;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: 0.18s ease;
+    cursor: pointer;
+    flex: none;
+}
+.day:hover .title-edit,
+.title-edit:focus-visible {
+    opacity: 0.6;
+    transform: scale(1);
+}
+.title-edit:hover {
+    opacity: 1;
+}
+.day-title input.editing {
+    border: 0;
+    border-bottom: 1.5px solid var(--red);
+    padding: 0 0 2px;
+    font: inherit;
+    font-weight: 700;
+    color: var(--ink);
+    background: transparent;
+    width: 100%;
+    outline: none;
+}
+.day-title small {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+}
+.day-options,
+.day-duplicate {
+    border: 0;
+    background: transparent;
+    color: #858d90;
+    font-size: 21px;
+    padding: 0 4px;
+}
+.day-duplicate {
+    font-size: 16px;
+}
+.spots {
+    min-height: 45px;
+    padding: 8px;
+}
+.spots.drag-over {
+    background: #fbf1ef;
+}
+.spot {
+    display: grid;
+    grid-template-columns: 26px 1fr auto;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid transparent;
+    padding: 8px;
+    border-radius: 5px;
+    cursor: grab;
+    transition:
+        transform 0.14s ease,
+        background 0.14s ease,
+        border-color 0.14s ease,
+        box-shadow 0.14s ease;
+}
+.spot:hover {
+    border-color: var(--line);
+    background: #fcfcfa;
+}
+.spot.dragging {
+    opacity: 0.4;
+    background: #fbf1ef;
+    border: 1px dashed #d44d4366;
+    box-shadow: none;
+    transform: none;
+}
+.spot-ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 9999;
+    pointer-events: none;
+    margin: 0;
+    background: #fff;
+    border: 1px solid #d44d4380;
+    border-radius: 5px;
+    box-shadow: 0 22px 48px #d44d4330;
+    opacity: 0.97;
+    will-change: transform;
+    transition: none;
+}
+.spots.drag-over .empty {
+    display: none;
+}
+.days.is-dragging .spot:not(.dragging) {
+    transition:
+        transform 0.14s ease,
+        background 0.14s ease,
+        border-color 0.14s ease;
+}
+.handle {
+    color: #b3b7b6;
+    font-size: 17px;
+    letter-spacing: -3px;
+    touch-action: none;
+    cursor: grab;
+}
+.number {
+    background: var(--green);
+    color: white;
+    width: 21px;
+    height: 21px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font: 11px "DM Mono";
+    margin-left: 1px;
+}
+.spot-content {
+    min-width: 0;
+}
+.spot-name {
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.spot-meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+}
+.spot-actions {
+    display: flex;
+    gap: 5px;
+}
+.spot-actions button {
+    border: 0;
+    background: #f5f3ee;
+    color: #697277;
+    width: 24px;
+    height: 24px;
+    border-radius: 3px;
+    padding: 0;
+    font-size: 15px;
+}
+.spot-actions button:hover {
+    background: #e9e6de;
+}
+.empty {
+    padding: 16px;
+    color: #a1a5a4;
+    text-align: center;
+    font-size: 13px;
+    font-style: italic;
+}
+.add-place {
+    width: 100%;
+    border: 0;
+    border-top: 1px dashed #dedbd4;
+    background: #fdfcf9;
+    color: var(--red);
+    padding: 10px;
+    text-align: left;
+    padding-left: 17px;
+    font-weight: 600;
+    font-size: 13px;
+}
+.add-place:hover {
+    background: #fff6f4;
+}
+.backlog {
+    border-color: #d7d0be;
+    background: #fffcf5;
+}
+.backlog .day-head {
+    background: #fff8e9;
+}
+.backlog .date-box {
+    background: #e9d6ab;
+}
+.backlog .add-place {
+    color: var(--green);
+}
+.add-day {
+    color: var(--green);
+    border-color: var(--green);
+    margin-top: 14px;
+    background: transparent;
+}
+.add-day:hover {
+    background: #edf5f3;
+}
+.map-panel {
+    position: sticky;
+    top: 20px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    background: #fff;
+}
+.map-bar {
+    display: flex;
+    align-items: center;
+    padding: 13px 15px;
+    border-bottom: 1px solid var(--line);
+    gap: 9px;
+}
+.map-bar strong {
+    font: 700 17px "Playfair Display";
+    flex: 1;
+}
+.route-key {
+    font: 11px "DM Mono";
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.route-key i {
+    display: inline-block;
+    width: 20px;
+    border-top: 2px solid var(--red);
+}
+.route-profile {
+    font: 11px "DM Mono";
+    color: var(--muted);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 3px 6px;
+    cursor: pointer;
+}
+.leg-label {
+    color: var(--red);
+    font-weight: 700;
+}
+#map {
+    height: 510px;
+    background: #e8ede9;
+}
+.map-foot {
+    padding: 13px 15px;
+    background: #fff;
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+}
+.map-foot b {
+    color: var(--ink);
+}
+.leaflet-popup-content-wrapper {
+    font-family: "DM Sans";
+    border-radius: 5px;
+}
+.pin {
+    width: 27px;
+    height: 27px;
+    border-radius: 50% 50% 50% 4px;
+    background: var(--red);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font: 12px "DM Mono";
+    border: 2px solid white;
+    box-shadow: 0 2px 8px #0004;
+    transform: rotate(-45deg);
+}
+.pin span {
+    transform: rotate(45deg);
+}
+.map-legend {
+    background: #fffffff2;
+    border-radius: 6px;
+    padding: 8px 10px;
+    box-shadow: 0 2px 8px #0003;
+    font: 12px "DM Sans";
+    display: grid;
+    gap: 5px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+.map-legend .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink);
+    white-space: nowrap;
+}
+.map-legend .legend-item i {
+    width: 14px;
+    height: 3px;
+    border-radius: 2px;
+    display: inline-block;
+    flex: none;
+}
+dialog {
+    border: 0;
+    border-radius: 9px;
+    padding: 0;
+    box-shadow: 0 20px 60px #1a23284d;
+    width: min(450px, calc(100% - 32px));
+    max-height: calc(100dvh - 32px);
+    overflow: hidden;
+}
+/* Scoped to [open]: a bare `dialog { display:flex }` would override
+   the UA `display:none` and leak the closed modal onto the page.
+   Head stays fixed (flex:none), body (.form) becomes the scroller. */
+dialog[open] {
+    display: flex;
+    flex-direction: column;
+}
+dialog::backdrop {
+    background: #15232b70;
+}
+.confirm-msg {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink);
+}
+.form-actions .confirm-ok {
+    background: var(--red);
+    color: #fff;
+    border-color: var(--red);
+    font-weight: 600;
+}
+.toasts {
+    position: fixed;
+    bottom: 18px;
+    right: 18px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: min(360px, calc(100% - 36px));
+    pointer-events: none;
+}
+.toast {
+    pointer-events: auto;
+    background: var(--card);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--muted);
+    border-radius: 7px;
+    padding: 12px 15px;
+    box-shadow: var(--shadow);
+    font-size: 14px;
+    line-height: 1.4;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+        opacity 0.22s ease,
+        transform 0.22s ease;
+}
+.toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+.toast-success {
+    border-left-color: var(--green);
+}
+.toast-error {
+    border-left-color: var(--red);
+}
+.toast-info {
+    border-left-color: #3f7d9c;
+}
+.modal-head {
+    background: #1d2d36;
+    color: #fff;
+    padding: 18px 21px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex: none;
+}
+.modal-head h3 {
+    margin: 0;
+    font: 600 20px "Playfair Display";
+}
+.close {
+    border: 0;
+    background: transparent;
+    color: #fff;
+    font-size: 25px;
+}
+.form {
+    padding: 21px;
+    display: grid;
+    gap: 14px;
+    min-height: 0;
+    overflow-y: auto;
+}
+/* Wikipedia thumbnail of the place, previewed while editing. */
+.spot-image {
+    border: 1px solid #ddd9d1;
+    border-radius: 4px;
+    background: #f4f1ea;
+}
+/* No overflow:hidden here: as a grid item its intrinsic size would
+   collapse to ~0 and clip the image to the border. We round the
+   image's own top corners instead of clipping via the container. */
+.spot-image img {
+    display: block;
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 3px 3px 0 0;
+}
+.spot-image-status,
+.spot-image-caption {
+    padding: 8px 10px;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 400;
+}
+/* Wikipedia photo injected into a map marker's popup on open. */
+.popup-image {
+    margin-bottom: 7px;
+}
+.popup-image img {
+    display: block;
+    width: 220px;
+    max-width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+.form label {
+    display: grid;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+.form input,
+.form textarea {
+    border: 1px solid #d9d8d2;
+    border-radius: 4px;
+    padding: 10px;
+    outline: none;
+}
+.form input:focus,
+.form textarea:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px #386f6615;
+}
+.form textarea {
+    resize: vertical;
+    min-height: 70px;
+}
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 9px;
+    margin-top: 4px;
+}
+.form-actions button {
+    padding: 9px 14px;
+    border-radius: 4px;
+    border: 1px solid #d7d7d2;
+    background: #fff;
+}
+.form-actions .save {
+    background: var(--red);
+    color: white;
+    border-color: var(--red);
+    font-weight: 600;
+}
+.form-hint {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.4;
+}
+.location-field {
+    position: relative;
+}
+.suggestions {
+    position: absolute;
+    z-index: 5;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #d9d8d2;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 8px 18px #1c283326;
+    max-height: 185px;
+    overflow: auto;
+}
+.suggestion {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: 0;
+    border-bottom: 1px solid #eee;
+    background: #fff;
+    padding: 9px 10px;
+    color: var(--ink);
+}
+.suggestion:hover {
+    background: #f8f4eb;
+}
+.suggestion b,
+.suggestion small {
+    display: block;
+}
+.suggestion small {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 11px;
+}
+.searching {
+    color: var(--muted);
+    font-size: 12px;
+    padding: 0;
+}
+.preview-map {
+    height: 145px;
+    border: 1px solid #ddd9d1;
+    border-radius: 4px;
+    background: #edf0eb;
+    overflow: hidden;
+}
+.location-field {
+    z-index: 1000;
+}
+.suggestions {
+    z-index: 1001;
+}
+.tag-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 13px;
+}
+.tag-label {
+    font: 11px "DM Mono";
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 3px;
+}
+.tag,
+.tag-option {
+    border: 0;
+    border-radius: 999px;
+    background: #e9f0ed;
+    color: #386f66;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.tag-option {
+    cursor: pointer;
+    border: 1px solid #d6e2dc;
+    background: #fff;
+}
+.tag-option.selected {
+    background: #386f66;
+    color: white;
+}
+.manage-tags {
+    margin-left: auto;
+    border: 0;
+    background: #f3f1ec;
+    padding: 6px 9px;
+    border-radius: 4px;
+    color: #566066;
+    font-size: 12px;
+}
+.spot-tags {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+.spot-tags .tag {
+    font-size: 10px;
+    padding: 2px 6px;
+}
+.tag-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+.category-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+.category-option {
+    cursor: pointer;
+    border: 1px solid var(--category-color, #ccc);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--category-color, #566066);
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.category-option.selected {
+    background: var(--category-color, #566066);
+    color: white;
+}
+.category-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 4px;
+    background: var(--category-color, #6b6b6b);
+    color: white;
+    padding: 2px 7px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.tag-manager {
+    display: flex;
+    gap: 7px;
+}
+.tag-manager input {
+    flex: 1;
+}
+.tag-manager input[type="color"] {
+    flex: 0 0 auto;
+    width: 40px;
+    padding: 2px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+}
+.manager-list {
+    display: grid;
+    gap: 6px;
+}
+.manager-tag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid #eee;
+    padding: 5px 0;
+}
+.manager-tag .tag {
+    flex: 1;
+}
+.manager-tag button {
+    border: 0;
+    background: transparent;
+    color: #b04a43;
+    font-size: 13px;
+}
+.manager-category {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    padding: 8px 10px;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s,
+        transform 0.15s;
+}
+.manager-category:hover {
+    border-color: #d8d3c8;
+    box-shadow: 0 4px 14px #24323a10;
+}
+/* Round color swatch — works as the category's color identity.
+   Same class is reused by the "add" row's color input. */
+.cat-swatch {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+    box-shadow:
+        inset 0 0 0 1px #0000001f,
+        0 1px 2px #24323a1f;
+    transition: transform 0.12s;
+}
+.cat-swatch:hover {
+    transform: scale(1.08);
+}
+.cat-swatch::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+.cat-swatch::-webkit-color-swatch {
+    border: 0;
+    border-radius: 50%;
+}
+.cat-swatch::-moz-color-swatch {
+    border: 0;
+    border-radius: 50%;
+}
+.manager-category-name {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 7px 9px;
+    font-weight: 600;
+    color: var(--ink);
+    background: transparent;
+    outline: none;
+    transition:
+        background 0.15s,
+        border-color 0.15s,
+        box-shadow 0.15s;
+}
+.manager-category-name:hover {
+    background: #f6f4ef;
+}
+.manager-category-name:focus {
+    background: #fff;
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px #386f6615;
+}
+.cat-controls {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 0 0 auto;
+}
+.cat-del {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 20px;
+    line-height: 1;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        background 0.15s,
+        color 0.15s;
+}
+.cat-del:hover {
+    background: #fbe6e3;
+    color: var(--red);
+}
+.connect-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    padding: 5px 7px;
+    border-radius: 8px;
+    transition: background 0.15s;
+}
+.connect-toggle:hover {
+    background: #f6f4ef;
+}
+/* "Add category" bar — a distinct panel above the list */
+#categoryDialog .tag-manager {
+    align-items: center;
+    gap: 9px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    padding: 8px 9px;
+}
+#categoryDialog #newCategoryName {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 9px 11px;
+    background: #fff;
+    outline: none;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
+}
+#categoryDialog #newCategoryName:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px #386f6615;
+}
+#categoryDialog #newCategoryColor {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+    box-shadow:
+        inset 0 0 0 1px #0000001f,
+        0 1px 2px #24323a1f;
+    transition: transform 0.12s;
+}
+#categoryDialog #newCategoryColor:hover {
+    transform: scale(1.08);
+}
+#categoryDialog #newCategoryColor::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+#categoryDialog #newCategoryColor::-webkit-color-swatch {
+    border: 0;
+    border-radius: 50%;
+}
+#categoryDialog #newCategoryColor::-moz-color-swatch {
+    border: 0;
+    border-radius: 50%;
+}
+#categoryDialog #addCategory {
+    flex: 0 0 auto;
+    border: 0;
+    background: var(--green);
+    color: #fff;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 9px 16px;
+    transition:
+        background 0.15s,
+        transform 0.1s;
+}
+#categoryDialog #addCategory:hover {
+    background: #2d5b53;
+}
+#categoryDialog #addCategory:active {
+    transform: scale(0.97);
+}
+#categoryDialog .manager-list {
+    gap: 8px;
+}
+#categoryDialog .form-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    line-height: 1.45;
+}
+#categoryDialog .cat-empty {
+    justify-content: center;
+    text-align: center;
+    padding: 18px 12px;
+    border: 1px dashed var(--line);
+    border-radius: 11px;
+}
+.connect-icon {
+    font-size: 15px;
+    line-height: 1;
+    transition:
+        opacity 0.2s,
+        filter 0.2s;
+}
+.connect-toggle.is-off .connect-icon {
+    opacity: 0.3;
+    filter: grayscale(1);
+}
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 34px;
+    height: 20px;
+    flex: none;
+}
+.switch input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.switch .slider {
+    position: absolute;
+    inset: 0;
+    background: #c7ccd1;
+    border-radius: 20px;
+    transition: background 0.2s;
+}
+.switch .slider::before {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    left: 3px;
+    top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+.switch input:checked + .slider {
+    background: #4c9a5b;
+}
+.switch input:checked + .slider::before {
+    transform: translateX(14px);
+}
+.switch input:focus-visible + .slider {
+    outline: 2px solid #3f7d9c;
+    outline-offset: 2px;
+}
+@media (max-width: 960px) {
+    .workspace {
+        grid-template-columns: 1fr;
+    }
+    .map-panel {
+        position: relative;
+        top: 0;
+        order: -1;
+    }
+    #map {
+        height: 380px;
+    }
+}
+body.preview-mode .handle,
+body.preview-mode .spot-actions,
+body.preview-mode .add-place,
+body.preview-mode .add-day,
+body.preview-mode .day-options,
+body.preview-mode .day-duplicate,
+body.preview-mode .title-edit,
+body.preview-mode .manage-tags {
+    display: none !important;
+}
+body.preview-mode .date-box.editable {
+    cursor: default;
+    pointer-events: none;
+}
+body.preview-mode .date-box.editable::after {
+    display: none;
+}
+body.preview-mode .spots {
+    padding: 6px;
+}
+body.preview-mode .spot {
+    grid-template-columns: 1fr;
+    padding: 6px 8px;
+    cursor: default;
+}
+@media (max-width: 600px) {
+    .top {
+        height: auto;
+        min-height: 68px;
+        padding: 11px 16px;
+    }
+    .top-actions button:not(.primary) {
+        display: none;
+    }
+    .intro {
+        display: block;
+    }
+    .intro p {
+        text-align: left;
+        margin-top: 10px;
+    }
+    .workspace {
+        gap: 16px;
+    }
+    main {
+        padding-top: 21px;
+    }
+    .map-foot {
+        font-size: 12px;
+    }
+}
