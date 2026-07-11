@@ -8,6 +8,7 @@
 import { daysEl } from "./dom.js";
 import { store } from "./store.js";
 import { moveSpot, render } from "./render.js";
+import { toast } from "./notify.js";
 
 let dragEl = null,
     ghost = null,
@@ -167,6 +168,13 @@ function onCancel() {
 
 daysEl.addEventListener("pointerdown", (e) => {
     if (store.previewMode) return;
+    // Reordering under a filter would splice a filtered index into the
+    // unfiltered array and corrupt hidden-spot order — block the drag before
+    // any drag state (ghost, DOM reorder) is set up.
+    if (store.activeTagFilter.size > 0) {
+        toast("Limpia el filtro para reordenar las paradas.", "info");
+        return;
+    }
     suppressClick = false;
     const item = e.target.closest(".spot");
     if (!item) return;

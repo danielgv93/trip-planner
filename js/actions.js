@@ -1,7 +1,7 @@
 // Header / top-bar actions: trip title editing, add day, preview toggle, reset,
 // import/export. Side-effect module — importing it wires the top-bar listeners.
 
-import { store, save } from "./store.js";
+import { store, save, clearTagFilter } from "./store.js";
 import { $, slug, id } from "./dom.js";
 import { render, applyTitle } from "./render.js";
 import { drawMap } from "./map.js";
@@ -57,6 +57,7 @@ $("#resetBtn").onclick = () => {
         store.categories = structuredClone(DEFAULT_CATEGORIES);
         store.tripTitle = DEFAULT_TITLE;
         store.active = "d1";
+        clearTagFilter();
         applyTitle();
         save();
         render();
@@ -90,6 +91,22 @@ $("#exportBtn").onclick = () => {
     URL.revokeObjectURL(url);
 };
 
+// Header "Gestionar" menu: a native <details> dropdown holding the tag and
+// category managers (their #manageTags/#manageCategories click handlers still
+// live in dialogs.js, wired by id). Unlike <select>, <details> doesn't close on
+// its own, so close it when an option is chosen (it opens a modal dialog) and
+// when the user clicks anywhere outside the menu.
+const manageMenu = $("#manageMenu");
+if (manageMenu) {
+    manageMenu.addEventListener("click", (e) => {
+        if (e.target.closest(".manage-menu-items button")) manageMenu.open = false;
+    });
+    document.addEventListener("click", (e) => {
+        if (manageMenu.open && !manageMenu.contains(e.target))
+            manageMenu.open = false;
+    });
+}
+
 $("#importBtn").onclick = () => $("#importFile").click();
 $("#importFile").onchange = async (e) => {
     const file = e.target.files[0];
@@ -119,6 +136,7 @@ $("#importFile").onchange = async (e) => {
             $("#routeProfile").value = store.routeProfile;
         }
         store.active = store.state[0]?.id || "backlog";
+        clearTagFilter();
         applyTitle();
         save();
         render();

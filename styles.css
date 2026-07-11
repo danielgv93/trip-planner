@@ -309,7 +309,8 @@ main {
     margin-top: 2px;
 }
 .day-options,
-.day-duplicate {
+.day-duplicate,
+.day-collapse {
     border: 0;
     background: transparent;
     color: #858d90;
@@ -318,6 +319,20 @@ main {
 }
 .day-duplicate {
     font-size: 16px;
+}
+.day-collapse {
+    font-size: 14px;
+    cursor: pointer;
+}
+.day-collapse:hover {
+    color: var(--ink);
+}
+.day.collapsed .day-head {
+    border-bottom: 0;
+}
+.day.collapsed .spots,
+.day.collapsed .add-place {
+    display: none;
 }
 .spots {
     min-height: 45px;
@@ -848,14 +863,87 @@ dialog::backdrop {
     background: #386f66;
     color: white;
 }
-.manage-tags {
+/* Tag-bar chips double as tag-filter toggles — clickable and selectable.
+   Scoped to .tag-bar so the tiny read-only chips inside spot cards
+   (.spot-tags .tag) stay non-interactive. */
+.tag-bar .tag {
+    cursor: pointer;
+}
+.tag-bar .tag.selected {
+    background: #386f66;
+    color: #fff;
+}
+.filter-active {
+    font: 11px "DM Mono";
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     margin-left: auto;
-    border: 0;
-    background: #f3f1ec;
-    padding: 6px 9px;
+}
+.clear-filter {
+    border: 1px solid #d6e2dc;
+    background: #fff;
+    padding: 4px 8px;
     border-radius: 4px;
-    color: #566066;
-    font-size: 12px;
+    color: #386f66;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+/* Header "Gestionar" dropdown (tags + categories). The <summary> is styled to
+   match the other header buttons; the panel floats below, right-aligned. */
+.manage-menu {
+    position: relative;
+}
+.manage-menu > summary {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid #ffffff40;
+    background: transparent;
+    color: #fff;
+    padding: 9px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+.manage-menu > summary::-webkit-details-marker {
+    display: none;
+}
+.manage-menu > summary::marker {
+    content: "";
+}
+.manage-menu > summary:hover,
+.manage-menu[open] > summary {
+    background: #ffffff14;
+}
+.manage-menu-items {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 30;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 5px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-shadow: 0 10px 24px #1c283330;
+}
+.manage-menu-items button {
+    width: 100%;
+    text-align: left;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+}
+.manage-menu-items button:hover {
+    background: #f3f1ec;
 }
 .spot-tags {
     display: flex;

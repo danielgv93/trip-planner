@@ -6,7 +6,15 @@
 // cross-module reference here fires from an event handler at runtime, never
 // during module evaluation.
 
-import { store, save, dayBy, categoryMeta } from "./store.js";
+import {
+    store,
+    save,
+    dayBy,
+    categoryMeta,
+    toggleTagFilter,
+    clearTagFilter,
+    spotMatchesFilter,
+} from "./store.js";
 import { $, esc, safeColor, fmt, daysEl, id } from "./dom.js";
 import { toast, confirmAction } from "./notify.js";
 import { drawMap } from "./map.js";
@@ -51,20 +59,39 @@ export function duplicateSpot(spotId, listId) {
 function renderTags() {
     const bar = $("#tagBar");
     bar.querySelectorAll(".tag").forEach((x) => x.remove());
+    const anchor = $("#filterActive");
     store.tags.forEach((tag) => {
         const e = document.createElement("span");
-        e.className = "tag";
+        e.className =
+            "tag" + (store.activeTagFilter.has(tag) ? " selected" : "");
         e.textContent = "#" + tag;
-        bar.insertBefore(e, $("#manageTags"));
+        e.onclick = () => {
+            toggleTagFilter(tag);
+            render();
+            drawMap();
+        };
+        bar.insertBefore(e, anchor);
     });
+    const n = store.activeTagFilter.size,
+        hasFilter = n > 0;
+    $("#filterActive").textContent = n === 1 ? "1 activo" : n + " activos";
+    $("#filterActive").hidden = !hasFilter;
+    $("#clearFilter").hidden = !hasFilter;
+    $("#clearFilter").onclick = () => {
+        clearTagFilter();
+        render();
+        drawMap();
+    };
 }
 
 function renderList(el, spots, isBacklog = false) {
     const list = el.querySelector(".spots");
-    if (!spots.length)
-        list.innerHTML =
-            '<div class="empty">Arrastra aquí una idea o añade una nueva.</div>';
-    spots.forEach((s, i) => {
+    const visible = spots.filter(spotMatchesFilter);
+    if (!visible.length)
+        list.innerHTML = store.activeTagFilter.size > 0
+            ? '<div class="empty">Ninguna parada coincide con el filtro</div>'
+            : '<div class="empty">Arrastra aquí una idea o añade una nueva.</div>';
+    visible.forEach((s, i) => {
         const spot = document.createElement("div");
         spot.className = "spot";
         spot.dataset.spot = s.id;
@@ -78,23 +105,36 @@ export function render() {
     renderTags();
     daysEl.innerHTML = "";
     const b = document.createElement("article");
-    b.className = "day backlog " + (store.active === "backlog" ? "active" : "");
+    b.className =
+        "day backlog " +
+        (store.active === "backlog" ? "active " : "") +
+        (store.backlogCollapsed ? "collapsed" : "");
     b.dataset.day = "backlog";
-    b.innerHTML = `<div class="day-head"><div class="date-box"><span>ideas</span><strong>+</strong></div><div class="day-title"><div class="title-line"><span class="day-name">Backlog de paradas</span></div><small>${store.backlog.length} sin asignar · arrástralas a un día cuando decidáis</small></div></div><div class="spots"></div><button class="add-place">＋ Añadir al backlog</button>`;
+    b.innerHTML = `<div class="day-head"><div class="date-box"><span>ideas</span><strong>+</strong></div><div class="day-title"><div class="title-line"><span class="day-name">Backlog de paradas</span></div><small>${store.backlog.length} sin asignar · arrástralas a un día cuando decidáis</small></div><button class="day-collapse" title="${store.backlogCollapsed ? "Restaurar backlog" : "Minimizar backlog"}" aria-label="Minimizar o restaurar backlog">${store.backlogCollapsed ? "▸" : "▾"}</button></div><div class="spots"></div><button class="add-place">＋ Añadir al backlog</button>`;
     renderList(b, store.backlog, true);
-    b.querySelector(".day-head").onclick = () => {
+    b.querySelector(".day-head").addEventListener("click", (e) => {
+        if (e.target.closest("button")) return;
         store.active = "backlog";
         render();
         drawMap();
+    });
+    b.querySelector(".day-collapse").onclick = (e) => {
+        e.stopPropagation();
+        store.backlogCollapsed = !store.backlogCollapsed;
+        save();
+        render();
     };
     b.querySelector(".add-place").onclick = () => openDialog("backlog");
     daysEl.append(b);
     store.state.forEach((day) => {
         const f = fmt(day.date),
             el = document.createElement("article");
-        el.className = "day " + (day.id === store.active ? "active" : "");
+        el.className =
+            "day " +
+            (day.id === store.active ? "active " : "") +
+            (day.collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
-        el.innerHTML = `<div class="day-head"><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${day.spots.length} ${day.spots.length === 1 ? "parada" : "paradas"} · pulsa para ver ruta</small></div><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div><div class="spots"></div><button class="add-place">＋ Añadir una parada</button>`;
+        el.innerHTML = `<div class="day-head"><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${day.spots.length} ${day.spots.length === 1 ? "parada" : "paradas"} · pulsa para ver ruta</small></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div><div class="spots"></div><button class="add-place">＋ Añadir una parada</button>`;
         renderList(el, day.spots);
         el.querySelector(".day-head").addEventListener("click", (e) => {
             if (
@@ -132,6 +172,12 @@ export function render() {
             startEdit();
         });
         el.querySelector(".day-name").addEventListener("dblclick", startEdit);
+        el.querySelector(".day-collapse").onclick = (e) => {
+            e.stopPropagation();
+            day.collapsed = !day.collapsed;
+            save();
+            render();
+        };
         el.querySelector(".day-duplicate").onclick = (e) => {
             e.stopPropagation();
             duplicateDay(day.id);
@@ -245,6 +291,10 @@ daysEl.addEventListener("click", (e) => {
     } else if (b.dataset.act === "duplicate") {
         duplicateSpot(items[i].id, dayId);
     } else {
+        if (store.activeTagFilter.size > 0) {
+            toast("Limpia el filtro para reordenar las paradas.", "info");
+            return;
+        }
         const to = b.dataset.act === "up" ? i - 1 : i + 1;
         if (to >= 0 && to < items.length) {
             [items[i], items[to]] = [items[to], items[i]];

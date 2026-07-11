@@ -9,6 +9,7 @@ import {
     dayBy,
     categoryMeta,
     categoryConnects,
+    spotMatchesFilter,
 } from "./store.js";
 import { $, esc, safeColor } from "./dom.js";
 import { DAY_COLORS } from "./constants.js";
@@ -84,8 +85,9 @@ function drawGlobalMap() {
     let totalLocated = 0,
         totalSpots = 0;
     store.state.forEach((day, i) => {
-        totalSpots += day.spots.length;
-        const located = day.spots.filter(
+        const visibleSpots = day.spots.filter(spotMatchesFilter);
+        totalSpots += visibleSpots.length;
+        const located = visibleSpots.filter(
             (s) => Number.isFinite(s.lat) && Number.isFinite(s.lng),
         );
         totalLocated += located.length;
@@ -202,7 +204,8 @@ function ensureRoutes() {
     if (store.previewMode || store.active === "backlog") return;
     const day = dayBy(store.active);
     if (!day) return;
-    const seq = connectingLocated(day.spots);
+    const visibleSpots = day.spots.filter(spotMatchesFilter);
+    const seq = connectingLocated(visibleSpots);
     if (seq.length < 2) return;
     const pending = [];
     for (let i = 0; i < seq.length - 1; i++) {
@@ -243,7 +246,8 @@ export function drawMap() {
         return;
     }
     $("#mapTitle").textContent = day.title;
-    const located = day.spots.filter(
+    const visibleSpots = day.spots.filter(spotMatchesFilter);
+    const located = visibleSpots.filter(
         (s) => Number.isFinite(s.lat) && Number.isFinite(s.lng),
     );
     // Read cached legs synchronously (destructive render: paint what we know now;
@@ -252,7 +256,7 @@ export function drawMap() {
     const legLabels = {};
     let summaryExtra = "";
     if (store.active !== "backlog") {
-        const seq = connectingLocated(day.spots),
+        const seq = connectingLocated(visibleSpots),
             cachedLegs = [];
         for (let i = 0; i < seq.length - 1; i++) {
             const leg = routeCache.get(
@@ -276,7 +280,7 @@ export function drawMap() {
         }
     }
     $("#mapSummary").innerHTML =
-        `<b>${located.length}</b> de ${day.spots.length} paradas ubicadas${summaryExtra}`;
+        `<b>${located.length}</b> de ${visibleSpots.length} paradas ubicadas${summaryExtra}`;
     const points = located.map((s) => [s.lat, s.lng]);
     if (points.length) {
         if (store.active !== "backlog") {

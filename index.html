@@ -35,7 +35,14 @@
                 ><button id="resetBtn">Restaurar ejemplo</button
                 ><button id="importBtn">Importar</button
                 ><button class="primary" id="exportBtn">Exportar plan</button
-                ><input
+                ><details id="manageMenu" class="manage-menu">
+                    <summary>⚙ Gestionar</summary>
+                    <div class="manage-menu-items">
+                        <button id="manageTags">Etiquetas</button>
+                        <button id="manageCategories">Categorías</button>
+                    </div>
+                </details>
+                <input
                     id="importFile"
                     type="file"
                     accept="application/json,.json"
@@ -57,12 +64,10 @@
             <section class="workspace">
                 <div class="planner">
                     <div id="tagBar" class="tag-bar">
-                        <span class="tag-label">Etiquetas</span
-                        ><button id="manageTags" class="manage-tags">
-                            Gestionar tags
-                        </button
-                        ><button id="manageCategories" class="manage-tags">
-                            Gestionar categorías
+                        <span class="tag-label">Filtrar</span
+                        ><span id="filterActive" class="filter-active" hidden></span
+                        ><button id="clearFilter" class="clear-filter" hidden>
+                            Limpiar
                         </button>
                     </div>
                     <div id="days" class="days"></div>

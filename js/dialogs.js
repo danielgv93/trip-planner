@@ -228,6 +228,7 @@ function renderManagerTags() {
                     (s) =>
                         (s.tags = (s.tags || []).filter((t) => t !== tag)),
                 );
+                store.activeTagFilter.delete(tag);
                 save();
                 render();
                 renderManagerTags();

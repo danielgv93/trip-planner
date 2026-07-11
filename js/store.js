@@ -26,6 +26,7 @@ export const store = {
         ? saved
         : saved?.days || structuredClone(sample),
     backlog: Array.isArray(saved?.backlog) ? saved.backlog : [],
+    backlogCollapsed: saved?.backlogCollapsed === true,
     tags: Array.isArray(saved?.tags)
         ? saved.tags
         : ["comida", "templo", "reserva", "compras"],
@@ -44,17 +45,37 @@ export const store = {
     selectedLocation: null,
     // id of the selected day, or the literal "backlog".
     active: undefined,
+    // View-only tag filter (Set<string>). NOT persisted — never part of
+    // save()/localStorage/export — resets to empty on every reload.
+    activeTagFilter: new Set(),
 };
 store.active = store.state[0]?.id;
+
+export function toggleTagFilter(tag) {
+    if (store.activeTagFilter.has(tag)) store.activeTagFilter.delete(tag);
+    else store.activeTagFilter.add(tag);
+}
+
+export function clearTagFilter() {
+    store.activeTagFilter.clear();
+}
+
+// OR/union semantics: a spot is visible if it carries at least one of the
+// active filter tags, or if no filter is active at all.
+export function spotMatchesFilter(spot) {
+    if (store.activeTagFilter.size === 0) return true;
+    return (spot.tags || []).some((t) => store.activeTagFilter.has(t));
+}
 
 export function save() {
     localStorage.setItem(
         "trip-planner",
         JSON.stringify({
-            version: 8,
+            version: 10,
             tripTitle: store.tripTitle,
             days: store.state,
             backlog: store.backlog,
+            backlogCollapsed: store.backlogCollapsed,
             tags: store.tags,
             categories: store.categories,
             routeProfile: store.routeProfile,
