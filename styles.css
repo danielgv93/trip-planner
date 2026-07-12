@@ -187,6 +187,11 @@ main {
     border-color: #d44d4390;
     box-shadow: 0 9px 25px #d44d4312;
 }
+.day.menu-open {
+    position: relative;
+    z-index: 20;
+    overflow: visible;
+}
 .day-head {
     display: flex;
     align-items: center;
@@ -481,6 +486,7 @@ main {
 .spot-actions {
     display: flex;
     gap: 5px;
+    align-items: center;
 }
 .spot-actions button {
     border: 0;
@@ -494,6 +500,113 @@ main {
 }
 .spot-actions button:hover {
     background: #e9e6de;
+}
+.spot-actions .move-button {
+    width: 24px;
+    min-width: 24px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--red);
+    font-size: 15px;
+    font-weight: 700;
+}
+.move-control {
+    position: relative;
+    display: inline-flex;
+}
+.move-menu {
+    position: absolute;
+    z-index: 50;
+    top: calc(100% + 8px);
+    right: 0;
+    width: min(260px, calc(100vw - 34px));
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 7px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 16px 42px #29323724;
+    cursor: default;
+}
+.move-menu::before {
+    content: "";
+    position: absolute;
+    top: -5px;
+    right: 25px;
+    width: 9px;
+    height: 9px;
+    background: #fff;
+    border-left: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+    transform: rotate(45deg);
+}
+.move-menu-title {
+    display: block;
+    padding: 5px 9px 7px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+.spot-actions .move-menu button {
+    width: 100%;
+    height: auto;
+    min-height: 46px;
+    padding: 7px 9px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: transparent;
+    border-radius: 7px;
+    text-align: left;
+}
+.spot-actions .move-menu button:hover:not(:disabled),
+.spot-actions .move-menu button:focus-visible {
+    background: #f7f4ee;
+    outline: none;
+}
+.spot-actions .move-menu button:disabled {
+    color: var(--ink);
+    background: #fbf1ef;
+    opacity: 1;
+    cursor: default;
+}
+.move-destination {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+    flex: 1;
+}
+.move-destination strong,
+.move-destination small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.move-destination strong {
+    color: var(--ink);
+    font-size: 13px;
+}
+.move-destination small {
+    color: var(--muted);
+    font-size: 11px;
+}
+.move-current {
+    padding: 3px 6px;
+    color: var(--red);
+    background: #fff;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.move-arrow {
+    color: var(--red);
+    font-size: 20px;
 }
 .empty {
     padding: 16px;

@@ -96,9 +96,53 @@ function renderList(el, spots, isBacklog = false) {
         spot.className = "spot";
         spot.dataset.spot = s.id;
         const cat = categoryMeta(s.category);
-        spot.innerHTML = `<span class="handle">⠿</span><span class="spot-content"><span class="spot-name">${isBacklog ? "" : `<span class="number">${i + 1}</span>`} ${esc(s.name)}</span><span class="spot-meta">${esc(s.note || s.address || "Sin detalles")}</span><span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span><span class="spot-actions"><button data-act="up" title="Subir">↑</button><button data-act="down" title="Bajar">↓</button><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
+        spot.innerHTML = `<span class="handle">⠿</span><span class="spot-content"><span class="spot-name">${isBacklog ? "" : `<span class="number">${i + 1}</span>`} ${esc(s.name)}</span><span class="spot-meta">${esc(s.note || s.address || "Sin detalles")}</span><span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span><span class="spot-actions"><span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
         list.append(spot);
     });
+}
+
+function closeMoveMenus(except) {
+    daysEl.querySelectorAll(".move-menu").forEach((menu) => {
+        if (menu === except) return;
+        menu.remove();
+    });
+    daysEl.querySelectorAll('.move-button[aria-expanded="true"]').forEach((b) => {
+        if (except && b.closest(".move-control")?.contains(except)) return;
+        b.setAttribute("aria-expanded", "false");
+    });
+    daysEl.querySelectorAll(".day.menu-open").forEach((day) => {
+        if (!except || !day.contains(except)) day.classList.remove("menu-open");
+    });
+}
+
+function openMoveMenu(button, currentDay) {
+    const control = button.closest(".move-control"),
+        alreadyOpen = button.getAttribute("aria-expanded") === "true";
+    closeMoveMenus();
+    if (alreadyOpen) return;
+
+    const destinations = [
+        { id: "backlog", title: "Backlog", detail: `${store.backlog.length} sin asignar` },
+        ...store.state.map((day) => ({
+            id: day.id,
+            title: day.title,
+            detail: `${fmt(day.date).day} ${fmt(day.date).month} · ${day.spots.length} ${day.spots.length === 1 ? "parada" : "paradas"}`,
+        })),
+    ];
+    const menu = document.createElement("span");
+    menu.className = "move-menu";
+    menu.setAttribute("role", "menu");
+    menu.setAttribute("aria-label", "Mover parada a");
+    menu.innerHTML = `<span class="move-menu-title">Mover parada a</span>${destinations
+        .map((destination) => {
+            const current = destination.id === currentDay;
+            return `<button type="button" role="menuitem" data-act="move-to" data-day="${esc(destination.id)}" ${current ? "disabled" : ""}><span class="move-destination"><strong>${esc(destination.title)}</strong><small>${esc(destination.detail)}</small></span>${current ? '<span class="move-current">Actual</span>' : '<span class="move-arrow">›</span>'}</button>`;
+        })
+        .join("")}`;
+    control.append(menu);
+    control.closest(".day").classList.add("menu-open");
+    button.setAttribute("aria-expanded", "true");
+    menu.querySelector("button:not(:disabled)")?.focus();
 }
 
 export function render({ persist = true } = {}) {
@@ -275,7 +319,7 @@ export function applyTitle() {
     document.title = (store.tripTitle || "Viaje") + " · Planificador de ruta";
 }
 
-// Spot action buttons (up/down/edit/delete/duplicate), delegated on #days.
+// Spot action buttons (move/edit/delete/duplicate), delegated on #days.
 daysEl.addEventListener("click", (e) => {
     const b = e.target.closest("[data-act]");
     if (!b) return;
@@ -283,7 +327,14 @@ daysEl.addEventListener("click", (e) => {
         dayId = spotEl.closest(".day").dataset.day,
         items = dayId === "backlog" ? store.backlog : dayBy(dayId).spots,
         i = items.findIndex((s) => s.id === spotEl.dataset.spot);
-    if (b.dataset.act === "edit") openDialog(dayId, items[i]);
+    if (b.dataset.act === "move") {
+        openMoveMenu(b, dayId);
+    } else if (b.dataset.act === "move-to") {
+        const destination = b.dataset.day,
+            target = destination === "backlog" ? store.backlog : dayBy(destination)?.spots;
+        if (!target || destination === dayId) return;
+        moveSpot(spotEl.dataset.spot, destination, target.length);
+    } else if (b.dataset.act === "edit") openDialog(dayId, items[i]);
     else if (b.dataset.act === "delete") {
         const name = items[i].name;
         confirmAction({
@@ -301,18 +352,17 @@ daysEl.addEventListener("click", (e) => {
         });
     } else if (b.dataset.act === "duplicate") {
         duplicateSpot(items[i].id, dayId);
-    } else {
-        if (store.activeTagFilter.size > 0) {
-            toast("Limpia el filtro para reordenar las paradas.", "info");
-            return;
-        }
-        const to = b.dataset.act === "up" ? i - 1 : i + 1;
-        if (to >= 0 && to < items.length) {
-            [items[i], items[to]] = [items[to], items[i]];
-            store.active = dayId;
-            save();
-            render();
-            drawMap();
-        }
     }
+});
+
+document.addEventListener("click", (e) => {
+    if (!e.target.closest(".move-control")) closeMoveMenus();
+});
+
+window.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const openButton = daysEl.querySelector('.move-button[aria-expanded="true"]');
+    if (!openButton) return;
+    closeMoveMenus();
+    openButton.focus();
 });
