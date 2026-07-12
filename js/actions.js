@@ -8,6 +8,7 @@ import { drawMap } from "./map.js";
 import { toast, confirmAction } from "./notify.js";
 import { sample, DEFAULT_CATEGORIES, DEFAULT_TITLE } from "./constants.js";
 import { syncTripNotes } from "./notes.js";
+import { CURRENCIES, refreshExchangeRate } from "./currency.js";
 
 $("#tripTitle").addEventListener("input", (e) => {
     store.tripTitle = e.target.value;
@@ -15,11 +16,46 @@ $("#tripTitle").addEventListener("input", (e) => {
     save();
 });
 
-$("#tripCurrency").addEventListener("input", (e) => {
-    store.tripCurrency = e.target.value;
-    save();
-    render({ persist: false });
+function fillCurrencySelect(select) {
+    select.innerHTML = CURRENCIES.map(([code, name]) =>
+        `<option value="${code}">${code} · ${name}</option>`,
+    ).join("");
+}
+fillCurrencySelect($("#localCurrency"));
+fillCurrencySelect($("#foreignCurrency"));
+
+function syncCurrencyUi() {
+    $("#currencyConfigLabel").textContent = `${store.foreignCurrency} → ${store.localCurrency}`;
+    $("#exchangeRateValue").textContent = store.exchangeRate
+        ? `1 ${store.foreignCurrency} = ${store.exchangeRate.toLocaleString("es-ES", { maximumFractionDigits: 6 })} ${store.localCurrency}`
+        : "Conversión no disponible";
+}
+syncCurrencyUi();
+
+const currencyDialog = $("#currencyDialog");
+$("#currencyConfigBtn").onclick = () => currencyDialog.showModal();
+currencyDialog.querySelector(".close").onclick = () => currencyDialog.close();
+currencyDialog.addEventListener("click", (event) => {
+    if (event.target === currencyDialog) currencyDialog.close();
 });
+
+async function changeCurrency(key, value) {
+    store[key] = value;
+    store.exchangeRate = null;
+    store.exchangeRateDate = "";
+    $("#exchangeRateStatus").textContent = "Actualizando cambio…";
+    save();
+    syncCurrencyUi();
+    render({ persist: false });
+    const ok = await refreshExchangeRate();
+    $("#exchangeRateStatus").textContent = ok
+        ? `Cambio del ${store.exchangeRateDate}`
+        : "Sin conexión · conversión no disponible";
+    syncCurrencyUi();
+    render({ persist: false });
+}
+$("#localCurrency").addEventListener("change", (e) => changeCurrency("localCurrency", e.target.value));
+$("#foreignCurrency").addEventListener("change", (e) => changeCurrency("foreignCurrency", e.target.value));
 
 $("#addDay").onclick = () => {
     const date = store.state.length
@@ -63,7 +99,10 @@ $("#resetBtn").onclick = () => {
         store.tags = ["comida", "templo", "reserva", "compras"];
         store.categories = structuredClone(DEFAULT_CATEGORIES);
         store.tripTitle = DEFAULT_TITLE;
-        store.tripCurrency = "";
+        store.localCurrency = "EUR";
+        store.foreignCurrency = "JPY";
+        store.exchangeRate = null;
+        store.exchangeRateDate = "";
         store.tripNotes = "";
         store.active = "d1";
         clearTagFilter();
@@ -79,10 +118,13 @@ $("#resetBtn").onclick = () => {
 $("#exportBtn").onclick = () => {
     const data = JSON.stringify(
             {
-                version: 13,
+                version: 14,
                 exportedAt: new Date().toISOString(),
                 tripTitle: store.tripTitle,
-                tripCurrency: store.tripCurrency,
+                localCurrency: store.localCurrency,
+                foreignCurrency: store.foreignCurrency,
+                exchangeRate: store.exchangeRate,
+                exchangeRateDate: store.exchangeRateDate,
                 tripNotes: store.tripNotes,
                 days: store.state,
                 backlog: store.backlog,
@@ -168,8 +210,10 @@ $("#importFile").onchange = async (e) => {
             ? plan.categories
             : store.categories;
         if (typeof plan.tripTitle === "string") store.tripTitle = plan.tripTitle;
-        store.tripCurrency =
-            typeof plan.tripCurrency === "string" ? plan.tripCurrency : "";
+        store.localCurrency = typeof plan.localCurrency === "string" ? plan.localCurrency : "EUR";
+        store.foreignCurrency = typeof plan.foreignCurrency === "string" ? plan.foreignCurrency : "JPY";
+        store.exchangeRate = Number.isFinite(plan.exchangeRate) ? plan.exchangeRate : null;
+        store.exchangeRateDate = typeof plan.exchangeRateDate === "string" ? plan.exchangeRateDate : "";
         store.tripNotes = typeof plan.tripNotes === "string" ? plan.tripNotes : "";
         if (["walking", "driving", "cycling"].includes(plan.routeProfile)) {
             store.routeProfile = plan.routeProfile;

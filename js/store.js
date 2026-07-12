@@ -22,8 +22,16 @@ const saved = JSON.parse(
 export const store = {
     tripTitle:
         typeof saved?.tripTitle === "string" ? saved.tripTitle : DEFAULT_TITLE,
-    tripCurrency:
-        typeof saved?.tripCurrency === "string" ? saved.tripCurrency : "",
+    localCurrency:
+        typeof saved?.localCurrency === "string" ? saved.localCurrency : "EUR",
+    foreignCurrency:
+        typeof saved?.foreignCurrency === "string" ? saved.foreignCurrency : "JPY",
+    exchangeRate:
+        Number.isFinite(saved?.exchangeRate) && saved.exchangeRate > 0
+            ? saved.exchangeRate
+            : null,
+    exchangeRateDate:
+        typeof saved?.exchangeRateDate === "string" ? saved.exchangeRateDate : "",
     tripNotes: typeof saved?.tripNotes === "string" ? saved.tripNotes : "",
     state: Array.isArray(saved)
         ? saved
@@ -74,9 +82,12 @@ export function save() {
     localStorage.setItem(
         "trip-planner",
         JSON.stringify({
-            version: 13,
+            version: 14,
             tripTitle: store.tripTitle,
-            tripCurrency: store.tripCurrency,
+            localCurrency: store.localCurrency,
+            foreignCurrency: store.foreignCurrency,
+            exchangeRate: store.exchangeRate,
+            exchangeRateDate: store.exchangeRateDate,
             tripNotes: store.tripNotes,
             days: store.state,
             backlog: store.backlog,

@@ -93,6 +93,7 @@ export function openDialog(dayId, spot) {
     $("#placeAddress").value = spot?.address || "";
     $("#placeNote").value = spot?.note || "";
     $("#placeCost").value = Number.isFinite(spot?.cost) ? spot.cost : "";
+    $("#placeCostCurrency").textContent = store.foreignCurrency;
     $("#placeOpeningTime").value = normalizeTime(spot?.openingTime) || "";
     $("#placeClosingTime").value = normalizeTime(spot?.closingTime) || "";
     $("#resetCost").hidden = !spot;

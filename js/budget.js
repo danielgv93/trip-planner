@@ -3,7 +3,8 @@
 
 import { store } from "./store.js";
 import { $, esc } from "./dom.js";
-import { sumCosts, formatCost } from "./render.js";
+import { sumCosts } from "./render.js";
+import { foreignAmount, localAmount } from "./currency.js";
 
 const dialog = $("#budgetDialog");
 
@@ -19,11 +20,12 @@ function renderGroup(title, spots) {
         ? pricedSpots
               .map(
                   (spot) =>
-                      `<tr><td>${esc(spot.name || "Parada sin nombre")}</td><td>${esc(formatCost(validCost(spot)))}</td></tr>`,
+                      `<tr><td>${esc(spot.name || "Parada sin nombre")}</td><td>${esc(foreignAmount(validCost(spot)))}</td><td>${esc(localAmount(validCost(spot)))}</td></tr>`,
               )
               .join("")
-        : '<tr><td colspan="2" class="budget-empty">Sin paradas con coste</td></tr>';
-    return `<section class="budget-group"><div class="budget-group-head"><h4>${esc(title)}</h4><strong>${esc(formatCost(sumCosts(spots)))}</strong></div><div class="budget-table-wrap"><table><thead><tr><th>Parada</th><th>Coste</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+        : '<tr><td colspan="3" class="budget-empty">Sin paradas con coste</td></tr>';
+    const total = sumCosts(spots);
+    return `<section class="budget-group"><div class="budget-group-head"><h4>${esc(title)}</h4><strong>${esc(foreignAmount(total))}<small>${esc(localAmount(total))}</small></strong></div><div class="budget-table-wrap"><table><thead><tr><th>Parada</th><th>${esc(store.foreignCurrency)}</th><th>${esc(store.localCurrency)}</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
 }
 
 function renderBudget() {
@@ -34,9 +36,12 @@ function renderBudget() {
     $("#budgetTables").innerHTML = groups
         .map((group) => renderGroup(group.title, group.spots))
         .join("");
-    $("#budgetGrandTotal").textContent = formatCost(
-        groups.reduce((total, group) => total + sumCosts(group.spots), 0),
-    );
+    const total = groups.reduce((sum, group) => sum + sumCosts(group.spots), 0);
+    $("#budgetGrandTotalForeign").textContent = foreignAmount(total);
+    $("#budgetGrandTotal").textContent = localAmount(total);
+    $("#budgetRateInfo").textContent = store.exchangeRate
+        ? `1 ${store.foreignCurrency} = ${store.exchangeRate.toLocaleString("es-ES", { maximumFractionDigits: 6 })} ${store.localCurrency} · ${store.exchangeRateDate}`
+        : "Tipo de cambio no disponible";
 }
 
 $("#budgetBtn").onclick = () => {

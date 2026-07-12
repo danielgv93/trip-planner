@@ -14,7 +14,7 @@
             rel="stylesheet"
             href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         />
-        <link rel="stylesheet" href="styles.css" />
+        <link rel="stylesheet" href="styles.css?v=15" />
     </head>
     <body>
         <header class="top">
@@ -30,14 +30,9 @@
                     />
                     <div class="brand-meta">
                         <small>RUTA COMPARTIDA</small>
-                        <label class="currency-field"
-                            ><span>Moneda</span
-                            ><input
-                                id="tripCurrency"
-                                aria-label="Moneda del viaje"
-                                placeholder="€"
-                                maxlength="12"
-                        /></label>
+                        <button id="currencyConfigBtn" class="currency-config-trigger" type="button" aria-haspopup="dialog" aria-controls="currencyDialog">
+                            <span aria-hidden="true">⇄</span><strong id="currencyConfigLabel">JPY → EUR</strong>
+                        </button>
                         <span id="tripBudgetTotal" class="budget-total"
                             >Total: 0,00</span
                         >
@@ -250,7 +245,7 @@
                     ></textarea>
                 </label>
                 <label class="cost-field"
-                    >Coste (opcional)
+                    >Coste en moneda extranjera (<span id="placeCostCurrency">JPY</span>)
                     <span class="cost-input-row">
                         <input
                             id="placeCost"
@@ -366,9 +361,40 @@
             <div class="budget-content">
                 <div class="budget-summary">
                     <span>Total estimado</span>
-                    <strong id="budgetGrandTotal">0,00</strong>
+                    <span class="budget-grand-values"><small id="budgetGrandTotalForeign">0,00</small><strong id="budgetGrandTotal">0,00</strong></span>
                 </div>
+                <p id="budgetRateInfo" class="budget-rate-info"></p>
                 <div id="budgetTables" class="budget-tables"></div>
+            </div>
+        </dialog>
+        <dialog id="currencyDialog" class="currency-dialog">
+            <div class="modal-head">
+                <div>
+                    <span class="modal-eyebrow">Conversión de costes</span>
+                    <h3>Monedas del viaje</h3>
+                </div>
+                <button class="close" aria-label="Cerrar">×</button>
+            </div>
+            <div class="currency-dialog-content">
+                <p class="currency-dialog-intro">Introduce los precios tal como los verás durante el viaje. Los convertiremos automáticamente a tu moneda habitual.</p>
+                <div class="currency-picker-grid">
+                    <label class="currency-picker">
+                        <span class="currency-picker-icon" aria-hidden="true">◎</span>
+                        <span><strong>Moneda extranjera</strong><small>La que introduces en cada parada</small></span>
+                        <select id="foreignCurrency" aria-label="Moneda extranjera"></select>
+                    </label>
+                    <span class="currency-picker-arrow" aria-hidden="true">→</span>
+                    <label class="currency-picker">
+                        <span class="currency-picker-icon" aria-hidden="true">⌂</span>
+                        <span><strong>Moneda local</strong><small>La moneda a la que quieres convertir</small></span>
+                        <select id="localCurrency" aria-label="Moneda local"></select>
+                    </label>
+                </div>
+                <div class="exchange-rate-card">
+                    <span><small>Tipo de cambio</small><strong id="exchangeRateValue">Calculando…</strong></span>
+                    <span id="exchangeRateStatus" class="exchange-rate-status">Actualizando cambio…</span>
+                </div>
+                <p class="currency-api-note">Cambio diario de referencia proporcionado por Frankfurter.</p>
             </div>
         </dialog>
         <div
@@ -378,6 +404,6 @@
             aria-atomic="false"
         ></div>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script type="module" src="js/main.js?v=13"></script>
+        <script type="module" src="js/main.js?v=16"></script>
     </body>
 </html>

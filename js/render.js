@@ -19,6 +19,7 @@ import { $, esc, safeColor, fmt, daysEl, id } from "./dom.js";
 import { toast, confirmAction } from "./notify.js";
 import { drawMap } from "./map.js";
 import { openDialog } from "./dialogs.js";
+import { foreignAmount, localAmount } from "./currency.js";
 
 // View-only state: keep an opened day schedule open across destructive renders
 // without adding presentation preferences to the persisted trip data.
@@ -34,11 +35,11 @@ export function sumCosts(spots) {
 }
 
 export function formatCost(amount) {
-    const formatted = amount.toLocaleString("es-ES", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    });
-    return store.tripCurrency ? `${formatted} ${store.tripCurrency}` : formatted;
+    return foreignAmount(amount);
+}
+
+export function formatDualCost(amount) {
+    return `${foreignAmount(amount)} · ${localAmount(amount)}`;
 }
 
 export function timeToMinutes(value) {
@@ -425,7 +426,7 @@ function renderList(el, spots, isBacklog = false) {
         const cat = categoryMeta(s.category);
         const spotCost =
             Number.isFinite(s.cost) && s.cost > 0
-                ? `<span class="spot-cost">${esc(formatCost(s.cost))}</span>`
+                ? `<span class="spot-cost"><strong>${esc(foreignAmount(s.cost))}</strong><small>${esc(localAmount(s.cost))}</small></span>`
                 : "";
         const spotNote = s.note?.trim()
             ? `<span class="spot-meta">${esc(s.note)}</span>`
@@ -588,7 +589,11 @@ export function render({ persist = true } = {}) {
     const tripTotal =
         sumCosts(store.backlog) +
         store.state.reduce((total, day) => total + sumCosts(day.spots), 0);
-    $("#tripBudgetTotal").textContent = `Total: ${formatCost(tripTotal)}`;
+    const budgetTotal = $("#tripBudgetTotal"),
+        fullBudgetTotal = formatDualCost(tripTotal);
+    budgetTotal.textContent = `Total: ${store.exchangeRate ? localAmount(tripTotal) : foreignAmount(tripTotal)}`;
+    budgetTotal.title = fullBudgetTotal;
+    budgetTotal.setAttribute("aria-label", `Total del viaje: ${fullBudgetTotal}`);
     if (persist) save();
 }
 
@@ -657,7 +662,8 @@ export function moveDay(dayId, at) {
 
 export function applyTitle() {
     $("#tripTitle").value = store.tripTitle;
-    $("#tripCurrency").value = store.tripCurrency;
+    $("#localCurrency").value = store.localCurrency;
+    $("#foreignCurrency").value = store.foreignCurrency;
     document.title = (store.tripTitle || "Viaje") + " · Planificador de ruta";
 }
 
