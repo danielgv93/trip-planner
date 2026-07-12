@@ -17,7 +17,7 @@ import {
 } from "./store.js";
 import { $, esc, safeColor, fmt, daysEl, id } from "./dom.js";
 import { toast, confirmAction } from "./notify.js";
-import { drawMap } from "./map.js";
+import { drawMap, mapsLinkFor } from "./map.js";
 import { openDialog } from "./dialogs.js";
 import { foreignAmount, localAmount } from "./currency.js";
 
@@ -433,6 +433,10 @@ function renderList(el, spots, isBacklog = false) {
             ? `<span class="spot-meta">${esc(s.note)}</span>`
             : "";
         const spotHours = renderSpotHours(s, cat.color);
+        const mapsLink = mapsLinkFor(s);
+        const mapsAction = mapsLink
+            ? `<a class="open-in-maps" href="${mapsLink}" target="_blank" rel="noopener" title="Abrir en Google Maps" aria-label="Abrir ${esc(s.name || "parada")} en Google Maps"><span aria-hidden="true">↗</span></a>`
+            : "";
         const mapEnabled = s.mapEnabled !== false;
         if (mapEnabled) mapNumber += 1;
         const number = isBacklog
@@ -441,7 +445,7 @@ function renderList(el, spots, isBacklog = false) {
               ? `<span class="number">${mapNumber}</span>`
               : '<span class="number number-placeholder" aria-hidden="true">−</span>';
         spot.classList.toggle("map-disabled", !mapEnabled);
-        spot.innerHTML = `<span class="handle">⠿</span><label class="map-toggle" title="${mapEnabled ? "Deshabilitar en el mapa" : "Habilitar en el mapa"}"><input type="checkbox" data-act="toggle-map" ${mapEnabled ? "checked" : ""} aria-label="Mostrar ${esc(s.name || "parada")} en el mapa"></label><span class="spot-content"><span class="spot-name">${number} ${esc(s.name)}</span>${spotNote}${spotHours}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
+        spot.innerHTML = `<span class="handle">⠿</span><label class="map-toggle" title="${mapEnabled ? "Deshabilitar en el mapa" : "Habilitar en el mapa"}"><input type="checkbox" data-act="toggle-map" ${mapEnabled ? "checked" : ""} aria-label="Mostrar ${esc(s.name || "parada")} en el mapa"></label><span class="spot-content"><span class="spot-name">${number} ${esc(s.name)}</span>${spotNote}${spotHours}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions">${mapsAction}<span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
         list.append(spot);
     });
     wireHoursComparison(list);

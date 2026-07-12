@@ -35,6 +35,30 @@ let routeToken = 0;
 // Dialog preview-map instances (created lazily on first openPreview/setPreview).
 let previewMap, previewLayer;
 
+function encodedCoordinates(spot) {
+    if (!Number.isFinite(spot?.lat) || !Number.isFinite(spot?.lng)) return null;
+    return encodeURIComponent(`${spot.lat},${spot.lng}`);
+}
+
+export function mapsLinkFor(spot) {
+    const coordinates = encodedCoordinates(spot);
+    return coordinates
+        ? `https://www.google.com/maps/search/?api=1&query=${coordinates}`
+        : null;
+}
+
+export function dayDirectionsLink(spots) {
+    const located = spots.map(encodedCoordinates).filter(Boolean);
+    if (located.length < 2) return null;
+    const params = [
+        `origin=${located[0]}`,
+        `destination=${located.at(-1)}`,
+    ];
+    if (located.length > 2)
+        params.push(`waypoints=${located.slice(1, -1).join("%7C")}`);
+    return `https://www.google.com/maps/dir/?api=1&${params.join("&")}`;
+}
+
 // Routing profile selector: cache is keyed by profile, so switching back to a
 // previously-used mode reuses cached legs (no refetch).
 $("#routeProfile").value = store.routeProfile;
@@ -343,8 +367,13 @@ export function drawMap() {
                   )} min`;
         }
     }
+    const directionsLink =
+        store.active === "backlog" ? null : dayDirectionsLink(day.spots);
+    const directionsAction = directionsLink
+        ? ` <a class="day-directions-link" href="${directionsLink}" target="_blank" rel="noopener" aria-label="Abrir indicaciones para todo el día en Google Maps">Abrir ruta del día ↗</a>`
+        : "";
     $("#mapSummary").innerHTML =
-        `<b>${located.length}</b> de ${visibleSpots.length} paradas ubicadas${summaryExtra}`;
+        `<b>${located.length}</b> de ${visibleSpots.length} paradas ubicadas${summaryExtra}${directionsAction}`;
     const points = located.map((s) => [s.lat, s.lng]);
     if (points.length) {
         if (store.active !== "backlog") {

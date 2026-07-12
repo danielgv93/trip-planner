@@ -1079,7 +1079,8 @@ main {
     outline: 2px solid var(--green);
     outline-offset: 2px;
 }
-.spot-actions button {
+.spot-actions button,
+.spot-actions > a {
     border: 0;
     background: #f5f3ee;
     color: #697277;
@@ -1089,8 +1090,24 @@ main {
     padding: 0;
     font-size: 15px;
 }
-.spot-actions button:hover {
+.spot-actions > a {
+    display: inline-grid;
+    place-items: center;
+    text-decoration: none;
+}
+.spot-actions button:hover,
+.spot-actions > a:hover {
     background: #e9e6de;
+}
+.spot-actions > a:focus-visible {
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
+}
+.day-directions-link {
+    display: inline-block;
+    margin-left: 8px;
+    color: var(--green);
+    font-weight: 700;
 }
 .spot-actions .move-button {
     width: 24px;
