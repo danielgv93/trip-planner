@@ -20,6 +20,10 @@ import { toast, confirmAction } from "./notify.js";
 import { drawMap } from "./map.js";
 import { openDialog } from "./dialogs.js";
 
+// View-only state: keep an opened day schedule open across destructive renders
+// without adding presentation preferences to the persisted trip data.
+const expandedSchedules = new Set();
+
 export function sumCosts(spots) {
     return spots.reduce(
         (total, spot) =>
@@ -139,6 +143,65 @@ export function renderSpotHours(spot, color) {
             )
             .join("");
     return `<span class="spot-hours is-complete" tabindex="0" data-hours-opening="${esc(openingTime)}" data-hours-closing="${esc(closingTime)}" aria-label="Horario: abre a las ${esc(openingTime)} y cierra a las ${esc(closingTime)}" style="--hours-color:${safeColor(color)}"><span class="spot-hours-icon" aria-hidden="true">◷</span><span class="spot-hours-text">${esc(openingTime)}–${esc(closingTime)}</span><span class="spot-hours-rail" aria-hidden="true">${rail}<span class="spot-hours-overlaps"></span></span><span class="spot-hours-detail" aria-hidden="true">Abre ${esc(openingTime)} · Cierra ${esc(closingTime)}</span></span>`;
+}
+
+function renderDaySchedule(spots, dayId) {
+    const scheduled = spots.filter(
+        (spot) =>
+            timeToMinutes(spot?.openingTime) !== null ||
+            timeToMinutes(spot?.closingTime) !== null,
+    );
+    if (!scheduled.length) return "";
+
+    const rows = scheduled
+        .map((spot) => {
+            const opening = timeToMinutes(spot.openingTime),
+                closing = timeToMinutes(spot.closingTime),
+                hasOpening = opening !== null,
+                hasClosing = closing !== null,
+                color = categoryMeta(spot.category).color,
+                label = hasOpening && hasClosing
+                    ? `${spot.openingTime}–${spot.closingTime}`
+                    : hasOpening
+                      ? `Desde ${spot.openingTime}`
+                      : `Hasta ${spot.closingTime}`,
+                tooltipMinute = hasOpening && hasClosing
+                    ? opening === closing
+                        ? 720
+                        : opening < closing
+                          ? opening + (closing - opening) / 2
+                          : (opening + ((closing + 1440 - opening) / 2)) % 1440
+                    : hasOpening
+                      ? opening
+                      : closing,
+                tooltipPosition = (tooltipMinute / 1440) * 100;
+            let rail = "";
+            if (hasOpening && hasClosing) {
+                rail = openingHourSegments(spot.openingTime, spot.closingTime)
+                    .map(
+                        ({ start, width, equal }) =>
+                            `<span class="day-schedule-segment${equal ? " is-equal" : ""}" style="--segment-start:${start.toFixed(4)}%;--segment-width:${width.toFixed(4)}%"></span>`,
+                    )
+                    .join("");
+            } else {
+                const minute = hasOpening ? opening : closing,
+                    position = (minute / 1440) * 100;
+                rail = `<span class="day-schedule-marker ${hasOpening ? "is-opening" : "is-closing"}" style="--marker-position:${position.toFixed(4)}%"></span>`;
+            }
+            return `<div class="day-schedule-row" tabindex="0" aria-label="${esc(spot.name || "Parada sin nombre")}: ${esc(label)}" style="--schedule-color:${safeColor(color)};--tooltip-position:${tooltipPosition.toFixed(4)}%"><span class="day-schedule-name" title="${esc(spot.name || "Parada sin nombre")}">${esc(spot.name || "Parada sin nombre")}</span><span class="day-schedule-rail" aria-hidden="true">${rail}<span class="day-schedule-time">${esc(label)}</span></span></div>`;
+        })
+        .join("");
+    const count = scheduled.length,
+        open = expandedSchedules.has(dayId) ? " open" : "";
+    return `<details class="day-schedule"${open}><summary><span class="day-schedule-summary-icon" aria-hidden="true">◷</span><span>Horarios</span><span class="day-schedule-count">${count}</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></summary><div class="day-schedule-body"><div class="day-schedule-axis" aria-hidden="true"><span></span><span class="day-schedule-axis-hours"><i>00</i><i>06</i><i>12</i><i>18</i><i>24</i></span></div>${rows}</div></details>`;
+}
+
+function wireDaySchedule(el, dayId) {
+    const schedule = el.querySelector(".day-schedule");
+    schedule?.addEventListener("toggle", () => {
+        if (schedule.open) expandedSchedules.add(dayId);
+        else expandedSchedules.delete(dayId);
+    });
 }
 
 function spotNameForHours(row) {
@@ -406,8 +469,9 @@ export function render({ persist = true } = {}) {
             (day.id === store.active ? "active " : "") +
             (day.collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
-        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${day.spots.length} ${day.spots.length === 1 ? "parada" : "paradas"} · ${esc(formatCost(sumCosts(day.spots)))} · pulsa para ver ruta</small></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div><div class="spots"></div><button class="add-place">＋ Añadir una parada</button>`;
+        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${day.spots.length} ${day.spots.length === 1 ? "parada" : "paradas"} · ${esc(formatCost(sumCosts(day.spots)))} · pulsa para ver ruta</small></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div>${renderDaySchedule(day.spots, day.id)}<div class="spots"></div><button class="add-place">＋ Añadir una parada</button>`;
         renderList(el, day.spots);
+        wireDaySchedule(el, day.id);
         el.querySelector(".day-head").addEventListener("click", (e) => {
             if (
                 e.target.closest(".date-box") ||

@@ -432,8 +432,177 @@ main {
     border-bottom: 0;
 }
 .day.collapsed .spots,
+.day.collapsed .day-schedule,
 .day.collapsed .add-place {
     display: none;
+}
+.day-schedule {
+    border-bottom: 1px solid var(--line);
+    background: #fbfaf7;
+}
+.day-schedule summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    padding: 7px 15px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    transition: color 0.15s ease;
+}
+.day-schedule summary::-webkit-details-marker {
+    display: none;
+}
+.day-schedule summary:hover,
+.day-schedule summary:focus-visible {
+    color: var(--green);
+    outline: none;
+}
+.day-schedule-summary-icon {
+    font-size: 14px;
+}
+.day-schedule-count {
+    display: grid;
+    min-width: 17px;
+    height: 17px;
+    place-items: center;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #e9e7e0;
+    color: #737a79;
+    font: 10px "DM Mono";
+}
+.day-schedule-chevron {
+    font-size: 13px;
+    transition: transform 0.15s ease;
+}
+.day-schedule[open] .day-schedule-chevron {
+    transform: rotate(180deg);
+}
+.day-schedule-body {
+    padding: 1px 15px 12px;
+}
+.day-schedule-axis,
+.day-schedule-row {
+    display: grid;
+    grid-template-columns: minmax(150px, 0.75fr) minmax(220px, 2.25fr);
+    align-items: center;
+    gap: 18px;
+}
+.day-schedule-axis {
+    margin-bottom: 3px;
+    color: #a0a5a3;
+    font: 9px "DM Mono";
+}
+.day-schedule-axis-hours {
+    display: flex;
+    justify-content: space-between;
+}
+.day-schedule-axis-hours i {
+    font-style: normal;
+}
+.day-schedule-row {
+    min-height: 25px;
+    border-radius: 4px;
+    outline: none;
+}
+.day-schedule-name {
+    overflow: hidden;
+    color: var(--ink);
+    font-size: 11px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.day-schedule-time {
+    position: absolute;
+    left: var(--tooltip-position);
+    bottom: calc(100% + 7px);
+    z-index: 3;
+    padding: 5px 7px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--card);
+    box-shadow: 0 4px 12px #2222;
+    color: var(--ink);
+    font: 10px "DM Mono";
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 3px);
+    transition:
+        opacity 0.15s ease,
+        transform 0.15s ease;
+}
+.day-schedule-time::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--card);
+    transform: translate(-50%, -3px) rotate(45deg);
+}
+.day-schedule-row:hover .day-schedule-time,
+.day-schedule-row:focus-visible .day-schedule-time {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+.day-schedule-row:focus-visible {
+    box-shadow: 0 0 0 2px #386f6626;
+}
+.day-schedule-rail {
+    position: relative;
+    height: 6px;
+    border-radius: 999px;
+    background-color: #e5e5e1;
+    background-image: linear-gradient(to right, #caccc8 1px, transparent 1px);
+    background-size: 25% 100%;
+}
+.day-schedule-segment {
+    position: absolute;
+    inset-block: 0;
+    left: var(--segment-start);
+    width: var(--segment-width);
+    min-width: 3px;
+    border-radius: 999px;
+    background: var(--schedule-color);
+    opacity: 0.76;
+}
+.day-schedule-segment.is-equal {
+    width: 100%;
+}
+.day-schedule-marker {
+    position: absolute;
+    top: 50%;
+    left: var(--marker-position);
+    width: 7px;
+    height: 7px;
+    border: 2px solid var(--schedule-color);
+    border-radius: 50%;
+    background: #fbfaf7;
+    transform: translate(-50%, -50%);
+}
+.day-schedule-marker.is-opening::after,
+.day-schedule-marker.is-closing::before {
+    content: "";
+    position: absolute;
+    top: 1px;
+    width: 15px;
+    border-top: 1px dashed var(--schedule-color);
+    opacity: 0.55;
+}
+.day-schedule-marker.is-opening::after {
+    left: 6px;
+}
+.day-schedule-marker.is-closing::before {
+    right: 6px;
 }
 .spots {
     min-height: 45px;
@@ -1939,6 +2108,17 @@ body.preview-mode .spot {
     .spot-hours.is-complete:hover .spot-hours-rail,
     .spot-hours.is-complete:focus-visible .spot-hours-rail {
         opacity: 1;
+    }
+    .day-schedule-body {
+        padding-inline: 12px;
+    }
+    .day-schedule-axis,
+    .day-schedule-row {
+        grid-template-columns: minmax(88px, 0.8fr) minmax(150px, 2.2fr);
+        gap: 8px;
+    }
+    .day-schedule-axis {
+        grid-template-columns: minmax(88px, 0.8fr) minmax(150px, 2.2fr);
     }
 }
 
