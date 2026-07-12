@@ -7,7 +7,7 @@
 
 import { daysEl } from "./dom.js";
 import { store } from "./store.js";
-import { moveSpot, render } from "./render.js";
+import { moveDay, moveSpot, render } from "./render.js";
 import { toast } from "./notify.js";
 
 let dragEl = null,
@@ -24,6 +24,18 @@ let dragEl = null,
     // Swallows the click that fires right after a drag so it isn't a tap.
     suppressClick = false;
 
+let dayDragEl = null,
+    dayGhost = null,
+    dragDayId = null,
+    dayGrabDX = 0,
+    dayGrabDY = 0,
+    dayStartX = 0,
+    dayStartY = 0,
+    dayDragging = false,
+    dayPointerId = null,
+    dayCardW = 0,
+    daySettled = false;
+
 function insertionPoint(list, y) {
     const items = [...list.querySelectorAll(".spot:not(.dragging)")];
     return items.reduce(
@@ -38,18 +50,14 @@ function insertionPoint(list, y) {
     ).element;
 }
 
-function captureRects() {
+function captureRects(elements) {
     const m = new Map();
-    daysEl
-        .querySelectorAll(".spot")
-        .forEach((el) => m.set(el, el.getBoundingClientRect()));
+    elements.forEach((el) => m.set(el, el.getBoundingClientRect()));
     return m;
 }
 
-function playFlip(first) {
-    const els = [...daysEl.querySelectorAll(".spot")].filter(
-        (el) => el !== dragEl,
-    );
+function playFlip(first, elements, draggedElement) {
+    const els = [...elements].filter((el) => el !== draggedElement);
     els.forEach((el) => {
         el.style.transition = "none";
         el.style.transform = "none";
@@ -90,7 +98,7 @@ function endCleanup() {
 }
 
 function onMove(e) {
-    if (!dragEl) return;
+    if (!dragEl || e.pointerId !== dragPointerId) return;
     if (!dragging) {
         if (Math.hypot(e.clientX - startX, e.clientY - startY) <= 5) return;
         ghost = dragEl.cloneNode(true);
@@ -123,13 +131,14 @@ function onMove(e) {
               list.lastElementChild === dragEl
     )
         return;
-    const first = captureRects();
+    const first = captureRects(daysEl.querySelectorAll(".spot"));
     if (ref) list.insertBefore(dragEl, ref);
     else list.appendChild(dragEl);
-    playFlip(first);
+    playFlip(first, daysEl.querySelectorAll(".spot"), dragEl);
 }
 
 function onUp(e) {
+    if (e.pointerId !== dragPointerId) return;
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
     window.removeEventListener("pointercancel", onCancel);
@@ -157,7 +166,8 @@ function onUp(e) {
     setTimeout(commit, 220);
 }
 
-function onCancel() {
+function onCancel(e) {
+    if (e?.pointerId !== undefined && e.pointerId !== dragPointerId) return;
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
     window.removeEventListener("pointercancel", onCancel);
@@ -166,8 +176,124 @@ function onCancel() {
     if (wasDragging) render();
 }
 
+function dayInsertionPoint(y) {
+    const items = [
+        ...daysEl.querySelectorAll(".day:not(.backlog):not(.dragging)"),
+    ];
+    return items.reduce(
+        (closest, item) => {
+            const box = item.getBoundingClientRect(),
+                offset = y - box.top - box.height / 2;
+            return offset < 0 && offset > closest.offset
+                ? { offset, element: item }
+                : closest;
+        },
+        { offset: Number.NEGATIVE_INFINITY, element: null },
+    ).element;
+}
+
+function endDayCleanup() {
+    dayGhost?.remove();
+    dayGhost = null;
+    dayDragEl?.classList.remove("dragging");
+    daysEl.classList.remove("is-day-dragging");
+    document.body.style.userSelect = "";
+    document.body.style.webkitUserSelect = "";
+    dayDragEl = null;
+    dragDayId = null;
+    dayDragging = false;
+    dayPointerId = null;
+}
+
+function onDayMove(e) {
+    if (!dayDragEl || e.pointerId !== dayPointerId) return;
+    if (!dayDragging) {
+        if (
+            Math.hypot(e.clientX - dayStartX, e.clientY - dayStartY) <= 5
+        )
+            return;
+        dayGhost = dayDragEl.cloneNode(true);
+        dayGhost.classList.add("day-ghost");
+        dayGhost.style.width = dayCardW + "px";
+        document.body.append(dayGhost);
+        dayDragEl.classList.add("dragging");
+        daysEl.classList.add("is-day-dragging");
+        document.body.style.userSelect = "none";
+        document.body.style.webkitUserSelect = "none";
+        getSelection()?.removeAllRanges();
+        dayDragging = true;
+    }
+    e.preventDefault();
+    dayGhost.style.transform = `translate(${e.clientX - dayGrabDX}px,${e.clientY - dayGrabDY}px) rotate(1.5deg) scale(1.02)`;
+    if (e.clientY < 60) window.scrollBy(0, -12);
+    else if (e.clientY > innerHeight - 60) window.scrollBy(0, 12);
+
+    const ref = dayInsertionPoint(e.clientY);
+    if (
+        ref
+            ? ref === dayDragEl.nextElementSibling
+            : daysEl.lastElementChild === dayDragEl
+    )
+        return;
+    const first = captureRects(
+        daysEl.querySelectorAll(".day:not(.backlog)"),
+    );
+    if (ref) daysEl.insertBefore(dayDragEl, ref);
+    else daysEl.append(dayDragEl);
+    playFlip(
+        first,
+        daysEl.querySelectorAll(".day:not(.backlog)"),
+        dayDragEl,
+    );
+}
+
+function onDayUp(e) {
+    if (e.pointerId !== dayPointerId) return;
+    window.removeEventListener("pointermove", onDayMove);
+    window.removeEventListener("pointerup", onDayUp);
+    window.removeEventListener("pointercancel", onDayCancel);
+    if (!dayDragging) {
+        dayDragEl = null;
+        dragDayId = null;
+        dayPointerId = null;
+        return;
+    }
+    suppressClick = true;
+    const index = [
+            ...daysEl.querySelectorAll(".day:not(.backlog)"),
+        ].indexOf(dayDragEl),
+        dayId = dragDayId;
+    daySettled = false;
+    const commit = () => {
+        if (daySettled) return;
+        daySettled = true;
+        endDayCleanup();
+        moveDay(dayId, index);
+    };
+    const r = dayDragEl.getBoundingClientRect();
+    dayGhost.style.transition = "transform .18s cubic-bezier(.2,.8,.2,1)";
+    dayGhost.style.transform = `translate(${r.left}px,${r.top}px) rotate(0deg) scale(1)`;
+    dayGhost.addEventListener("transitionend", commit, { once: true });
+    setTimeout(commit, 220);
+}
+
+function onDayCancel(e) {
+    if (e?.pointerId !== undefined && e.pointerId !== dayPointerId) return;
+    window.removeEventListener("pointermove", onDayMove);
+    window.removeEventListener("pointerup", onDayUp);
+    window.removeEventListener("pointercancel", onDayCancel);
+    const wasDragging = dayDragging;
+    // Invalidate a pending transitionend/timeout commit after pointerup.
+    daySettled = true;
+    endDayCleanup();
+    if (wasDragging) render({ persist: false });
+}
+
 daysEl.addEventListener("pointerdown", (e) => {
     if (store.previewMode) return;
+    if (dayDragEl) return;
+    const item = e.target.closest(".spot");
+    if (!item) return;
     // Reordering under a filter would splice a filtered index into the
     // unfiltered array and corrupt hidden-spot order — block the drag before
     // any drag state (ghost, DOM reorder) is set up.
@@ -176,8 +302,6 @@ daysEl.addEventListener("pointerdown", (e) => {
         return;
     }
     suppressClick = false;
-    const item = e.target.closest(".spot");
-    if (!item) return;
     if (e.target.closest(".spot-actions")) return;
     if (e.button !== undefined && e.button !== 0) return;
     if (e.pointerType === "touch" && !e.target.closest(".handle")) return;
@@ -196,8 +320,32 @@ daysEl.addEventListener("pointerdown", (e) => {
     window.addEventListener("pointercancel", onCancel);
 });
 
+daysEl.addEventListener("pointerdown", (e) => {
+    if (store.previewMode || dragEl) return;
+    const handle = e.target.closest(".day-handle");
+    if (!handle || !daysEl.contains(handle)) return;
+    if (e.button !== undefined && e.button !== 0) return;
+    const item = handle.closest(".day:not(.backlog)");
+    if (!item) return;
+    suppressClick = false;
+    dayDragEl = item;
+    dragDayId = item.dataset.day;
+    dayStartX = e.clientX;
+    dayStartY = e.clientY;
+    dayPointerId = e.pointerId;
+    const rect = item.getBoundingClientRect();
+    dayGrabDX = e.clientX - rect.left;
+    dayGrabDY = e.clientY - rect.top;
+    dayCardW = rect.width;
+    dayDragging = false;
+    window.addEventListener("pointermove", onDayMove);
+    window.addEventListener("pointerup", onDayUp);
+    window.addEventListener("pointercancel", onDayCancel);
+});
+
 window.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && dragging) onCancel();
+    else if (e.key === "Escape" && dayDragging) onDayCancel();
 });
 
 window.addEventListener(

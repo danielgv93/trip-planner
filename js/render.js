@@ -101,7 +101,7 @@ function renderList(el, spots, isBacklog = false) {
     });
 }
 
-export function render() {
+export function render({ persist = true } = {}) {
     renderTags();
     daysEl.innerHTML = "";
     const b = document.createElement("article");
@@ -134,7 +134,7 @@ export function render() {
             (day.id === store.active ? "active " : "") +
             (day.collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
-        el.innerHTML = `<div class="day-head"><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${day.spots.length} ${day.spots.length === 1 ? "parada" : "paradas"} · pulsa para ver ruta</small></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div><div class="spots"></div><button class="add-place">＋ Añadir una parada</button>`;
+        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${day.spots.length} ${day.spots.length === 1 ? "parada" : "paradas"} · pulsa para ver ruta</small></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div><div class="spots"></div><button class="add-place">＋ Añadir una parada</button>`;
         renderList(el, day.spots);
         el.querySelector(".day-head").addEventListener("click", (e) => {
             if (
@@ -204,7 +204,7 @@ export function render() {
         el.querySelector(".add-place").onclick = () => openDialog(day.id);
         daysEl.append(el);
     });
-    save();
+    if (persist) save();
 }
 
 function editTitle(day, el) {
@@ -254,6 +254,17 @@ export function moveSpot(spotId, toDay, at) {
     const target = toDay === "backlog" ? store.backlog : dayBy(toDay).spots;
     target.splice(at, 0, spot);
     store.active = toDay;
+    save();
+    render();
+    drawMap();
+}
+
+// Reorder real days without changing the active day or any persisted shape.
+export function moveDay(dayId, at) {
+    const from = store.state.findIndex((day) => day.id === dayId);
+    if (from === -1) return;
+    const [day] = store.state.splice(from, 1);
+    store.state.splice(Math.max(0, Math.min(at, store.state.length)), 0, day);
     save();
     render();
     drawMap();

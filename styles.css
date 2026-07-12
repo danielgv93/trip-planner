@@ -194,6 +194,50 @@ main {
     border-bottom: 1px solid var(--line);
     gap: 11px;
 }
+.day-handle {
+    width: 32px;
+    height: 38px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: #b3b7b6;
+    font-size: 19px;
+    letter-spacing: -3px;
+    cursor: grab;
+    touch-action: none;
+}
+.day-handle:hover,
+.day-handle:focus-visible {
+    color: var(--red);
+}
+.day.dragging {
+    opacity: 0.38;
+    border-style: dashed;
+    border-color: #d44d4366;
+    box-shadow: none;
+}
+.day-ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 9999;
+    pointer-events: none;
+    margin: 0;
+    background: var(--card);
+    border: 1px solid #d44d4380;
+    border-radius: 7px;
+    box-shadow: 0 22px 48px #d44d4330;
+    opacity: 0.97;
+    overflow: hidden;
+    will-change: transform;
+    transition: none;
+}
+.days.is-day-dragging .day:not(.dragging) {
+    transition: transform 0.14s ease;
+}
 .date-box {
     background: var(--sand);
     border-radius: 4px;
@@ -1299,6 +1343,7 @@ dialog::backdrop {
     }
 }
 body.preview-mode .handle,
+body.preview-mode .day-handle,
 body.preview-mode .spot-actions,
 body.preview-mode .add-place,
 body.preview-mode .add-day,
