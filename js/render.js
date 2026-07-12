@@ -188,12 +188,12 @@ function renderDaySchedule(spots, dayId) {
                     position = (minute / 1440) * 100;
                 rail = `<span class="day-schedule-marker ${hasOpening ? "is-opening" : "is-closing"}" style="--marker-position:${position.toFixed(4)}%"></span>`;
             }
-            return `<div class="day-schedule-row" tabindex="0" aria-label="${esc(spot.name || "Parada sin nombre")}: ${esc(label)}" style="--schedule-color:${safeColor(color)};--tooltip-position:${tooltipPosition.toFixed(4)}%"><span class="day-schedule-name" title="${esc(spot.name || "Parada sin nombre")}">${esc(spot.name || "Parada sin nombre")}</span><span class="day-schedule-rail" aria-hidden="true">${rail}<span class="day-schedule-time">${esc(label)}</span></span></div>`;
+            return `<div class="day-schedule-row" tabindex="0" data-hours-opening="${hasOpening ? esc(spot.openingTime) : ""}" data-hours-closing="${hasClosing ? esc(spot.closingTime) : ""}" aria-label="${esc(spot.name || "Parada sin nombre")}: ${esc(label)}" style="--schedule-color:${safeColor(color)};--tooltip-position:${tooltipPosition.toFixed(4)}%"><span class="day-schedule-name" title="${esc(spot.name || "Parada sin nombre")}">${esc(spot.name || "Parada sin nombre")}</span><span class="day-schedule-rail" aria-hidden="true">${rail}<span class="day-schedule-time">${esc(label)}</span></span></div>`;
         })
         .join("");
     const count = scheduled.length,
         open = expandedSchedules.has(dayId) ? " open" : "";
-    return `<details class="day-schedule"${open}><summary><span class="day-schedule-summary-icon" aria-hidden="true">◷</span><span>Horarios</span><span class="day-schedule-count">${count}</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></summary><div class="day-schedule-body"><div class="day-schedule-axis" aria-hidden="true"><span></span><span class="day-schedule-axis-hours"><i>00</i><i>06</i><i>12</i><i>18</i><i>24</i></span></div>${rows}</div></details>`;
+    return `<details class="day-schedule"${open}><summary><span class="day-schedule-summary-icon" aria-hidden="true">◷</span><span>Horarios</span><span class="day-schedule-count">${count}</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></summary><div class="day-schedule-body"><span class="day-schedule-guide" aria-hidden="true"></span><div class="day-schedule-axis" aria-hidden="true"><span></span><span class="day-schedule-axis-hours"><i>00</i><i>06</i><i>12</i><i>18</i><i>24</i></span></div>${rows}</div></details>`;
 }
 
 function wireDaySchedule(el, dayId) {
@@ -201,6 +201,48 @@ function wireDaySchedule(el, dayId) {
     schedule?.addEventListener("toggle", () => {
         if (schedule.open) expandedSchedules.add(dayId);
         else expandedSchedules.delete(dayId);
+    });
+    const body = schedule?.querySelector(".day-schedule-body");
+    body?.querySelectorAll(".day-schedule-rail").forEach((rail) => {
+        rail.addEventListener("pointermove", (event) => {
+            const bodyRect = body.getBoundingClientRect(),
+                railRect = rail.getBoundingClientRect(),
+                x = Math.min(
+                    railRect.right,
+                    Math.max(railRect.left, event.clientX),
+                ) - bodyRect.left,
+                row = rail.closest(".day-schedule-row"),
+                color = getComputedStyle(row)
+                    .getPropertyValue("--schedule-color")
+                    .trim(),
+                ratio = (event.clientX - railRect.left) / railRect.width,
+                minute = Math.min(1439, Math.max(0, ratio * 1440)),
+                activeContainsMinute = scheduleIntervals(
+                    row.dataset.hoursOpening,
+                    row.dataset.hoursClosing,
+                ).some(([start, end]) => start <= minute && minute < end);
+            body.style.setProperty("--guide-x", `${x}px`);
+            body.style.setProperty("--guide-color", color);
+            body.style.setProperty("--guide-ratio", `${ratio * 100}%`);
+            body.classList.add("has-guide");
+            body.querySelector(".is-hovered")?.classList.remove("is-hovered");
+            row.classList.add("is-hovered");
+            body.querySelectorAll(".day-schedule-row").forEach((candidate) => {
+                const coincides = activeContainsMinute && candidate !== row &&
+                    scheduleIntervals(
+                        candidate.dataset.hoursOpening,
+                        candidate.dataset.hoursClosing,
+                    ).some(([start, end]) => start <= minute && minute < end);
+                candidate.classList.toggle("is-coincident", coincides);
+            });
+        });
+    });
+    body?.addEventListener("pointerleave", () => {
+        body.classList.remove("has-guide");
+        body.querySelector(".is-hovered")?.classList.remove("is-hovered");
+        body.querySelectorAll(".is-coincident").forEach((row) =>
+            row.classList.remove("is-coincident"),
+        );
     });
 }
 
