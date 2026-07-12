@@ -44,6 +44,19 @@ $("#routeProfile").addEventListener("change", (e) => {
     drawMap();
 });
 
+export function syncRouteVisualizationControl() {
+    $("#routeProfile").hidden = store.routeVisualization !== "streets";
+}
+
+$("#routeVisualization").value = store.routeVisualization;
+syncRouteVisualizationControl();
+$("#routeVisualization").addEventListener("change", (e) => {
+    store.routeVisualization = e.target.value;
+    syncRouteVisualizationControl();
+    save();
+    drawMap();
+});
+
 function icon(n, color) {
     return L.divIcon({
         className: "",
@@ -153,13 +166,23 @@ function keyFor(from, to, profile) {
     return `${from.lat},${from.lng}|${to.lat},${to.lng}|${profile}`;
 }
 
+// Each public instance is preprocessed for one transport mode. The profile
+// segment in OSRM's URL does not select that dataset at query time.
+const ROUTING_SERVERS = {
+    driving: "https://routing.openstreetmap.de/routed-car",
+    cycling: "https://routing.openstreetmap.de/routed-bike",
+    walking: "https://routing.openstreetmap.de/routed-foot",
+};
+
 // Same "needs network, degrades gracefully offline" posture as the Nominatim
 // geocoding. Raw km/min are cached; formatting happens on paint.
 async function fetchLeg(from, to, profile) {
     try {
+        const server = ROUTING_SERVERS[profile] || ROUTING_SERVERS.driving;
         const r = await fetch(
-            `https://router.project-osrm.org/route/v1/${profile}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=false`,
+            `${server}/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`,
         );
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         if (data.code !== "Ok" || !data.routes?.length)
             throw new Error("no route");
@@ -168,6 +191,7 @@ async function fetchLeg(from, to, profile) {
             km: route.distance / 1000,
             min: route.duration / 60,
             approx: false,
+            points: route.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
         };
     } catch {
         return {
@@ -198,7 +222,35 @@ function fmtKm(km) {
 function legLabel(leg) {
     return leg.approx
         ? `≈ ${fmtKm(leg.km)} km (aprox.)`
+        : store.routeVisualization === "straight"
+          ? `${fmtKm(leg.km)} km`
         : `${fmtKm(leg.km)} km · ${Math.round(leg.min)} min`;
+}
+
+function drawRouteLine(seq) {
+    if (seq.length < 2) return;
+    const style = {
+        color: "#d44d43",
+        weight: 3,
+        opacity: 0.9,
+        dashArray: "7 7",
+    };
+    if (store.routeVisualization === "straight") {
+        L.polyline(seq.map((s) => [s.lat, s.lng]), style).addTo(routeLayer);
+        return;
+    }
+    for (let i = 0; i < seq.length - 1; i++) {
+        const leg = routeCache.get(
+            keyFor(seq[i], seq[i + 1], store.routeProfile),
+        );
+        // Keep a direct segment visible while the street route loads or when
+        // the routing service cannot be reached.
+        const fallback = [
+            [seq[i].lat, seq[i].lng],
+            [seq[i + 1].lat, seq[i + 1].lng],
+        ];
+        L.polyline(leg?.points || fallback, style).addTo(routeLayer);
+    }
 }
 
 // Fetch (debounced) any uncached legs of the active day. Runs on every drawMap()
@@ -283,7 +335,8 @@ export function drawMap() {
                 // Any measured leg without a duration (Haversine fallback) drops
                 // the time from the day total.
                 anyNoDuration = cachedLegs.some((l) => l.min == null);
-            summaryExtra = anyNoDuration
+            summaryExtra =
+                store.routeVisualization === "straight" || anyNoDuration
                 ? ` · Total: ${fmtKm(totalKm)} km`
                 : ` · Total: ${fmtKm(totalKm)} km · ${Math.round(
                       cachedLegs.reduce((a, l) => a + l.min, 0),
@@ -295,16 +348,10 @@ export function drawMap() {
     const points = located.map((s) => [s.lat, s.lng]);
     if (points.length) {
         if (store.active !== "backlog") {
-            const linePoints = located
-                .filter((s) => categoryConnects(s.category))
-                .map((s) => [s.lat, s.lng]);
-            if (linePoints.length > 1)
-                L.polyline(linePoints, {
-                    color: "#d44d43",
-                    weight: 3,
-                    opacity: 0.9,
-                    dashArray: "7 7",
-                }).addTo(routeLayer);
+            const linePoints = located.filter((s) =>
+                categoryConnects(s.category),
+            );
+            drawRouteLine(linePoints);
         }
         located.forEach((s) => {
             // Leg label is app-generated numbers (safe); name/note stay esc()'d.

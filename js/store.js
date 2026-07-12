@@ -51,6 +51,11 @@ export const store = {
     )
         ? saved.routeProfile
         : "driving",
+    routeVisualization: ["straight", "streets"].includes(
+        saved?.routeVisualization,
+    )
+        ? saved.routeVisualization
+        : "straight",
     previewMode: false,
     // Held from a picked Nominatim suggestion until the place form is submitted.
     selectedLocation: null,
@@ -88,7 +93,7 @@ export function save() {
     localStorage.setItem(
         "trip-planner",
         JSON.stringify({
-            version: 15,
+            version: 16,
             tripTitle: store.tripTitle,
             localCurrency: store.localCurrency,
             foreignCurrency: store.foreignCurrency,
@@ -101,6 +106,7 @@ export function save() {
             tags: store.tags,
             categories: store.categories,
             routeProfile: store.routeProfile,
+            routeVisualization: store.routeVisualization,
         }),
     );
 }

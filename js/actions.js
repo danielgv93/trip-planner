@@ -4,7 +4,7 @@
 import { store, save, clearTagFilter } from "./store.js";
 import { $, slug, id } from "./dom.js";
 import { render, applyTitle } from "./render.js";
-import { drawMap } from "./map.js";
+import { drawMap, syncRouteVisualizationControl } from "./map.js";
 import { toast, confirmAction } from "./notify.js";
 import { sample, DEFAULT_CATEGORIES, DEFAULT_TITLE } from "./constants.js";
 import { syncTripNotes } from "./notes.js";
@@ -104,6 +104,9 @@ $("#resetBtn").onclick = () => {
         store.exchangeRate = null;
         store.exchangeRateDate = "";
         store.tripNotes = "";
+        store.routeVisualization = "straight";
+        $("#routeVisualization").value = store.routeVisualization;
+        syncRouteVisualizationControl();
         store.active = "d1";
         clearTagFilter();
         applyTitle();
@@ -118,7 +121,7 @@ $("#resetBtn").onclick = () => {
 $("#exportBtn").onclick = () => {
     const data = JSON.stringify(
             {
-                version: 15,
+                version: 16,
                 exportedAt: new Date().toISOString(),
                 tripTitle: store.tripTitle,
                 localCurrency: store.localCurrency,
@@ -131,6 +134,7 @@ $("#exportBtn").onclick = () => {
                 tags: store.tags,
                 categories: store.categories,
                 routeProfile: store.routeProfile,
+                routeVisualization: store.routeVisualization,
             },
             null,
             2,
@@ -219,6 +223,13 @@ $("#importFile").onchange = async (e) => {
             store.routeProfile = plan.routeProfile;
             $("#routeProfile").value = store.routeProfile;
         }
+        store.routeVisualization = ["straight", "streets"].includes(
+            plan.routeVisualization,
+        )
+            ? plan.routeVisualization
+            : "straight";
+        $("#routeVisualization").value = store.routeVisualization;
+        syncRouteVisualizationControl();
         store.active = store.state[0]?.id || "backlog";
         clearTagFilter();
         applyTitle();
