@@ -807,7 +807,7 @@ main {
 }
 .spot {
     display: grid;
-    grid-template-columns: 26px 1fr auto auto;
+    grid-template-columns: 26px 20px 1fr auto auto;
     align-items: center;
     gap: 8px;
     border: 1px solid transparent;
@@ -836,6 +836,10 @@ main {
 .spot:hover {
     border-color: var(--line);
     background: #fcfcfa;
+}
+.spot.map-disabled .spot-content,
+.spot.map-disabled .spot-cost {
+    opacity: 0.52;
 }
 .spot.dragging {
     opacity: 0.4;
@@ -885,6 +889,9 @@ main {
     place-items: center;
     font: 11px "DM Mono";
     margin-left: 1px;
+}
+.number-placeholder {
+    background: #8f9795;
 }
 .spot-content {
     min-width: 0;
@@ -1053,6 +1060,24 @@ main {
     display: flex;
     gap: 5px;
     align-items: center;
+}
+.map-toggle {
+    display: grid;
+    width: 20px;
+    height: 20px;
+    place-items: center;
+    cursor: pointer;
+}
+.map-toggle input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--green);
+    cursor: pointer;
+}
+.map-toggle:has(input:focus-visible) {
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
 }
 .spot-actions button {
     border: 0;
@@ -1754,29 +1779,6 @@ dialog::backdrop {
     min-height: 0;
     overflow-y: auto;
 }
-/* Wikipedia thumbnail of the place, previewed while editing. */
-.spot-image {
-    border: 1px solid #ddd9d1;
-    border-radius: 4px;
-    background: #f4f1ea;
-}
-/* No overflow:hidden here: as a grid item its intrinsic size would
-   collapse to ~0 and clip the image to the border. We round the
-   image's own top corners instead of clipping via the container. */
-.spot-image img {
-    display: block;
-    width: 100%;
-    height: 150px;
-    object-fit: cover;
-    border-radius: 3px 3px 0 0;
-}
-.spot-image-status,
-.spot-image-caption {
-    padding: 8px 10px;
-    font-size: 11px;
-    color: var(--muted);
-    font-weight: 400;
-}
 /* Wikipedia photo injected into a map marker's popup on open. */
 .popup-image {
     margin-bottom: 7px;
@@ -1842,6 +1844,9 @@ dialog::backdrop {
     display: flex;
     align-items: stretch;
     gap: 8px;
+}
+.cost-field {
+    white-space: nowrap;
 }
 .cost-input-row input {
     min-width: 0;
@@ -2420,6 +2425,7 @@ dialog::backdrop {
 body.preview-mode .handle,
 body.preview-mode .day-handle,
 body.preview-mode .spot-actions,
+body.preview-mode .map-toggle,
 body.preview-mode .add-place,
 body.preview-mode .add-day,
 body.preview-mode .day-options,

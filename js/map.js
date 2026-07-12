@@ -10,6 +10,7 @@ import {
     categoryMeta,
     categoryConnects,
     spotMatchesFilter,
+    spotIsMapEnabled,
 } from "./store.js";
 import { $, esc, safeColor } from "./dom.js";
 import { DAY_COLORS } from "./constants.js";
@@ -85,7 +86,9 @@ function drawGlobalMap() {
     let totalLocated = 0,
         totalSpots = 0;
     store.state.forEach((day, i) => {
-        const visibleSpots = day.spots.filter(spotMatchesFilter);
+        const visibleSpots = day.spots
+            .filter(spotMatchesFilter)
+            .filter(spotIsMapEnabled);
         totalSpots += visibleSpots.length;
         const located = visibleSpots.filter(
             (s) => Number.isFinite(s.lat) && Number.isFinite(s.lng),
@@ -104,9 +107,12 @@ function drawGlobalMap() {
                 opacity: 0.9,
                 dashArray: "7 7",
             }).addTo(routeLayer);
-        located.forEach((s, idx) =>
+        located.forEach((s) =>
             L.marker([s.lat, s.lng], {
-                icon: icon(idx + 1, categoryMeta(s.category).color),
+                icon: icon(
+                    visibleSpots.indexOf(s) + 1,
+                    categoryMeta(s.category).color,
+                ),
             })
                 .addTo(routeLayer)
                 .bindPopup(
@@ -178,6 +184,7 @@ async function fetchLeg(from, to, profile) {
 function connectingLocated(spots) {
     return spots.filter(
         (s) =>
+            spotIsMapEnabled(s) &&
             Number.isFinite(s.lat) &&
             Number.isFinite(s.lng) &&
             categoryConnects(s.category),
@@ -204,7 +211,9 @@ function ensureRoutes() {
     if (store.previewMode || store.active === "backlog") return;
     const day = dayBy(store.active);
     if (!day) return;
-    const visibleSpots = day.spots.filter(spotMatchesFilter);
+    const visibleSpots = day.spots
+        .filter(spotMatchesFilter)
+        .filter(spotIsMapEnabled);
     const seq = connectingLocated(visibleSpots);
     if (seq.length < 2) return;
     const pending = [];
@@ -246,7 +255,9 @@ export function drawMap() {
         return;
     }
     $("#mapTitle").textContent = day.title;
-    const visibleSpots = day.spots.filter(spotMatchesFilter);
+    const visibleSpots = day.spots
+        .filter(spotMatchesFilter)
+        .filter(spotIsMapEnabled);
     const located = visibleSpots.filter(
         (s) => Number.isFinite(s.lat) && Number.isFinite(s.lng),
     );
@@ -295,7 +306,7 @@ export function drawMap() {
                     dashArray: "7 7",
                 }).addTo(routeLayer);
         }
-        located.forEach((s, i) => {
+        located.forEach((s) => {
             // Leg label is app-generated numbers (safe); name/note stay esc()'d.
             const legPart = legLabels[s.id]
                 ? `<br><small class="leg-label">${legLabels[s.id]}</small>`
@@ -306,7 +317,10 @@ export function drawMap() {
             // would wipe an injected child.
             const baseHtml = `<b>${esc(s.name)}</b><br><small>${esc(s.note || s.address || "")}</small>${legPart}`;
             const marker = L.marker([s.lat, s.lng], {
-                icon: icon(i + 1, categoryMeta(s.category).color),
+                icon: icon(
+                    visibleSpots.indexOf(s) + 1,
+                    categoryMeta(s.category).color,
+                ),
             })
                 .addTo(routeLayer)
                 .bindPopup(baseHtml);

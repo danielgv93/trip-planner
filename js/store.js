@@ -78,11 +78,17 @@ export function spotMatchesFilter(spot) {
     return (spot.tags || []).some((t) => store.activeTagFilter.has(t));
 }
 
+// Missing is enabled so legacy plans and newly-created stops work by default.
+// Only an explicit false removes a stop from every map and route calculation.
+export function spotIsMapEnabled(spot) {
+    return spot?.mapEnabled !== false;
+}
+
 export function save() {
     localStorage.setItem(
         "trip-planner",
         JSON.stringify({
-            version: 14,
+            version: 15,
             tripTitle: store.tripTitle,
             localCurrency: store.localCurrency,
             foreignCurrency: store.foreignCurrency,

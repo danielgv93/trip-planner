@@ -414,11 +414,12 @@ function renderTags() {
 function renderList(el, spots, isBacklog = false) {
     const list = el.querySelector(".spots");
     const visible = spots.filter(spotMatchesFilter);
+    let mapNumber = 0;
     if (!visible.length)
         list.innerHTML = store.activeTagFilter.size > 0
             ? '<div class="empty">Ninguna parada coincide con el filtro</div>'
             : '<div class="empty">Arrastra aquí una idea o añade una nueva.</div>';
-    visible.forEach((s, i) => {
+    visible.forEach((s) => {
         const spot = document.createElement("div");
         spot.className = "spot";
         spot.dataset.spot = s.id;
@@ -432,7 +433,15 @@ function renderList(el, spots, isBacklog = false) {
             ? `<span class="spot-meta">${esc(s.note)}</span>`
             : "";
         const spotHours = renderSpotHours(s, cat.color);
-        spot.innerHTML = `<span class="handle">⠿</span><span class="spot-content"><span class="spot-name">${isBacklog ? "" : `<span class="number">${i + 1}</span>`} ${esc(s.name)}</span>${spotNote}${spotHours}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
+        const mapEnabled = s.mapEnabled !== false;
+        if (mapEnabled) mapNumber += 1;
+        const number = isBacklog
+            ? ""
+            : mapEnabled
+              ? `<span class="number">${mapNumber}</span>`
+              : '<span class="number number-placeholder" aria-hidden="true">−</span>';
+        spot.classList.toggle("map-disabled", !mapEnabled);
+        spot.innerHTML = `<span class="handle">⠿</span><label class="map-toggle" title="${mapEnabled ? "Deshabilitar en el mapa" : "Habilitar en el mapa"}"><input type="checkbox" data-act="toggle-map" ${mapEnabled ? "checked" : ""} aria-label="Mostrar ${esc(s.name || "parada")} en el mapa"></label><span class="spot-content"><span class="spot-name">${number} ${esc(s.name)}</span>${spotNote}${spotHours}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
         list.append(spot);
     });
     wireHoursComparison(list);
@@ -675,7 +684,12 @@ daysEl.addEventListener("click", (e) => {
         dayId = spotEl.closest(".day").dataset.day,
         items = dayId === "backlog" ? store.backlog : dayBy(dayId).spots,
         i = items.findIndex((s) => s.id === spotEl.dataset.spot);
-    if (b.dataset.act === "move") {
+    if (b.dataset.act === "toggle-map") {
+        items[i].mapEnabled = b.checked;
+        save();
+        render();
+        drawMap();
+    } else if (b.dataset.act === "move") {
         openMoveMenu(b, dayId);
     } else if (b.dataset.act === "move-to") {
         const destination = b.dataset.day,

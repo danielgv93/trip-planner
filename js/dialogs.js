@@ -1,12 +1,11 @@
-// The add/edit place dialog (with Nominatim search + Wikipedia preview) and the
-// tag / category manager dialogs. Wires its own listeners on module load.
+// The add/edit place dialog (with Nominatim search) and the tag / category
+// manager dialogs. Wires its own listeners on module load.
 
 import { store, save, dayBy } from "./store.js";
 import { $, esc, slug, id } from "./dom.js";
 import { toast, confirmAction } from "./notify.js";
 import { render } from "./render.js";
 import { drawMap, setPreview, openPreview } from "./map.js";
-import { fetchSpotImage } from "./images.js";
 
 const dialog = $("#placeDialog");
 const tagDialog = $("#tagDialog");
@@ -16,9 +15,6 @@ const categoryDialog = $("#categoryDialog");
 // touches it, so it stays a module-local rather than living in the store.
 let editing = null;
 let searchTimer;
-let imageTimer;
-// Guards a slow response for an older name from overwriting a newer one.
-let imageToken = 0;
 
 // Native time inputs normally provide this shape, but stored/imported data may
 // not. Keep only canonical 24-hour values before they reach the form or state.
@@ -106,27 +102,6 @@ export function openDialog(dayId, spot) {
     dialog.showModal();
     openPreview(store.selectedLocation);
     $("#placeName").focus();
-    updateSpotImage();
-}
-
-async function updateSpotImage() {
-    const box = $("#spotImage"),
-        name = $("#placeName").value.trim();
-    if (name.length < 2) {
-        box.hidden = true;
-        box.innerHTML = "";
-        return;
-    }
-    // Token guards against a slow response for an older name overwriting the
-    // image of a newer one (same pattern as routeToken).
-    const token = ++imageToken;
-    box.hidden = false;
-    box.innerHTML = '<div class="spot-image-status">Buscando imagen…</div>';
-    const found = await fetchSpotImage(name);
-    if (token !== imageToken) return;
-    box.innerHTML = found
-        ? `<img src="${esc(found.src)}" alt="${esc(name)}" loading="lazy" /><div class="spot-image-caption">Imagen: ${esc(found.title)} · Wikipedia</div>`
-        : '<div class="spot-image-status">Sin imagen para este nombre.</div>';
 }
 
 async function searchPlaces(q) {
@@ -176,11 +151,6 @@ $("#placeAddress").addEventListener("input", (e) => {
     store.selectedLocation = null;
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => searchPlaces(e.target.value.trim()), 450);
-});
-
-$("#placeName").addEventListener("input", () => {
-    clearTimeout(imageTimer);
-    imageTimer = setTimeout(updateSpotImage, 500);
 });
 
 $("#resetCost").addEventListener("click", () => {
