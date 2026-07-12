@@ -533,6 +533,153 @@ main {
     color: var(--muted);
     margin-top: 2px;
 }
+.spot-hours {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: min(100%, 290px);
+    min-height: 16px;
+    margin-top: 3px;
+    color: var(--muted);
+    font: 11px "DM Mono";
+    line-height: 1;
+    pointer-events: none;
+    transition:
+        color 0.15s ease,
+        opacity 0.15s ease;
+}
+.spot-hours-icon {
+    flex: none;
+    color: #8b9295;
+    font-size: 13px;
+    transition: color 0.15s ease;
+}
+.spot-hours-text {
+    flex: none;
+    white-space: nowrap;
+}
+.spot-hours-rail {
+    position: relative;
+    flex: 1 1 90px;
+    min-width: 56px;
+    height: 4px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #dfe1df;
+    opacity: 0.72;
+    transition:
+        background 0.15s ease,
+        opacity 0.15s ease;
+}
+.spot-hours-segment {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--segment-start, 0%);
+    width: var(--segment-width, 0%);
+    min-width: 2px;
+    background: #929b98;
+    border-radius: 999px;
+    opacity: 0.82;
+    transition: opacity 0.15s ease;
+}
+.spot-hours-segment.is-equal {
+    min-width: 100%;
+    background: #929997;
+}
+.spot-hours-overlaps {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.spot-hours-overlap-segment {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--overlap-start, 0%);
+    width: var(--overlap-width, 0%);
+    min-width: 2px;
+    background: #d68b2b;
+    border-radius: 999px;
+}
+.spot-hours-detail {
+    position: absolute;
+    left: 20px;
+    bottom: calc(100% + 4px);
+    z-index: 2;
+    display: flex;
+    gap: 10px;
+    padding: 5px 7px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--card);
+    box-shadow: 0 4px 12px #2222;
+    color: var(--ink);
+    font-size: 10px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(2px);
+    transition:
+        opacity 0.15s ease,
+        transform 0.15s ease;
+}
+.spot-hours-detail span {
+    white-space: nowrap;
+}
+.spot-hours.is-complete {
+    pointer-events: auto;
+    cursor: default;
+}
+.spot-hours.is-complete:hover,
+.spot-hours.is-complete:focus-visible,
+.spot-hours.is-complete.hours-context-active {
+    color: var(--ink);
+    outline: none;
+}
+.spot-hours.is-complete:focus-visible {
+    border-radius: 3px;
+    box-shadow: 0 0 0 2px #386f6638;
+}
+.spot-hours.is-complete:hover .spot-hours-icon,
+.spot-hours.is-complete:focus-visible .spot-hours-icon,
+.spot-hours.is-complete.hours-context-active .spot-hours-icon {
+    color: var(--hours-color, var(--green));
+}
+.spot-hours.is-complete:hover .spot-hours-rail,
+.spot-hours.is-complete:focus-visible .spot-hours-rail,
+.spot-hours.is-complete.hours-context-active .spot-hours-rail {
+    background: #c9d2ce;
+    opacity: 1;
+}
+.spot-hours.is-complete:hover .spot-hours-segment,
+.spot-hours.is-complete:focus-visible .spot-hours-segment,
+.spot-hours.is-complete.hours-context-active .spot-hours-segment {
+    opacity: 1;
+}
+.spot-hours.is-complete:hover .spot-hours-detail,
+.spot-hours.is-complete:focus-visible .spot-hours-detail,
+.spot-hours.is-complete.hours-context-active .spot-hours-detail {
+    opacity: 1;
+    transform: translateY(0);
+}
+.spot-hours.hours-context-active .spot-hours-segment:not(.is-equal) {
+    background: #3d8075;
+}
+.spots.hours-comparison .spot-hours.is-complete {
+    opacity: 0.36;
+}
+.spots.hours-comparison .spot-hours.hours-context-active,
+.spots.hours-comparison .spot-hours.hours-context-overlap {
+    opacity: 1;
+}
+.spot-hours.hours-context-overlap .spot-hours-rail {
+    background: #dfe1df;
+    opacity: 1;
+}
+.spot-hours.hours-context-overlap .spot-hours-segment {
+    opacity: 1;
+}
 .spot-actions {
     display: flex;
     gap: 5px;
@@ -1041,6 +1188,37 @@ dialog::backdrop {
 .form textarea:focus {
     border-color: var(--green);
     box-shadow: 0 0 0 3px #386f6615;
+}
+.hours-field {
+    min-width: 0;
+    margin: 0;
+    padding: 10px 12px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #faf9f6;
+}
+.hours-field legend {
+    padding: 0 5px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+.hours-input-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+.hours-input-row label {
+    gap: 4px;
+    color: var(--muted);
+    font-size: 11px;
+}
+.hours-input-row input {
+    width: 100%;
+    min-width: 0;
+    padding-block: 8px;
+    background: #fff;
+    color: var(--ink);
 }
 .cost-input-row {
     display: flex;
@@ -1748,5 +1926,28 @@ body.preview-mode .spot {
     }
     .map-foot {
         font-size: 12px;
+    }
+    .hours-input-row {
+        grid-template-columns: 1fr;
+    }
+    .spot-hours {
+        width: 100%;
+    }
+    .spot-hours-detail {
+        display: none;
+    }
+    .spot-hours.is-complete:hover .spot-hours-rail,
+    .spot-hours.is-complete:focus-visible .spot-hours-rail {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spot-hours,
+    .spot-hours-icon,
+    .spot-hours-rail,
+    .spot-hours-segment,
+    .spot-hours-detail {
+        transition: none;
     }
 }

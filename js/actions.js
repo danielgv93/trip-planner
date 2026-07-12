@@ -76,7 +76,7 @@ $("#resetBtn").onclick = () => {
 $("#exportBtn").onclick = () => {
     const data = JSON.stringify(
             {
-                version: 11,
+                version: 12,
                 exportedAt: new Date().toISOString(),
                 tripTitle: store.tripTitle,
                 tripCurrency: store.tripCurrency,

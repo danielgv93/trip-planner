@@ -302,7 +302,9 @@ daysEl.addEventListener("pointerdown", (e) => {
         return;
     }
     suppressClick = false;
-    if (e.target.closest(".spot-actions")) return;
+    // The schedule rail is an interactive, keyboard-focusable detail. Keep it
+    // out of the drag start area so hover/focus feedback remains reliable.
+    if (e.target.closest(".spot-actions, .spot-hours")) return;
     if (e.button !== undefined && e.button !== 0) return;
     if (e.pointerType === "touch" && !e.target.closest(".handle")) return;
     dragEl = item;

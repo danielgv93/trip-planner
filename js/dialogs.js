@@ -20,6 +20,15 @@ let imageTimer;
 // Guards a slow response for an older name from overwriting a newer one.
 let imageToken = 0;
 
+// Native time inputs normally provide this shape, but stored/imported data may
+// not. Keep only canonical 24-hour values before they reach the form or state.
+export function normalizeTime(value) {
+    return typeof value === "string" &&
+        /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)
+        ? value
+        : undefined;
+}
+
 function renderTagOptions(selected = []) {
     const el = $("#tagOptions");
     el.innerHTML = store.tags.length
@@ -84,6 +93,8 @@ export function openDialog(dayId, spot) {
     $("#placeAddress").value = spot?.address || "";
     $("#placeNote").value = spot?.note || "";
     $("#placeCost").value = Number.isFinite(spot?.cost) ? spot.cost : "";
+    $("#placeOpeningTime").value = normalizeTime(spot?.openingTime) || "";
+    $("#placeClosingTime").value = normalizeTime(spot?.closingTime) || "";
     $("#resetCost").hidden = !spot;
     renderTagOptions(spot?.tags || []);
     renderCategoryOptions(spot?.category ? [spot.category] : []);
@@ -182,6 +193,8 @@ $("#placeForm").addEventListener("submit", async (e) => {
         address = $("#placeAddress").value.trim(),
         note = $("#placeNote").value.trim(),
         costValue = $("#placeCost").value.trim(),
+        openingTime = normalizeTime($("#placeOpeningTime").value),
+        closingTime = normalizeTime($("#placeClosingTime").value),
         parsedCost = Number(costValue),
         cost =
             costValue !== "" && Number.isFinite(parsedCost) && parsedCost >= 0
@@ -212,6 +225,10 @@ $("#placeForm").addEventListener("submit", async (e) => {
     }
     if (cost === undefined) delete spot.cost;
     else spot.cost = cost;
+    if (openingTime === undefined) delete spot.openingTime;
+    else spot.openingTime = openingTime;
+    if (closingTime === undefined) delete spot.closingTime;
+    else spot.closingTime = closingTime;
     store.active = editing.dayId;
     dialog.close();
     save();

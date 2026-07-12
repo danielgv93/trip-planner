@@ -73,7 +73,7 @@ export function save() {
     localStorage.setItem(
         "trip-planner",
         JSON.stringify({
-            version: 11,
+            version: 12,
             tripTitle: store.tripTitle,
             tripCurrency: store.tripCurrency,
             days: store.state,
