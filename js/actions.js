@@ -7,6 +7,7 @@ import { render, applyTitle } from "./render.js";
 import { drawMap } from "./map.js";
 import { toast, confirmAction } from "./notify.js";
 import { sample, DEFAULT_CATEGORIES, DEFAULT_TITLE } from "./constants.js";
+import { syncTripNotes } from "./notes.js";
 
 $("#tripTitle").addEventListener("input", (e) => {
     store.tripTitle = e.target.value;
@@ -63,9 +64,11 @@ $("#resetBtn").onclick = () => {
         store.categories = structuredClone(DEFAULT_CATEGORIES);
         store.tripTitle = DEFAULT_TITLE;
         store.tripCurrency = "";
+        store.tripNotes = "";
         store.active = "d1";
         clearTagFilter();
         applyTitle();
+        syncTripNotes();
         save();
         render();
         drawMap();
@@ -76,10 +79,11 @@ $("#resetBtn").onclick = () => {
 $("#exportBtn").onclick = () => {
     const data = JSON.stringify(
             {
-                version: 12,
+                version: 13,
                 exportedAt: new Date().toISOString(),
                 tripTitle: store.tripTitle,
                 tripCurrency: store.tripCurrency,
+                tripNotes: store.tripNotes,
                 days: store.state,
                 backlog: store.backlog,
                 tags: store.tags,
@@ -166,6 +170,7 @@ $("#importFile").onchange = async (e) => {
         if (typeof plan.tripTitle === "string") store.tripTitle = plan.tripTitle;
         store.tripCurrency =
             typeof plan.tripCurrency === "string" ? plan.tripCurrency : "";
+        store.tripNotes = typeof plan.tripNotes === "string" ? plan.tripNotes : "";
         if (["walking", "driving", "cycling"].includes(plan.routeProfile)) {
             store.routeProfile = plan.routeProfile;
             $("#routeProfile").value = store.routeProfile;
@@ -173,6 +178,7 @@ $("#importFile").onchange = async (e) => {
         store.active = store.state[0]?.id || "backlog";
         clearTagFilter();
         applyTitle();
+        syncTripNotes();
         save();
         render();
         drawMap();

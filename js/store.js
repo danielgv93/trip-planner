@@ -24,6 +24,7 @@ export const store = {
         typeof saved?.tripTitle === "string" ? saved.tripTitle : DEFAULT_TITLE,
     tripCurrency:
         typeof saved?.tripCurrency === "string" ? saved.tripCurrency : "",
+    tripNotes: typeof saved?.tripNotes === "string" ? saved.tripNotes : "",
     state: Array.isArray(saved)
         ? saved
         : saved?.days || structuredClone(sample),
@@ -73,9 +74,10 @@ export function save() {
     localStorage.setItem(
         "trip-planner",
         JSON.stringify({
-            version: 12,
+            version: 13,
             tripTitle: store.tripTitle,
             tripCurrency: store.tripCurrency,
+            tripNotes: store.tripNotes,
             days: store.state,
             backlog: store.backlog,
             backlogCollapsed: store.backlogCollapsed,

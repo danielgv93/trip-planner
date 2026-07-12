@@ -163,9 +163,53 @@
                         <span id="mapSummary">Selecciona un día</span
                         ><b>Consejo: empieza por la zona más lejana</b>
                     </div>
+                    <section class="trip-notes" aria-labelledby="tripNotesTitle">
+                        <button
+                            id="tripNotesToggle"
+                            class="trip-notes-toggle"
+                            type="button"
+                            aria-haspopup="dialog"
+                            aria-controls="tripNotesDialog"
+                        >
+                            <span class="trip-notes-heading">
+                                <i aria-hidden="true">✎</i>
+                                <span>
+                                    <strong id="tripNotesTitle">Notas del viaje</strong>
+                                    <small id="tripNotesSummary">Reservas, enlaces y recordatorios</small>
+                                </span>
+                            </span>
+                            <span class="trip-notes-open" aria-hidden="true">Abrir ↗</span>
+                        </button>
+                    </section>
                 </aside>
             </section>
         </main>
+        <dialog id="tripNotesDialog" class="notes-dialog">
+            <div class="modal-head">
+                <div>
+                    <span class="modal-eyebrow">Información general</span>
+                    <h3>Notas del viaje</h3>
+                </div>
+                <button class="close" aria-label="Cerrar">×</button>
+            </div>
+            <div class="notes-dialog-content">
+                <div class="trip-notes-toolbar">
+                    <button id="tripNotesMode" type="button" aria-pressed="false">Previsualizar</button>
+                    <span>Markdown</span>
+                </div>
+                <textarea
+                    id="tripNotes"
+                    maxlength="5000"
+                    aria-label="Notas generales del viaje"
+                    placeholder="Añade reservas, teléfonos, enlaces o cualquier recordatorio útil…"
+                ></textarea>
+                <div id="tripNotesPreview" class="trip-notes-preview" aria-label="Vista previa de las notas" hidden></div>
+                <div class="trip-notes-meta">
+                    <span>Admite # títulos, **negrita**, listas y enlaces</span>
+                    <span id="tripNotesStatus" class="trip-notes-status" aria-live="polite"></span>
+                </div>
+            </div>
+        </dialog>
         <dialog id="placeDialog">
             <div class="modal-head">
                 <h3 id="dialogTitle">Añadir una parada</h3>
@@ -334,6 +378,6 @@
             aria-atomic="false"
         ></div>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script type="module" src="js/main.js?v=11"></script>
+        <script type="module" src="js/main.js?v=13"></script>
     </body>
 </html>
