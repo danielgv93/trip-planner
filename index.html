@@ -55,6 +55,16 @@
                     <span></span><span></span><span></span>
                 </button>
                 <div id="navMenuItems" class="nav-menu-items">
+                    <button
+                        id="spotSearchBtn"
+                        class="spot-search-trigger"
+                        type="button"
+                        aria-haspopup="dialog"
+                    >
+                        <span aria-hidden="true">⌕</span>
+                        <span>Buscar parada</span>
+                        <kbd>Ctrl K</kbd>
+                    </button>
                     <button id="previewBtn">Previsualizar</button>
                     <button id="budgetBtn">Presupuesto</button>
                     <button id="resetBtn">Restaurar ejemplo</button>
@@ -76,6 +86,39 @@
                 />
             </div>
         </header>
+        <div id="spotSearch" class="spotlight" hidden>
+            <div class="spotlight-backdrop" data-search-close></div>
+            <section
+                class="spotlight-panel"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Buscar paradas"
+            >
+                <label class="spotlight-input-wrap">
+                    <span aria-hidden="true">⌕</span>
+                    <input
+                        id="spotSearchInput"
+                        type="search"
+                        autocomplete="off"
+                        aria-label="Buscar una parada"
+                        placeholder="Buscar una parada…"
+                        aria-controls="spotSearchResults"
+                        aria-autocomplete="list"
+                    />
+                    <kbd>Esc</kbd>
+                </label>
+                <div
+                    id="spotSearchResults"
+                    class="spotlight-results"
+                    role="listbox"
+                    aria-label="Resultados de paradas"
+                ></div>
+                <footer class="spotlight-help">
+                    <span><kbd>↑</kbd><kbd>↓</kbd> navegar</span>
+                    <span><kbd>↵</kbd> ir a la parada</span>
+                </footer>
+            </section>
+        </div>
         <main>
             <section class="intro">
                 <div>
