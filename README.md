@@ -6,6 +6,8 @@ Trip Planner is a responsive, browser-based travel organizer built with vanilla 
 
 The interface is currently available in Spanish.
 
+![Trip Planner showing a day-by-day itinerary and its route through Tokyo](docs/trip-planner-preview.jpg)
+
 ## Features
 
 - **Day-by-day itineraries** — create, rename, reorder, duplicate, collapse, and delete travel days.
