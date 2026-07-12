@@ -83,6 +83,8 @@ export function openDialog(dayId, spot) {
     $("#placeName").value = spot?.name || "";
     $("#placeAddress").value = spot?.address || "";
     $("#placeNote").value = spot?.note || "";
+    $("#placeCost").value = Number.isFinite(spot?.cost) ? spot.cost : "";
+    $("#resetCost").hidden = !spot;
     renderTagOptions(spot?.tags || []);
     renderCategoryOptions(spot?.category ? [spot.category] : []);
     $("#suggestions").hidden = true;
@@ -169,11 +171,22 @@ $("#placeName").addEventListener("input", () => {
     imageTimer = setTimeout(updateSpotImage, 500);
 });
 
+$("#resetCost").addEventListener("click", () => {
+    $("#placeCost").value = "0";
+    $("#placeCost").focus();
+});
+
 $("#placeForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = $("#placeName").value.trim(),
         address = $("#placeAddress").value.trim(),
         note = $("#placeNote").value.trim(),
+        costValue = $("#placeCost").value.trim(),
+        parsedCost = Number(costValue),
+        cost =
+            costValue !== "" && Number.isFinite(parsedCost) && parsedCost >= 0
+                ? parsedCost
+                : undefined,
         coordinates = store.selectedLocation || null,
         spotTags = selectedTags(),
         category = selectedCategory();
@@ -197,6 +210,8 @@ $("#placeForm").addEventListener("submit", async (e) => {
         if (category) spot.category = category;
         target.push(spot);
     }
+    if (cost === undefined) delete spot.cost;
+    else spot.cost = cost;
     store.active = editing.dayId;
     dialog.close();
     save();
@@ -207,6 +222,14 @@ $("#placeForm").addEventListener("submit", async (e) => {
 dialog.querySelector(".close").onclick = dialog.querySelector(
     ".cancel",
 ).onclick = () => dialog.close();
+
+// A click whose target is the <dialog> itself happened on its backdrop, rather
+// than on the dialog content. Keep clicks inside forms and managers untouched.
+[dialog, tagDialog, categoryDialog].forEach((modal) => {
+    modal.addEventListener("click", (event) => {
+        if (event.target === modal) modal.close();
+    });
+});
 
 function renderManagerTags() {
     const list = $("#managerTags");

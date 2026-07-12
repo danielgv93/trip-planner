@@ -46,3 +46,6 @@ export function confirmAction({ title, message, confirmLabel = "Eliminar" }) {
 
 $("#confirmCancel").onclick = $("#confirmClose").onclick = () =>
     confirmDialog.close();
+confirmDialog.addEventListener("click", (event) => {
+    if (event.target === confirmDialog) confirmDialog.close();
+});

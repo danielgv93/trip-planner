@@ -14,6 +14,12 @@ $("#tripTitle").addEventListener("input", (e) => {
     save();
 });
 
+$("#tripCurrency").addEventListener("input", (e) => {
+    store.tripCurrency = e.target.value;
+    save();
+    render({ persist: false });
+});
+
 $("#addDay").onclick = () => {
     const date = store.state.length
         ? new Date(store.state[store.state.length - 1].date + "T12:00:00")
@@ -56,6 +62,7 @@ $("#resetBtn").onclick = () => {
         store.tags = ["comida", "templo", "reserva", "compras"];
         store.categories = structuredClone(DEFAULT_CATEGORIES);
         store.tripTitle = DEFAULT_TITLE;
+        store.tripCurrency = "";
         store.active = "d1";
         clearTagFilter();
         applyTitle();
@@ -69,9 +76,10 @@ $("#resetBtn").onclick = () => {
 $("#exportBtn").onclick = () => {
     const data = JSON.stringify(
             {
-                version: 8,
+                version: 11,
                 exportedAt: new Date().toISOString(),
                 tripTitle: store.tripTitle,
+                tripCurrency: store.tripCurrency,
                 days: store.state,
                 backlog: store.backlog,
                 tags: store.tags,
@@ -156,6 +164,8 @@ $("#importFile").onchange = async (e) => {
             ? plan.categories
             : store.categories;
         if (typeof plan.tripTitle === "string") store.tripTitle = plan.tripTitle;
+        store.tripCurrency =
+            typeof plan.tripCurrency === "string" ? plan.tripCurrency : "";
         if (["walking", "driving", "cycling"].includes(plan.routeProfile)) {
             store.routeProfile = plan.routeProfile;
             $("#routeProfile").value = store.routeProfile;

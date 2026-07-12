@@ -8,6 +8,7 @@ import { drawMap } from "./map.js";
 import "./dialogs.js";
 import "./dnd.js";
 import "./actions.js";
+import "./budget.js";
 
 applyTitle();
 render();

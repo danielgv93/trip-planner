@@ -65,6 +65,48 @@ button {
     color: #bcc8c8;
     margin-top: 2px;
 }
+.brand-meta {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+}
+.brand-meta > small {
+    margin-top: 0;
+}
+.currency-field {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #bcc8c8;
+    font: 10px "DM Mono";
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.currency-field input {
+    width: 45px;
+    padding: 1px 3px;
+    border: 0;
+    border-bottom: 1px dashed #ffffff45;
+    outline: none;
+    background: transparent;
+    color: #fff;
+    font: 11px "DM Mono";
+}
+.currency-field input:focus {
+    border-bottom-color: var(--red);
+}
+.budget-total {
+    max-width: 150px;
+    overflow: hidden;
+    padding: 2px 6px;
+    border: 1px solid #ffffff30;
+    border-radius: 999px;
+    color: #f1c865;
+    font: 500 10px "DM Mono";
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .brand .trip-title {
     font-family: "Playfair Display", serif;
     font-size: 21px;
@@ -402,7 +444,7 @@ main {
 }
 .spot {
     display: grid;
-    grid-template-columns: 26px 1fr auto;
+    grid-template-columns: 26px 1fr auto auto;
     align-items: center;
     gap: 8px;
     border: 1px solid transparent;
@@ -414,6 +456,14 @@ main {
         background 0.14s ease,
         border-color 0.14s ease,
         box-shadow 0.14s ease;
+}
+.spot-cost {
+    padding: 4px 7px;
+    border-radius: 999px;
+    background: #f1e8d5;
+    color: #6f5837;
+    font: 600 11px "DM Mono";
+    white-space: nowrap;
 }
 .spot:hover {
     border-color: var(--line);
@@ -776,6 +826,89 @@ dialog[open] {
 dialog::backdrop {
     background: #15232b70;
 }
+.budget-dialog {
+    width: min(760px, calc(100% - 32px));
+}
+.budget-content {
+    padding: 20px;
+    overflow-y: auto;
+}
+.budget-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    border-radius: 7px;
+    background: var(--sand);
+}
+.budget-summary span {
+    color: #765f40;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.budget-summary strong {
+    color: var(--ink);
+    font: 700 22px "Playfair Display";
+}
+.budget-tables {
+    display: grid;
+    gap: 18px;
+}
+.budget-group {
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    overflow: hidden;
+}
+.budget-group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 13px;
+    background: #f7f5f0;
+}
+.budget-group-head h4 {
+    margin: 0;
+    font-size: 14px;
+}
+.budget-group-head strong {
+    color: var(--green);
+    font: 600 13px "DM Mono";
+    white-space: nowrap;
+}
+.budget-table-wrap {
+    overflow-x: auto;
+}
+.budget-group table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.budget-group th,
+.budget-group td {
+    padding: 9px 13px;
+    border-top: 1px solid var(--line);
+    text-align: left;
+}
+.budget-group th {
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.budget-group th:last-child,
+.budget-group td:last-child {
+    text-align: right;
+    white-space: nowrap;
+}
+.budget-empty {
+    color: var(--muted);
+    text-align: center !important;
+}
 .confirm-msg {
     margin: 0;
     font-size: 15px;
@@ -908,6 +1041,39 @@ dialog::backdrop {
 .form textarea:focus {
     border-color: var(--green);
     box-shadow: 0 0 0 3px #386f6615;
+}
+.cost-input-row {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+}
+.cost-input-row input {
+    min-width: 0;
+    flex: 1;
+}
+.reset-cost {
+    flex: none;
+    border: 1px solid #d9d8d2;
+    border-radius: 4px;
+    padding: 0 10px;
+    background: #f7f5f0;
+    color: var(--green);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        transform 0.15s ease;
+}
+.reset-cost:hover,
+.reset-cost:focus-visible {
+    border-color: var(--green);
+    background: #eaf2ef;
+    outline: none;
+}
+.reset-cost:active {
+    transform: translateY(1px);
 }
 .form textarea {
     resize: vertical;
@@ -1486,6 +1652,17 @@ body.preview-mode .spot {
         height: auto;
         min-height: 68px;
         padding: 11px 16px;
+    }
+    .brand-meta > small,
+    .currency-field > span {
+        display: none;
+    }
+    .brand .trip-title {
+        width: min(48vw, 260px);
+        font-size: 18px;
+    }
+    .budget-total {
+        max-width: 100px;
     }
     /* Collapse the whole action bar behind a hamburger. */
     .top-actions {

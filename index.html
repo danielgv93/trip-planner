@@ -27,7 +27,21 @@
                         aria-label="Título del viaje"
                         placeholder="Nombre del viaje"
                         maxlength="60"
-                    /><small>RUTA COMPARTIDA</small>
+                    />
+                    <div class="brand-meta">
+                        <small>RUTA COMPARTIDA</small>
+                        <label class="currency-field"
+                            ><span>Moneda</span
+                            ><input
+                                id="tripCurrency"
+                                aria-label="Moneda del viaje"
+                                placeholder="€"
+                                maxlength="12"
+                        /></label>
+                        <span id="tripBudgetTotal" class="budget-total"
+                            >Total: 0,00</span
+                        >
+                    </div>
                 </div>
             </div>
             <div class="top-actions">
@@ -42,6 +56,7 @@
                 </button>
                 <div id="navMenuItems" class="nav-menu-items">
                     <button id="previewBtn">Previsualizar</button>
+                    <button id="budgetBtn">Presupuesto</button>
                     <button id="resetBtn">Restaurar ejemplo</button>
                     <button id="importBtn">Importar</button>
                     <button class="primary" id="exportBtn">Exportar plan</button>
@@ -147,6 +162,27 @@
                         placeholder="Reserva, horario, idea de comida…"
                     ></textarea>
                 </label>
+                <label class="cost-field"
+                    >Coste (opcional)
+                    <span class="cost-input-row">
+                        <input
+                            id="placeCost"
+                            type="number"
+                            step="0.01"
+                            inputmode="decimal"
+                            placeholder="0,00"
+                        />
+                        <button
+                            id="resetCost"
+                            class="reset-cost"
+                            type="button"
+                            title="Restablecer el coste a 0"
+                            hidden
+                        >
+                            ↺ Poner a 0
+                        </button>
+                    </span>
+                </label>
                 <p class="form-hint">
                     Selecciona una sugerencia para fijar el punto y comprobar en
                     qué zona está antes de guardar.
@@ -221,6 +257,19 @@
                 </div>
             </div>
         </dialog>
+        <dialog id="budgetDialog" class="budget-dialog">
+            <div class="modal-head">
+                <h3>Presupuesto del viaje</h3>
+                <button class="close" aria-label="Cerrar">×</button>
+            </div>
+            <div class="budget-content">
+                <div class="budget-summary">
+                    <span>Total estimado</span>
+                    <strong id="budgetGrandTotal">0,00</strong>
+                </div>
+                <div id="budgetTables" class="budget-tables"></div>
+            </div>
+        </dialog>
         <div
             id="toasts"
             class="toasts"
@@ -228,6 +277,6 @@
             aria-atomic="false"
         ></div>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script type="module" src="js/main.js"></script>
+        <script type="module" src="js/main.js?v=11"></script>
     </body>
 </html>

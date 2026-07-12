@@ -20,6 +20,23 @@ import { toast, confirmAction } from "./notify.js";
 import { drawMap } from "./map.js";
 import { openDialog } from "./dialogs.js";
 
+export function sumCosts(spots) {
+    return spots.reduce(
+        (total, spot) =>
+            total +
+            (Number.isFinite(spot?.cost) && spot.cost >= 0 ? spot.cost : 0),
+        0,
+    );
+}
+
+export function formatCost(amount) {
+    const formatted = amount.toLocaleString("es-ES", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+    return store.tripCurrency ? `${formatted} ${store.tripCurrency}` : formatted;
+}
+
 export function duplicateDay(dayId) {
     if (dayId === "backlog") return;
     const idx = store.state.findIndex((d) => d.id === dayId);
@@ -96,7 +113,11 @@ function renderList(el, spots, isBacklog = false) {
         spot.className = "spot";
         spot.dataset.spot = s.id;
         const cat = categoryMeta(s.category);
-        spot.innerHTML = `<span class="handle">⠿</span><span class="spot-content"><span class="spot-name">${isBacklog ? "" : `<span class="number">${i + 1}</span>`} ${esc(s.name)}</span><span class="spot-meta">${esc(s.note || s.address || "Sin detalles")}</span><span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span><span class="spot-actions"><span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
+        const spotCost =
+            Number.isFinite(s.cost) && s.cost >= 0
+                ? `<span class="spot-cost">${esc(formatCost(s.cost))}</span>`
+                : "";
+        spot.innerHTML = `<span class="handle">⠿</span><span class="spot-content"><span class="spot-name">${isBacklog ? "" : `<span class="number">${i + 1}</span>`} ${esc(s.name)}</span><span class="spot-meta">${esc(s.note || s.address || "Sin detalles")}</span><span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
         list.append(spot);
     });
 }
@@ -154,7 +175,7 @@ export function render({ persist = true } = {}) {
         (store.active === "backlog" ? "active " : "") +
         (store.backlogCollapsed ? "collapsed" : "");
     b.dataset.day = "backlog";
-    b.innerHTML = `<div class="day-head"><div class="date-box"><span>ideas</span><strong>+</strong></div><div class="day-title"><div class="title-line"><span class="day-name">Backlog de paradas</span></div><small>${store.backlog.length} sin asignar · arrástralas a un día cuando decidáis</small></div><button class="day-collapse" title="${store.backlogCollapsed ? "Restaurar backlog" : "Minimizar backlog"}" aria-label="Minimizar o restaurar backlog">${store.backlogCollapsed ? "▸" : "▾"}</button></div><div class="spots"></div><button class="add-place">＋ Añadir al backlog</button>`;
+    b.innerHTML = `<div class="day-head"><div class="date-box"><span>ideas</span><strong>+</strong></div><div class="day-title"><div class="title-line"><span class="day-name">Backlog de paradas</span></div><small>${store.backlog.length} sin asignar · ${esc(formatCost(sumCosts(store.backlog)))} · arrástralas a un día cuando decidáis</small></div><button class="day-collapse" title="${store.backlogCollapsed ? "Restaurar backlog" : "Minimizar backlog"}" aria-label="Minimizar o restaurar backlog">${store.backlogCollapsed ? "▸" : "▾"}</button></div><div class="spots"></div><button class="add-place">＋ Añadir al backlog</button>`;
     renderList(b, store.backlog, true);
     b.querySelector(".day-head").addEventListener("click", (e) => {
         if (e.target.closest("button")) return;
@@ -178,7 +199,7 @@ export function render({ persist = true } = {}) {
             (day.id === store.active ? "active " : "") +
             (day.collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
-        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${day.spots.length} ${day.spots.length === 1 ? "parada" : "paradas"} · pulsa para ver ruta</small></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div><div class="spots"></div><button class="add-place">＋ Añadir una parada</button>`;
+        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${day.spots.length} ${day.spots.length === 1 ? "parada" : "paradas"} · ${esc(formatCost(sumCosts(day.spots)))} · pulsa para ver ruta</small></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div><div class="spots"></div><button class="add-place">＋ Añadir una parada</button>`;
         renderList(el, day.spots);
         el.querySelector(".day-head").addEventListener("click", (e) => {
             if (
@@ -248,6 +269,10 @@ export function render({ persist = true } = {}) {
         el.querySelector(".add-place").onclick = () => openDialog(day.id);
         daysEl.append(el);
     });
+    const tripTotal =
+        sumCosts(store.backlog) +
+        store.state.reduce((total, day) => total + sumCosts(day.spots), 0);
+    $("#tripBudgetTotal").textContent = `Total: ${formatCost(tripTotal)}`;
     if (persist) save();
 }
 
@@ -316,6 +341,7 @@ export function moveDay(dayId, at) {
 
 export function applyTitle() {
     $("#tripTitle").value = store.tripTitle;
+    $("#tripCurrency").value = store.tripCurrency;
     document.title = (store.tripTitle || "Viaje") + " · Planificador de ruta";
 }
 
