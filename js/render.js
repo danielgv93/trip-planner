@@ -28,7 +28,7 @@ export function sumCosts(spots) {
     return spots.reduce(
         (total, spot) =>
             total +
-            (Number.isFinite(spot?.cost) && spot.cost >= 0 ? spot.cost : 0),
+            (Number.isFinite(spot?.cost) && spot.cost > 0 ? spot.cost : 0),
         0,
     );
 }
@@ -424,11 +424,14 @@ function renderList(el, spots, isBacklog = false) {
         spot.dataset.spotName = s.name || "Parada sin nombre";
         const cat = categoryMeta(s.category);
         const spotCost =
-            Number.isFinite(s.cost) && s.cost >= 0
+            Number.isFinite(s.cost) && s.cost > 0
                 ? `<span class="spot-cost">${esc(formatCost(s.cost))}</span>`
                 : "";
+        const spotNote = s.note?.trim()
+            ? `<span class="spot-meta">${esc(s.note)}</span>`
+            : "";
         const spotHours = renderSpotHours(s, cat.color);
-        spot.innerHTML = `<span class="handle">⠿</span><span class="spot-content"><span class="spot-name">${isBacklog ? "" : `<span class="number">${i + 1}</span>`} ${esc(s.name)}</span><span class="spot-meta">${esc(s.note || s.address || "Sin detalles")}</span>${spotHours}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
+        spot.innerHTML = `<span class="handle">⠿</span><span class="spot-content"><span class="spot-name">${isBacklog ? "" : `<span class="number">${i + 1}</span>`} ${esc(s.name)}</span>${spotNote}${spotHours}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
         list.append(spot);
     });
     wireHoursComparison(list);

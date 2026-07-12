@@ -197,7 +197,7 @@ $("#placeForm").addEventListener("submit", async (e) => {
         closingTime = normalizeTime($("#placeClosingTime").value),
         parsedCost = Number(costValue),
         cost =
-            costValue !== "" && Number.isFinite(parsedCost) && parsedCost >= 0
+            costValue !== "" && Number.isFinite(parsedCost) && parsedCost > 0
                 ? parsedCost
                 : undefined,
         coordinates = store.selectedLocation || null,

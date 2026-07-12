@@ -8,12 +8,12 @@ import { sumCosts, formatCost } from "./render.js";
 const dialog = $("#budgetDialog");
 
 function validCost(spot) {
-    return Number.isFinite(spot?.cost) && spot.cost >= 0 ? spot.cost : 0;
+    return Number.isFinite(spot?.cost) && spot.cost > 0 ? spot.cost : 0;
 }
 
 function renderGroup(title, spots) {
     const pricedSpots = spots.filter(
-        (spot) => Number.isFinite(spot?.cost) && spot.cost >= 0,
+        (spot) => Number.isFinite(spot?.cost) && spot.cost > 0,
     );
     const rows = pricedSpots.length
         ? pricedSpots

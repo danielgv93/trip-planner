@@ -893,6 +893,7 @@ main {
     text-overflow: ellipsis;
 }
 .spot-meta {
+    display: block;
     font-size: 12px;
     color: var(--muted);
     margin-top: 2px;
