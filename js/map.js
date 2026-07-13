@@ -10,7 +10,7 @@ import {
     categoryMeta,
     categoryConnects,
     spotMatchesFilter,
-    spotIsMapEnabled,
+    spotIsEnabled,
 } from "./store.js";
 import { $, esc, safeColor } from "./dom.js";
 import { DAY_COLORS } from "./constants.js";
@@ -125,7 +125,7 @@ function drawGlobalMap() {
     store.state.forEach((day, i) => {
         const visibleSpots = day.spots
             .filter(spotMatchesFilter)
-            .filter(spotIsMapEnabled);
+            .filter(spotIsEnabled);
         totalSpots += visibleSpots.length;
         const located = visibleSpots.filter(
             (s) => Number.isFinite(s.lat) && Number.isFinite(s.lng),
@@ -232,7 +232,7 @@ async function fetchLeg(from, to, profile) {
 function connectingLocated(spots) {
     return spots.filter(
         (s) =>
-            spotIsMapEnabled(s) &&
+            spotIsEnabled(s) &&
             Number.isFinite(s.lat) &&
             Number.isFinite(s.lng) &&
             categoryConnects(s.category),
@@ -289,7 +289,7 @@ function ensureRoutes() {
     if (!day) return;
     const visibleSpots = day.spots
         .filter(spotMatchesFilter)
-        .filter(spotIsMapEnabled);
+        .filter(spotIsEnabled);
     const seq = connectingLocated(visibleSpots);
     if (seq.length < 2) return;
     const pending = [];
@@ -333,7 +333,7 @@ export function drawMap() {
     $("#mapTitle").textContent = day.title;
     const visibleSpots = day.spots
         .filter(spotMatchesFilter)
-        .filter(spotIsMapEnabled);
+        .filter(spotIsEnabled);
     const located = visibleSpots.filter(
         (s) => Number.isFinite(s.lat) && Number.isFinite(s.lng),
     );
@@ -368,7 +368,7 @@ export function drawMap() {
         }
     }
     const directionsLink =
-        store.active === "backlog" ? null : dayDirectionsLink(day.spots);
+        store.active === "backlog" ? null : dayDirectionsLink(visibleSpots);
     const directionsAction = directionsLink
         ? ` <a class="day-directions-link" href="${directionsLink}" target="_blank" rel="noopener" aria-label="Abrir indicaciones para todo el día en Google Maps">Abrir ruta del día ↗</a>`
         : "";

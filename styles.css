@@ -867,8 +867,8 @@ main {
     border-color: var(--line);
     background: #fcfcfa;
 }
-.spot.map-disabled .spot-content,
-.spot.map-disabled .spot-cost {
+.spot.spot-disabled .spot-content,
+.spot.spot-disabled .spot-cost {
     opacity: 0.52;
 }
 .spot.dragging {
@@ -1091,21 +1091,21 @@ main {
     gap: 5px;
     align-items: center;
 }
-.map-toggle {
+.spot-toggle {
     display: grid;
     width: 20px;
     height: 20px;
     place-items: center;
     cursor: pointer;
 }
-.map-toggle input {
+.spot-toggle input {
     width: 16px;
     height: 16px;
     margin: 0;
     accent-color: var(--green);
     cursor: pointer;
 }
-.map-toggle:has(input:focus-visible) {
+.spot-toggle:has(input:focus-visible) {
     outline: 2px solid var(--green);
     outline-offset: 2px;
 }
@@ -2517,7 +2517,7 @@ dialog::backdrop {
 body.preview-mode .handle,
 body.preview-mode .day-handle,
 body.preview-mode .spot-actions,
-body.preview-mode .map-toggle,
+body.preview-mode .spot-toggle,
 body.preview-mode .add-place,
 body.preview-mode .add-day,
 body.preview-mode .day-options,

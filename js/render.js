@@ -14,6 +14,7 @@ import {
     toggleTagFilter,
     clearTagFilter,
     spotMatchesFilter,
+    spotIsEnabled,
 } from "./store.js";
 import { $, esc, safeColor, fmt, daysEl, id } from "./dom.js";
 import { toast, confirmAction } from "./notify.js";
@@ -29,9 +30,17 @@ export function sumCosts(spots) {
     return spots.reduce(
         (total, spot) =>
             total +
-            (Number.isFinite(spot?.cost) && spot.cost > 0 ? spot.cost : 0),
+            (spotIsEnabled(spot) &&
+            Number.isFinite(spot?.cost) &&
+            spot.cost > 0
+                ? spot.cost
+                : 0),
         0,
     );
+}
+
+function enabledSpotCount(spots) {
+    return spots.filter(spotIsEnabled).length;
 }
 
 export function formatCost(amount) {
@@ -122,7 +131,7 @@ export function scheduleOverlapSegments(
     );
 }
 
-export function renderSpotHours(spot, color) {
+export function renderSpotHours(spot, color, interactive = true) {
     const opening = timeToMinutes(spot?.openingTime),
         closing = timeToMinutes(spot?.closingTime),
         hasOpening = opening !== null,
@@ -143,14 +152,15 @@ export function renderSpotHours(spot, color) {
                     `<span class="spot-hours-segment${equal ? " is-equal" : ""}" style="--segment-start:${start.toFixed(4)}%;--segment-width:${width.toFixed(4)}%"></span>`,
             )
             .join("");
-    return `<span class="spot-hours is-complete" tabindex="0" data-hours-opening="${esc(openingTime)}" data-hours-closing="${esc(closingTime)}" aria-label="Horario: abre a las ${esc(openingTime)} y cierra a las ${esc(closingTime)}" style="--hours-color:${safeColor(color)}"><span class="spot-hours-icon" aria-hidden="true">◷</span><span class="spot-hours-text">${esc(openingTime)}–${esc(closingTime)}</span><span class="spot-hours-rail" aria-hidden="true">${rail}<span class="spot-hours-overlaps"></span></span><span class="spot-hours-detail" aria-hidden="true">Abre ${esc(openingTime)} · Cierra ${esc(closingTime)}</span></span>`;
+    return `<span class="spot-hours is-complete"${interactive ? ' tabindex="0"' : ""} data-hours-opening="${esc(openingTime)}" data-hours-closing="${esc(closingTime)}" aria-label="Horario: abre a las ${esc(openingTime)} y cierra a las ${esc(closingTime)}" style="--hours-color:${safeColor(color)}"><span class="spot-hours-icon" aria-hidden="true">◷</span><span class="spot-hours-text">${esc(openingTime)}–${esc(closingTime)}</span><span class="spot-hours-rail" aria-hidden="true">${rail}<span class="spot-hours-overlaps"></span></span><span class="spot-hours-detail" aria-hidden="true">Abre ${esc(openingTime)} · Cierra ${esc(closingTime)}</span></span>`;
 }
 
 function renderDaySchedule(spots, dayId) {
     const scheduled = spots.filter(
         (spot) =>
-            timeToMinutes(spot?.openingTime) !== null ||
-            timeToMinutes(spot?.closingTime) !== null,
+            spotIsEnabled(spot) &&
+            (timeToMinutes(spot?.openingTime) !== null ||
+                timeToMinutes(spot?.closingTime) !== null),
     );
     if (!scheduled.length) return "";
 
@@ -280,7 +290,11 @@ function clearHoursComparison(list) {
 }
 
 function activateHoursComparison(list, activeRow) {
-    const rows = [...list.querySelectorAll(".spot-hours.is-complete")],
+    const rows = [
+            ...list.querySelectorAll(
+                ".spot:not(.spot-disabled) .spot-hours.is-complete",
+            ),
+        ],
         overlaps = rows.filter(
             (row) =>
                 row !== activeRow &&
@@ -339,7 +353,9 @@ function activateHoursComparison(list, activeRow) {
 }
 
 function wireHoursComparison(list) {
-    list.querySelectorAll(".spot-hours.is-complete").forEach((row) => {
+    list.querySelectorAll(
+        ".spot:not(.spot-disabled) .spot-hours.is-complete",
+    ).forEach((row) => {
         row.addEventListener("mouseenter", () => activateHoursComparison(list, row));
         row.addEventListener("mouseleave", () => clearHoursComparison(list));
         row.addEventListener("focus", () => activateHoursComparison(list, row));
@@ -432,20 +448,20 @@ function renderList(el, spots, isBacklog = false) {
         const spotNote = s.note?.trim()
             ? `<span class="spot-meta">${esc(s.note)}</span>`
             : "";
-        const spotHours = renderSpotHours(s, cat.color);
+        const enabled = spotIsEnabled(s);
+        const spotHours = renderSpotHours(s, cat.color, enabled);
         const mapsLink = mapsLinkFor(s);
         const mapsAction = mapsLink
             ? `<a class="open-in-maps" href="${mapsLink}" target="_blank" rel="noopener" title="Abrir en Google Maps" aria-label="Abrir ${esc(s.name || "parada")} en Google Maps"><span aria-hidden="true">↗</span></a>`
             : "";
-        const mapEnabled = s.mapEnabled !== false;
-        if (mapEnabled) mapNumber += 1;
+        if (enabled) mapNumber += 1;
         const number = isBacklog
             ? ""
-            : mapEnabled
+            : enabled
               ? `<span class="number">${mapNumber}</span>`
               : '<span class="number number-placeholder" aria-hidden="true">−</span>';
-        spot.classList.toggle("map-disabled", !mapEnabled);
-        spot.innerHTML = `<span class="handle">⠿</span><label class="map-toggle" title="${mapEnabled ? "Deshabilitar en el mapa" : "Habilitar en el mapa"}"><input type="checkbox" data-act="toggle-map" ${mapEnabled ? "checked" : ""} aria-label="Mostrar ${esc(s.name || "parada")} en el mapa"></label><span class="spot-content"><span class="spot-name">${number} ${esc(s.name)}</span>${spotNote}${spotHours}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions">${mapsAction}<span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
+        spot.classList.toggle("spot-disabled", !enabled);
+        spot.innerHTML = `<span class="handle">⠿</span><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number} ${esc(s.name)}</span>${spotNote}${spotHours}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions">${mapsAction}<span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
         list.append(spot);
     });
     wireHoursComparison(list);
@@ -472,11 +488,11 @@ function openMoveMenu(button, currentDay) {
     if (alreadyOpen) return;
 
     const destinations = [
-        { id: "backlog", title: "Backlog", detail: `${store.backlog.length} sin asignar` },
+        { id: "backlog", title: "Backlog", detail: `${enabledSpotCount(store.backlog)} activas sin asignar` },
         ...store.state.map((day) => ({
             id: day.id,
             title: day.title,
-            detail: `${fmt(day.date).day} ${fmt(day.date).month} · ${day.spots.length} ${day.spots.length === 1 ? "parada" : "paradas"}`,
+            detail: `${fmt(day.date).day} ${fmt(day.date).month} · ${enabledSpotCount(day.spots)} activas`,
         })),
     ];
     const menu = document.createElement("span");
@@ -504,7 +520,8 @@ export function render({ persist = true } = {}) {
         (store.active === "backlog" ? "active " : "") +
         (store.backlogCollapsed ? "collapsed" : "");
     b.dataset.day = "backlog";
-    b.innerHTML = `<div class="day-head"><div class="date-box"><span>ideas</span><strong>+</strong></div><div class="day-title"><div class="title-line"><span class="day-name">Backlog de paradas</span></div><small>${store.backlog.length} sin asignar · ${esc(formatCost(sumCosts(store.backlog)))} · arrástralas a un día cuando decidáis</small></div><button class="day-collapse" title="${store.backlogCollapsed ? "Restaurar backlog" : "Minimizar backlog"}" aria-label="Minimizar o restaurar backlog">${store.backlogCollapsed ? "▸" : "▾"}</button></div><div class="spots"></div><button class="add-place">＋ Añadir al backlog</button>`;
+    const activeBacklogCount = enabledSpotCount(store.backlog);
+    b.innerHTML = `<div class="day-head"><div class="date-box"><span>ideas</span><strong>+</strong></div><div class="day-title"><div class="title-line"><span class="day-name">Backlog de paradas</span></div><small>${activeBacklogCount} sin asignar · ${esc(formatCost(sumCosts(store.backlog)))} · arrástralas a un día cuando decidáis</small></div><button class="day-collapse" title="${store.backlogCollapsed ? "Restaurar backlog" : "Minimizar backlog"}" aria-label="Minimizar o restaurar backlog">${store.backlogCollapsed ? "▸" : "▾"}</button></div><div class="spots"></div><button class="add-place">＋ Añadir al backlog</button>`;
     renderList(b, store.backlog, true);
     b.querySelector(".day-head").addEventListener("click", (e) => {
         if (e.target.closest("button")) return;
@@ -522,13 +539,14 @@ export function render({ persist = true } = {}) {
     daysEl.append(b);
     store.state.forEach((day) => {
         const f = fmt(day.date),
+            activeSpotCount = enabledSpotCount(day.spots),
             el = document.createElement("article");
         el.className =
             "day " +
             (day.id === store.active ? "active " : "") +
             (day.collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
-        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${day.spots.length} ${day.spots.length === 1 ? "parada" : "paradas"} · ${esc(formatCost(sumCosts(day.spots)))} · pulsa para ver ruta</small></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div>${renderDaySchedule(day.spots, day.id)}<div class="spots"></div><button class="add-place">＋ Añadir una parada</button>`;
+        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))} · pulsa para ver ruta</small></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div>${renderDaySchedule(day.spots, day.id)}<div class="spots"></div><button class="add-place">＋ Añadir una parada</button>`;
         renderList(el, day.spots);
         wireDaySchedule(el, day.id);
         el.querySelector(".day-head").addEventListener("click", (e) => {
@@ -688,7 +706,7 @@ daysEl.addEventListener("click", (e) => {
         dayId = spotEl.closest(".day").dataset.day,
         items = dayId === "backlog" ? store.backlog : dayBy(dayId).spots,
         i = items.findIndex((s) => s.id === spotEl.dataset.spot);
-    if (b.dataset.act === "toggle-map") {
+    if (b.dataset.act === "toggle-enabled") {
         items[i].mapEnabled = b.checked;
         save();
         render();

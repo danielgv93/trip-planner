@@ -1,7 +1,7 @@
 // Read-only budget breakdown dialog. It derives every value from the shared
 // store, so moving or editing spots needs no budget-specific mutation path.
 
-import { store } from "./store.js";
+import { store, spotIsEnabled } from "./store.js";
 import { $, esc } from "./dom.js";
 import { sumCosts } from "./render.js";
 import { foreignAmount, localAmount } from "./currency.js";
@@ -14,7 +14,10 @@ function validCost(spot) {
 
 function renderGroup(title, spots) {
     const pricedSpots = spots.filter(
-        (spot) => Number.isFinite(spot?.cost) && spot.cost > 0,
+        (spot) =>
+            spotIsEnabled(spot) &&
+            Number.isFinite(spot?.cost) &&
+            spot.cost > 0,
     );
     const rows = pricedSpots.length
         ? pricedSpots

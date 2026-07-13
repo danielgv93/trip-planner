@@ -84,8 +84,10 @@ export function spotMatchesFilter(spot) {
 }
 
 // Missing is enabled so legacy plans and newly-created stops work by default.
-// Only an explicit false removes a stop from every map and route calculation.
-export function spotIsMapEnabled(spot) {
+// `mapEnabled` is kept as the persisted field for backwards compatibility, but
+// the switch now controls whether the stop participates in any trip summary or
+// calculation (maps, routes, schedules, budgets and active-stop counts).
+export function spotIsEnabled(spot) {
     return spot?.mapEnabled !== false;
 }
 
