@@ -14,7 +14,7 @@
             rel="stylesheet"
             href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         />
-        <link rel="stylesheet" href="styles.css?v=18" />
+        <link rel="stylesheet" href="styles.css?v=19" />
     </head>
     <body>
         <header class="top">
@@ -311,8 +311,12 @@
                 </div>
                 <div id="managerTags" class="manager-list"></div>
                 <p class="form-hint">
-                    Puedes incluir emojis en las etiquetas. Al borrar una
-                    etiqueta se elimina también de las paradas que la usen.
+                    <span aria-hidden="true">💡</span>
+                    <span
+                        >Puedes incluir emojis y cambiar el nombre de las
+                        etiquetas. Los cambios se aplican a todas las paradas
+                        que las usen.</span
+                    >
                 </p>
             </div>
         </dialog>
@@ -412,6 +416,6 @@
             aria-atomic="false"
         ></div>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script type="module" src="js/main.js?v=19"></script>
+        <script type="module" src="js/main.js?v=20"></script>
     </body>
 </html>

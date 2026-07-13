@@ -223,29 +223,108 @@ function renderManagerTags() {
     const list = $("#managerTags");
     list.innerHTML = store.tags.length
         ? ""
-        : '<p class="form-hint">Aún no hay etiquetas.</p>';
+        : '<p class="form-hint manager-empty">Aún no hay etiquetas. Añade la primera arriba.</p>';
     store.tags.forEach((tag) => {
         const row = document.createElement("div");
         row.className = "manager-tag";
-        row.innerHTML = `<span class="tag">#${esc(tag)}</span><button title="Borrar etiqueta">Eliminar</button>`;
-        row.querySelector("button").onclick = () => {
+
+        const prefix = document.createElement("span");
+        prefix.className = "manager-tag-prefix";
+        prefix.textContent = "#";
+        prefix.setAttribute("aria-hidden", "true");
+
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.className = "manager-tag-name";
+        nameInput.value = tag;
+        nameInput.setAttribute("aria-label", `Nombre de la etiqueta ${tag}`);
+        let currentTag = tag;
+        const commitRename = () => {
+            const nextTag = nameInput.value
+                .trim()
+                .replace(/^#/, "")
+                .toLowerCase();
+            if (!nextTag) {
+                nameInput.value = currentTag;
+                toast("El nombre de la etiqueta no puede estar vacío.", "error");
+                return;
+            }
+            if (
+                nextTag !== currentTag &&
+                store.tags.some((existing) => existing === nextTag)
+            ) {
+                nameInput.value = currentTag;
+                toast(`La etiqueta #${nextTag} ya existe.`, "error");
+                return;
+            }
+            nameInput.value = nextTag;
+            if (nextTag === currentTag) return;
+
+            const previousTag = currentTag;
+            const index = store.tags.indexOf(previousTag);
+            if (index !== -1) store.tags[index] = nextTag;
+            [...store.state.flatMap((d) => d.spots), ...store.backlog].forEach(
+                (spot) => {
+                    if (!(spot.tags || []).includes(previousTag)) return;
+                    spot.tags = [
+                        ...new Set(
+                            (spot.tags || []).map((spotTag) =>
+                                spotTag === previousTag ? nextTag : spotTag,
+                            ),
+                        ),
+                    ];
+                },
+            );
+            if (store.activeTagFilter.delete(previousTag))
+                store.activeTagFilter.add(nextTag);
+            currentTag = nextTag;
+            nameInput.setAttribute(
+                "aria-label",
+                `Nombre de la etiqueta ${nextTag}`,
+            );
+            delBtn.setAttribute("aria-label", `Borrar etiqueta ${nextTag}`);
+            save();
+            render();
+            drawMap();
+            toast(`Etiqueta #${previousTag} renombrada a #${nextTag}.`, "info");
+        };
+        nameInput.addEventListener("blur", commitRename);
+        nameInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") nameInput.blur();
+            if (event.key === "Escape") {
+                nameInput.value = currentTag;
+                nameInput.blur();
+            }
+        });
+
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "cat-del";
+        delBtn.title = "Borrar etiqueta";
+        delBtn.setAttribute("aria-label", `Borrar etiqueta ${tag}`);
+        delBtn.textContent = "×";
+        delBtn.onclick = () => {
             confirmAction({
                 title: "Borrar etiqueta",
-                message: `¿Borrar la etiqueta #${tag} de todas las paradas?`,
+                message: `¿Borrar la etiqueta #${currentTag} de todas las paradas?`,
             }).then((ok) => {
                 if (!ok) return;
-                store.tags = store.tags.filter((t) => t !== tag);
+                store.tags = store.tags.filter((t) => t !== currentTag);
                 [...store.state.flatMap((d) => d.spots), ...store.backlog].forEach(
                     (s) =>
-                        (s.tags = (s.tags || []).filter((t) => t !== tag)),
+                        (s.tags = (s.tags || []).filter(
+                            (t) => t !== currentTag,
+                        )),
                 );
-                store.activeTagFilter.delete(tag);
+                store.activeTagFilter.delete(currentTag);
                 save();
                 render();
+                drawMap();
                 renderManagerTags();
-                toast(`Etiqueta #${tag} eliminada.`, "info");
+                toast(`Etiqueta #${currentTag} eliminada.`, "info");
             });
         };
+        row.append(prefix, nameInput, delBtn);
         list.append(row);
     });
 }
@@ -270,7 +349,7 @@ function renderManagerCategories() {
     const list = $("#managerCategories");
     list.innerHTML = store.categories.length
         ? ""
-        : '<p class="form-hint cat-empty">Aún no hay categorías. Añade la primera arriba.</p>';
+        : '<p class="form-hint manager-empty">Aún no hay categorías. Añade la primera arriba.</p>';
     store.categories.forEach((c) => {
         const row = document.createElement("div");
         row.className = "manager-category";

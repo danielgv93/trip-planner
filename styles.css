@@ -2207,18 +2207,15 @@ dialog::backdrop {
 .manager-tag {
     display: flex;
     align-items: center;
-    gap: 8px;
-    border-bottom: 1px solid #eee;
-    padding: 5px 0;
-}
-.manager-tag .tag {
-    flex: 1;
-}
-.manager-tag button {
-    border: 0;
-    background: transparent;
-    color: #b04a43;
-    font-size: 13px;
+    gap: 10px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    padding: 8px 10px;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s,
+        transform 0.15s;
 }
 .manager-category {
     display: flex;
@@ -2233,9 +2230,24 @@ dialog::backdrop {
         box-shadow 0.15s,
         transform 0.15s;
 }
-.manager-category:hover {
+.manager-category:hover,
+.manager-tag:hover {
     border-color: #d8d3c8;
     box-shadow: 0 4px 14px #24323a10;
+}
+.manager-tag-prefix {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--paper);
+    color: var(--green);
+    font-size: 16px;
+    font-weight: 800;
+    box-shadow: inset 0 0 0 1px var(--line);
 }
 /* Round color swatch — works as the category's color identity.
    Same class is reused by the "add" row's color input. */
@@ -2267,7 +2279,8 @@ dialog::backdrop {
     border: 0;
     border-radius: 50%;
 }
-.manager-category-name {
+.manager-category-name,
+.manager-tag-name {
     flex: 1;
     min-width: 0;
     border: 1px solid transparent;
@@ -2282,10 +2295,12 @@ dialog::backdrop {
         border-color 0.15s,
         box-shadow 0.15s;
 }
-.manager-category-name:hover {
+.manager-category-name:hover,
+.manager-tag-name:hover {
     background: #f6f4ef;
 }
-.manager-category-name:focus {
+.manager-category-name:focus,
+.manager-tag-name:focus {
     background: #fff;
     border-color: var(--green);
     box-shadow: 0 0 0 3px #386f6615;
@@ -2330,7 +2345,7 @@ dialog::backdrop {
     background: #f6f4ef;
 }
 /* "Add category" bar — a distinct panel above the list */
-#categoryDialog .tag-manager {
+:is(#categoryDialog, #tagDialog) .tag-manager {
     align-items: center;
     gap: 9px;
     background: var(--paper);
@@ -2338,7 +2353,8 @@ dialog::backdrop {
     border-radius: 11px;
     padding: 8px 9px;
 }
-#categoryDialog #newCategoryName {
+#categoryDialog #newCategoryName,
+#tagDialog #newTag {
     flex: 1;
     min-width: 0;
     border: 1px solid var(--line);
@@ -2350,7 +2366,8 @@ dialog::backdrop {
         border-color 0.15s,
         box-shadow 0.15s;
 }
-#categoryDialog #newCategoryName:focus {
+#categoryDialog #newCategoryName:focus,
+#tagDialog #newTag:focus {
     border-color: var(--green);
     box-shadow: 0 0 0 3px #386f6615;
 }
@@ -2381,7 +2398,8 @@ dialog::backdrop {
     border: 0;
     border-radius: 50%;
 }
-#categoryDialog #addCategory {
+#categoryDialog #addCategory,
+#tagDialog #addTag {
     flex: 0 0 auto;
     border: 0;
     background: var(--green);
@@ -2393,22 +2411,24 @@ dialog::backdrop {
         background 0.15s,
         transform 0.1s;
 }
-#categoryDialog #addCategory:hover {
+#categoryDialog #addCategory:hover,
+#tagDialog #addTag:hover {
     background: #2d5b53;
 }
-#categoryDialog #addCategory:active {
+#categoryDialog #addCategory:active,
+#tagDialog #addTag:active {
     transform: scale(0.97);
 }
-#categoryDialog .manager-list {
+:is(#categoryDialog, #tagDialog) .manager-list {
     gap: 8px;
 }
-#categoryDialog .form-hint {
+:is(#categoryDialog, #tagDialog) .form-hint {
     display: flex;
     align-items: flex-start;
     gap: 7px;
     line-height: 1.45;
 }
-#categoryDialog .cat-empty {
+:is(#categoryDialog, #tagDialog) .manager-empty {
     justify-content: center;
     text-align: center;
     padding: 18px 12px;
