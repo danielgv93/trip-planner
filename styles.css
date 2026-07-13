@@ -9,6 +9,9 @@
     --sand: #f1e8d5;
     --card: #fff;
     --shadow: 0 9px 25px #24323a0d;
+    --nav-height: 72px;
+    --tag-bar-height: 43px;
+    --sticky-gap: 0px;
 }
 * {
     box-sizing: border-box;
@@ -346,7 +349,9 @@ main {
     border: 1px solid var(--line);
     border-radius: 7px;
     box-shadow: var(--shadow);
-    overflow: hidden;
+    /* The header sticks to the viewport and is naturally pushed away by the
+       next card, so the day itself cannot be an overflow container. */
+    overflow: visible;
 }
 .day.active {
     border-color: #d44d4390;
@@ -358,11 +363,36 @@ main {
     overflow: visible;
 }
 .day-head {
+    position: sticky;
+    top: calc(var(--nav-height) + var(--tag-bar-height) + var(--sticky-gap));
+    z-index: 12;
     display: flex;
     align-items: center;
     padding: 13px 15px;
     border-bottom: 1px solid var(--line);
+    border-radius: 6px 6px 0 0;
+    background: var(--card);
     gap: 11px;
+    transition:
+        box-shadow 0.18s ease,
+        border-color 0.18s ease,
+        background-color 0.18s ease;
+}
+.day-head.is-stuck {
+    border-bottom-color: #d7d3ca;
+    background: #fffefa;
+    box-shadow:
+        0 10px 22px #24323a1a,
+        0 1px 0 #ffffff inset;
+}
+.day.active .day-head.is-stuck {
+    box-shadow:
+        0 10px 24px #d44d4320,
+        0 1px 0 #ffffff inset;
+}
+.day-ghost .day-head,
+.days.is-day-dragging .day-head {
+    position: static;
 }
 .day-handle {
     width: 32px;
@@ -1234,6 +1264,7 @@ main {
     padding-left: 17px;
     font-weight: 600;
     font-size: 13px;
+    border-radius: 0 0 6px 6px;
 }
 .add-place:hover {
     background: #fff6f4;
@@ -1978,6 +2009,9 @@ dialog::backdrop {
     z-index: 1001;
 }
 .tag-bar {
+    position: sticky;
+    top: var(--nav-height);
+    z-index: 24;
     display: flex;
     align-items: center;
     gap: 7px;
@@ -1987,6 +2021,13 @@ dialog::backdrop {
     border-radius: 6px;
     padding: 10px 12px;
     margin-bottom: 13px;
+    transition:
+        box-shadow 0.18s ease,
+        border-color 0.18s ease;
+}
+.tag-bar.is-stuck {
+    border-color: #d7d3ca;
+    box-shadow: 0 9px 22px #24323a1a;
 }
 .tag-label {
     font: 11px "DM Mono";
@@ -2600,6 +2641,8 @@ body.preview-mode .spot {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .day-head,
+    .tag-bar,
     .spot-hours,
     .spot-hours-icon,
     .spot-hours-rail,

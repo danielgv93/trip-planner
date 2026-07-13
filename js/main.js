@@ -10,6 +10,7 @@ import "./dnd.js";
 import "./actions.js";
 import "./budget.js";
 import "./spot-search.js";
+import "./sticky-days.js";
 import { store } from "./store.js";
 import { refreshExchangeRate } from "./currency.js";
 
