@@ -1,0 +1,181 @@
+:root {
+    --ink: #1d2730;
+    --muted: #6c7479;
+    --paper: #fbfaf7;
+    --line: #e6e3dc;
+    --red: #d44d43;
+    --red-dark: #b4352d;
+    --green: #386f66;
+    --sand: #f1e8d5;
+    --card: #fff;
+    --shadow: 0 9px 25px #24323a0d;
+    --nav-height: 72px;
+    --tag-bar-height: 43px;
+    --sticky-gap: 0px;
+}
+* {
+    box-sizing: border-box;
+}
+body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "DM Sans", sans-serif;
+}
+button,
+input,
+textarea {
+    font: inherit;
+}
+button {
+    cursor: pointer;
+}
+.top {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    height: 72px;
+    background: #1d2d36;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 clamp(20px, 4vw, 58px);
+    border-bottom: 3px solid var(--red);
+}
+.brand {
+    display: flex;
+    gap: 13px;
+    align-items: center;
+}
+.stamp {
+    width: 33px;
+    height: 33px;
+    border: 1px solid #ffffff80;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: #f1c865;
+    font-size: 19px;
+}
+.brand h1 {
+    font-family: "Playfair Display", serif;
+    font-size: 21px;
+    margin: 0;
+    letter-spacing: 0.2px;
+}
+.brand small {
+    display: block;
+    font: 11px "DM Mono";
+    letter-spacing: 1px;
+    color: #bcc8c8;
+    margin-top: 2px;
+}
+.brand-meta {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+}
+.brand-meta > small {
+    margin-top: 0;
+}
+.currency-config-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 7px;
+    border: 1px solid #ffffff30;
+    border-radius: 999px;
+    background: #ffffff0d;
+    color: #dce5e5;
+    font: 500 10px "DM Mono";
+}
+.currency-config-trigger:hover,
+.currency-config-trigger:focus-visible {
+    border-color: #ffffff70;
+    background: #ffffff18;
+}
+.currency-config-trigger > span { color: #f1c865; font-size: 12px; }
+.currency-config-trigger strong { font: inherit; }
+.exchange-rate-status {
+    color: var(--muted);
+    font: 10px "DM Mono";
+    white-space: nowrap;
+}
+.budget-total {
+    max-width: 130px;
+    padding: 2px 6px;
+    border: 1px solid #ffffff30;
+    border-radius: 999px;
+    color: #f1c865;
+    font: 500 10px "DM Mono";
+    white-space: nowrap;
+}
+.brand .trip-title {
+    font-family: "Playfair Display", serif;
+    font-size: 21px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.2px;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px dashed transparent;
+    color: #fff;
+    width: min(52vw, 360px);
+    max-width: 100%;
+    padding: 1px 0;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+.brand .trip-title::placeholder {
+    color: #ffffff66;
+}
+.brand .trip-title:hover {
+    border-bottom-color: #ffffff45;
+}
+.brand .trip-title:focus {
+    border-bottom-color: var(--red);
+}
+.top-actions {
+    display: flex;
+    gap: 9px;
+}
+/* Action bar collapses into a hamburger on mobile. On desktop the items sit
+   inline and the hamburger trigger is hidden. */
+.nav-menu-items {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+.top-actions > .hamburger {
+    display: none;
+}
+.top button,
+.add-day {
+    border: 1px solid #ffffff40;
+    background: transparent;
+    color: #fff;
+    padding: 9px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+.top button:hover {
+    background: #ffffff14;
+}
+.top .primary {
+    background: #d44d43;
+    border-color: #d44d43;
+    font-weight: 600;
+}
+.top .primary:hover {
+    background: #b4352d;
+}
+.top #previewBtn.active {
+    background: var(--ink);
+    border-color: var(--ink);
+    font-weight: 600;
+}
+.top #previewBtn.active:hover {
+    background: #2c3944;
+}

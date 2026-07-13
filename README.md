@@ -59,7 +59,15 @@ The app starts with a sample itinerary, which can be restored at any time from t
 ```text
 trip-planner/
 ├── index.html          # Application shell and dialogs
-├── styles.css          # Complete visual design and responsive layout
+├── styles/             # Styles split by UI responsibility
+│   ├── base.css        # Tokens, global defaults, and top navigation
+│   ├── search.css      # Global stop search
+│   ├── planner.css     # Days, stops, schedules, and drag and drop
+│   ├── map-notes.css   # Map panel, Leaflet elements, and trip notes
+│   ├── dialog-finance.css # Dialog base, currency, and budget
+│   ├── dialogs.css     # Forms, confirmations, and notifications
+│   ├── taxonomy.css    # Tags and categories
+│   └── responsive.css  # Preview state and responsive overrides
 └── js/
     ├── main.js         # Application entry point
     ├── store.js        # Shared state and local persistence

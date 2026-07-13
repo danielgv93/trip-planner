@@ -1,0 +1,283 @@
+.map-panel {
+    position: sticky;
+    top: 92px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    background: #fff;
+}
+.map-bar {
+    display: flex;
+    align-items: center;
+    padding: 13px 15px;
+    border-bottom: 1px solid var(--line);
+    gap: 9px;
+}
+.map-bar strong {
+    font: 700 17px "Playfair Display";
+    flex: 1;
+}
+.route-key {
+    font: 11px "DM Mono";
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.route-key i {
+    display: inline-block;
+    width: 20px;
+    border-top: 2px solid var(--red);
+}
+.route-profile {
+    font: 11px "DM Mono";
+    color: var(--muted);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 3px 6px;
+    cursor: pointer;
+}
+.leg-label {
+    color: var(--red);
+    font-weight: 700;
+}
+#map {
+    height: 510px;
+    background: #e8ede9;
+}
+.map-foot {
+    padding: 13px 15px;
+    background: #fff;
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+}
+.map-foot b {
+    color: var(--ink);
+}
+.trip-notes {
+    border-top: 1px solid var(--line);
+    background: #fffcf5;
+}
+.trip-notes-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 15px;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    text-align: left;
+}
+.trip-notes-toggle:hover {
+    background: #faf5e9;
+}
+.trip-notes-heading {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.trip-notes-heading > i {
+    width: 28px;
+    height: 28px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--sand);
+    color: var(--red-dark);
+    font-style: normal;
+}
+.trip-notes-heading strong,
+.trip-notes-heading small {
+    display: block;
+}
+.trip-notes-heading strong {
+    font: 700 15px "Playfair Display";
+}
+.trip-notes-heading small {
+    max-width: 390px;
+    margin-top: 2px;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 400;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.trip-notes-open {
+    flex: none;
+    color: var(--green);
+    font: 500 10px "DM Mono";
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.notes-dialog { width: min(700px, calc(100% - 32px)); }
+.notes-dialog-content {
+    padding: 20px 22px 22px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+}
+.modal-eyebrow {
+    display: block;
+    margin-bottom: 3px;
+    color: #f1c865;
+    font: 10px "DM Mono";
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+.trip-notes-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 7px;
+}
+.trip-notes-toolbar button {
+    padding: 5px 9px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: #fff;
+    color: var(--green);
+    font-weight: 600;
+    font-size: 11px;
+}
+.trip-notes-toolbar button:hover,
+.trip-notes-toolbar button[aria-pressed="true"] {
+    background: var(--sand);
+    color: var(--ink);
+}
+.trip-notes-toolbar span {
+    color: #9b9385;
+    font: 10px "DM Mono";
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.notes-dialog textarea {
+    display: block;
+    width: 100%;
+    min-height: min(360px, 48vh);
+    max-height: 55vh;
+    resize: vertical;
+    padding: 10px 11px;
+    border: 1px solid #ddd7ca;
+    border-radius: 6px;
+    outline: none;
+    background: #fffefa;
+    color: var(--ink);
+    font-size: 13px;
+    line-height: 1.55;
+}
+.notes-dialog textarea[hidden] {
+    display: none;
+}
+.trip-notes-preview {
+    min-height: min(360px, 48vh);
+    max-height: 55vh;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    padding: 10px 11px;
+    border: 1px solid #e4ded2;
+    border-radius: 6px;
+    background: #fffefa;
+    color: var(--ink);
+    font-size: 13px;
+    line-height: 1.55;
+}
+.trip-notes-preview[hidden] { display: none; }
+.trip-notes-preview > :first-child { margin-top: 0; }
+.trip-notes-preview > :last-child { margin-bottom: 0; }
+.trip-notes-preview h1,
+.trip-notes-preview h2,
+.trip-notes-preview h3 {
+    margin: 0.8em 0 0.35em;
+    font-family: "Playfair Display";
+    line-height: 1.2;
+}
+.trip-notes-preview h1 { font-size: 20px; }
+.trip-notes-preview h2 { font-size: 17px; }
+.trip-notes-preview h3 { font-size: 15px; }
+.trip-notes-preview p { margin: 0.55em 0; }
+.trip-notes-preview ul,
+.trip-notes-preview ol { margin: 0.55em 0; padding-left: 22px; }
+.trip-notes-preview blockquote {
+    margin: 0.65em 0;
+    padding-left: 10px;
+    border-left: 3px solid var(--red);
+    color: var(--muted);
+}
+.trip-notes-preview code {
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: #f1eee7;
+    font: 11px "DM Mono";
+}
+.trip-notes-preview a { color: var(--green); }
+.trip-notes-preview-empty { color: var(--muted); font-style: italic; }
+.notes-dialog textarea:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px #386f6615;
+}
+.trip-notes-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 10px;
+}
+.trip-notes-status {
+    color: var(--green);
+    font-weight: 600;
+}
+.leaflet-popup-content-wrapper {
+    font-family: "DM Sans";
+    border-radius: 5px;
+}
+.pin {
+    width: 27px;
+    height: 27px;
+    border-radius: 50% 50% 50% 4px;
+    background: var(--red);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font: 12px "DM Mono";
+    border: 2px solid white;
+    box-shadow: 0 2px 8px #0004;
+    transform: rotate(-45deg);
+}
+.pin span {
+    transform: rotate(45deg);
+}
+.map-legend {
+    background: #fffffff2;
+    border-radius: 6px;
+    padding: 8px 10px;
+    box-shadow: 0 2px 8px #0003;
+    font: 12px "DM Sans";
+    display: grid;
+    gap: 5px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+.map-legend .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink);
+    white-space: nowrap;
+}
+.map-legend .legend-item i {
+    width: 14px;
+    height: 3px;
+    border-radius: 2px;
+    display: inline-block;
+    flex: none;
+}

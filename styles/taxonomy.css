@@ -1,0 +1,479 @@
+.tag-bar {
+    position: sticky;
+    top: var(--nav-height);
+    z-index: 24;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 13px;
+    transition:
+        box-shadow 0.18s ease,
+        border-color 0.18s ease;
+}
+.tag-bar.is-stuck {
+    border-color: #d7d3ca;
+    box-shadow: 0 9px 22px #24323a1a;
+}
+.tag-label {
+    font: 11px "DM Mono";
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 3px;
+}
+.tag,
+.tag-option {
+    border: 0;
+    border-radius: 999px;
+    background: #e9f0ed;
+    color: #386f66;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.tag-option {
+    cursor: pointer;
+    border: 1px solid #d6e2dc;
+    background: #fff;
+}
+.tag-option.selected {
+    background: #386f66;
+    color: white;
+}
+/* Tag-bar chips double as tag-filter toggles — clickable and selectable.
+   Scoped to .tag-bar so the tiny read-only chips inside spot cards
+   (.spot-tags .tag) stay non-interactive. */
+.tag-bar .tag {
+    cursor: pointer;
+}
+.tag-bar .tag.selected {
+    background: #386f66;
+    color: #fff;
+}
+.filter-active {
+    font: 11px "DM Mono";
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-left: auto;
+}
+.clear-filter {
+    border: 1px solid #d6e2dc;
+    background: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: #386f66;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+/* Header "Gestionar" dropdown (tags + categories). The <summary> is styled to
+   match the other header buttons; the panel floats below, right-aligned. */
+.manage-menu {
+    position: relative;
+}
+.manage-menu > summary {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid #ffffff40;
+    background: transparent;
+    color: #fff;
+    padding: 9px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+.manage-menu > summary::-webkit-details-marker {
+    display: none;
+}
+.manage-menu > summary::marker {
+    content: "";
+}
+.manage-menu > summary:hover,
+.manage-menu[open] > summary {
+    background: #ffffff14;
+}
+.manage-menu-items {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 30;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 5px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-shadow: 0 10px 24px #1c283330;
+}
+.manage-menu-items button {
+    width: 100%;
+    text-align: left;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+}
+.manage-menu-items button:hover {
+    background: #f3f1ec;
+}
+.spot-tags {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+.spot-tags .tag {
+    font-size: 10px;
+    padding: 2px 6px;
+}
+.tag-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+.category-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+.category-option {
+    cursor: pointer;
+    border: 1px solid var(--category-color, #ccc);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--category-color, #566066);
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.category-option.selected {
+    background: var(--category-color, #566066);
+    color: white;
+}
+.category-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 4px;
+    background: var(--category-color, #6b6b6b);
+    color: white;
+    padding: 2px 7px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.tag-manager {
+    display: flex;
+    gap: 7px;
+}
+.tag-manager input {
+    flex: 1;
+}
+.tag-manager input[type="color"] {
+    flex: 0 0 auto;
+    width: 40px;
+    padding: 2px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+}
+.manager-list {
+    display: grid;
+    gap: 6px;
+}
+.manager-tag {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    padding: 8px 10px;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s,
+        transform 0.15s;
+}
+.manager-category {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    padding: 8px 10px;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s,
+        transform 0.15s;
+}
+.manager-category:hover,
+.manager-tag:hover {
+    border-color: #d8d3c8;
+    box-shadow: 0 4px 14px #24323a10;
+}
+.manager-tag-prefix {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--paper);
+    color: var(--green);
+    font-size: 16px;
+    font-weight: 800;
+    box-shadow: inset 0 0 0 1px var(--line);
+}
+/* Round color swatch — works as the category's color identity.
+   Same class is reused by the "add" row's color input. */
+.cat-swatch {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+    box-shadow:
+        inset 0 0 0 1px #0000001f,
+        0 1px 2px #24323a1f;
+    transition: transform 0.12s;
+}
+.cat-swatch:hover {
+    transform: scale(1.08);
+}
+.cat-swatch::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+.cat-swatch::-webkit-color-swatch {
+    border: 0;
+    border-radius: 50%;
+}
+.cat-swatch::-moz-color-swatch {
+    border: 0;
+    border-radius: 50%;
+}
+.manager-category-name,
+.manager-tag-name {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 7px 9px;
+    font-weight: 600;
+    color: var(--ink);
+    background: transparent;
+    outline: none;
+    transition:
+        background 0.15s,
+        border-color 0.15s,
+        box-shadow 0.15s;
+}
+.manager-category-name:hover,
+.manager-tag-name:hover {
+    background: #f6f4ef;
+}
+.manager-category-name:focus,
+.manager-tag-name:focus {
+    background: #fff;
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px #386f6615;
+}
+.cat-controls {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 0 0 auto;
+}
+.cat-del {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 20px;
+    line-height: 1;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        background 0.15s,
+        color 0.15s;
+}
+.cat-del:hover {
+    background: #fbe6e3;
+    color: var(--red);
+}
+.connect-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    padding: 5px 7px;
+    border-radius: 8px;
+    transition: background 0.15s;
+}
+.connect-toggle:hover {
+    background: #f6f4ef;
+}
+/* "Add category" bar — a distinct panel above the list */
+:is(#categoryDialog, #tagDialog) .tag-manager {
+    align-items: center;
+    gap: 9px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    padding: 8px 9px;
+}
+#categoryDialog #newCategoryName,
+#tagDialog #newTag {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 9px 11px;
+    background: #fff;
+    outline: none;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
+}
+#categoryDialog #newCategoryName:focus,
+#tagDialog #newTag:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px #386f6615;
+}
+#categoryDialog #newCategoryColor {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+    box-shadow:
+        inset 0 0 0 1px #0000001f,
+        0 1px 2px #24323a1f;
+    transition: transform 0.12s;
+}
+#categoryDialog #newCategoryColor:hover {
+    transform: scale(1.08);
+}
+#categoryDialog #newCategoryColor::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+#categoryDialog #newCategoryColor::-webkit-color-swatch {
+    border: 0;
+    border-radius: 50%;
+}
+#categoryDialog #newCategoryColor::-moz-color-swatch {
+    border: 0;
+    border-radius: 50%;
+}
+#categoryDialog #addCategory,
+#tagDialog #addTag {
+    flex: 0 0 auto;
+    border: 0;
+    background: var(--green);
+    color: #fff;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 9px 16px;
+    transition:
+        background 0.15s,
+        transform 0.1s;
+}
+#categoryDialog #addCategory:hover,
+#tagDialog #addTag:hover {
+    background: #2d5b53;
+}
+#categoryDialog #addCategory:active,
+#tagDialog #addTag:active {
+    transform: scale(0.97);
+}
+:is(#categoryDialog, #tagDialog) .manager-list {
+    gap: 8px;
+}
+:is(#categoryDialog, #tagDialog) .form-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    line-height: 1.45;
+}
+:is(#categoryDialog, #tagDialog) .manager-empty {
+    justify-content: center;
+    text-align: center;
+    padding: 18px 12px;
+    border: 1px dashed var(--line);
+    border-radius: 11px;
+}
+.connect-icon {
+    font-size: 15px;
+    line-height: 1;
+    transition:
+        opacity 0.2s,
+        filter 0.2s;
+}
+.connect-toggle.is-off .connect-icon {
+    opacity: 0.3;
+    filter: grayscale(1);
+}
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 34px;
+    height: 20px;
+    flex: none;
+}
+.switch input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.switch .slider {
+    position: absolute;
+    inset: 0;
+    background: #c7ccd1;
+    border-radius: 20px;
+    transition: background 0.2s;
+}
+.switch .slider::before {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    left: 3px;
+    top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+.switch input:checked + .slider {
+    background: #4c9a5b;
+}
+.switch input:checked + .slider::before {
+    transform: translateX(14px);
+}
+.switch input:focus-visible + .slider {
+    outline: 2px solid #3f7d9c;
+    outline-offset: 2px;
+}

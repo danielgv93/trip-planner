@@ -4,7 +4,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## What this is
 
-A collaborative trip route planner. Vanilla JS **ES modules**, no framework, no build step, no package manager, no tests. UI copy is in **Spanish** (`lang="es"`). Split across three concerns: `trip-planner.html` (markup shell), `styles.css` (all styles), and `js/` (ES modules, entry point `js/main.js`).
+A collaborative trip route planner. Vanilla JS **ES modules**, no framework, no build step, no package manager, no tests. UI copy is in **Spanish** (`lang="es"`). Split across three concerns: `trip-planner.html` (markup shell), `styles/` (CSS split by UI responsibility), and `js/` (ES modules, entry point `js/main.js`).
 
 ## Running
 

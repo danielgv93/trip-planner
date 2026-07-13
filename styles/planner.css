@@ -1,0 +1,991 @@
+main {
+    max-width: 1480px;
+    margin: auto;
+    padding: 30px clamp(18px, 4vw, 58px) 42px;
+}
+.intro {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    margin-bottom: 22px;
+}
+.eyebrow {
+    font: 11px "DM Mono";
+    color: var(--red);
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+}
+.intro h2 {
+    font: 700 30px "Playfair Display";
+    margin: 5px 0 0;
+}
+.intro p {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 0;
+    max-width: 390px;
+    text-align: right;
+}
+.workspace {
+    display: grid;
+    grid-template-columns: minmax(450px, 1.02fr) minmax(
+            430px,
+            0.98fr
+        );
+    gap: 23px;
+    align-items: start;
+}
+.planner {
+    min-width: 0;
+}
+.days {
+    display: grid;
+    gap: 13px;
+}
+.day {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    box-shadow: var(--shadow);
+    /* The header sticks to the viewport and is naturally pushed away by the
+       next card, so the day itself cannot be an overflow container. */
+    overflow: visible;
+}
+.day.active {
+    border-color: #d44d4390;
+    box-shadow: 0 9px 25px #d44d4312;
+}
+.day.menu-open {
+    position: relative;
+    z-index: 20;
+    overflow: visible;
+}
+.day-head {
+    position: sticky;
+    top: calc(var(--nav-height) + var(--tag-bar-height) + var(--sticky-gap));
+    z-index: 12;
+    display: flex;
+    align-items: center;
+    padding: 13px 15px;
+    border-bottom: 1px solid var(--line);
+    border-radius: 6px 6px 0 0;
+    background: var(--card);
+    gap: 11px;
+    transition:
+        box-shadow 0.18s ease,
+        border-color 0.18s ease,
+        background-color 0.18s ease;
+}
+.day-head.is-stuck {
+    border-bottom-color: #d7d3ca;
+    background: #fffefa;
+    box-shadow:
+        0 10px 22px #24323a1a,
+        0 1px 0 #ffffff inset;
+}
+.day.active .day-head.is-stuck {
+    box-shadow:
+        0 10px 24px #d44d4320,
+        0 1px 0 #ffffff inset;
+}
+.day-ghost .day-head,
+.days.is-day-dragging .day-head {
+    position: static;
+}
+.day-handle {
+    width: 32px;
+    height: 38px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: #b3b7b6;
+    font-size: 19px;
+    letter-spacing: -3px;
+    cursor: grab;
+    touch-action: none;
+}
+.day-handle:hover,
+.day-handle:focus-visible {
+    color: var(--red);
+}
+.day.dragging {
+    opacity: 0.38;
+    border-style: dashed;
+    border-color: #d44d4366;
+    box-shadow: none;
+}
+.day-ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 9999;
+    pointer-events: none;
+    margin: 0;
+    background: var(--card);
+    border: 1px solid #d44d4380;
+    border-radius: 7px;
+    box-shadow: 0 22px 48px #d44d4330;
+    opacity: 0.97;
+    overflow: hidden;
+    will-change: transform;
+    transition: none;
+}
+.days.is-day-dragging .day:not(.dragging) {
+    transition: transform 0.14s ease;
+}
+.date-box {
+    background: var(--sand);
+    border-radius: 4px;
+    width: 47px;
+    text-align: center;
+    padding: 5px 3px;
+    flex: none;
+    position: relative;
+    transition: 0.18s ease;
+}
+.date-box:hover {
+    background: #eadcbc;
+    transform: translateY(-1px);
+}
+.date-box span {
+    display: block;
+    font: 10px "DM Mono";
+    text-transform: uppercase;
+    color: #876d48;
+    letter-spacing: 0.6px;
+}
+.date-box strong {
+    font: 700 20px "Playfair Display";
+    line-height: 19px;
+}
+.date-box.editable {
+    cursor: pointer;
+}
+.date-box.editable::after {
+    content: "✎";
+    position: absolute;
+    right: -5px;
+    top: -6px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: #fff;
+    color: var(--red);
+    font-size: 9px;
+    border: 1px solid var(--line);
+    box-shadow: 0 2px 6px #00000012;
+    opacity: 0;
+    transform: scale(0.85);
+    transition: 0.18s ease;
+}
+.day:hover .date-box.editable::after,
+.date-box.editable:focus-within::after {
+    opacity: 1;
+    transform: scale(1);
+}
+.date-box input[type="date"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    pointer-events: none;
+}
+.date-box:focus-within {
+    outline: 2px solid #d44d4340;
+    outline-offset: 2px;
+}
+.day-title {
+    flex: 1;
+    min-width: 0;
+}
+.title-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.day-name {
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    min-width: 0;
+}
+.backlog .day-name {
+    cursor: default;
+}
+.title-edit {
+    border: 0;
+    background: transparent;
+    color: var(--red);
+    font-size: 12px;
+    line-height: 1;
+    padding: 2px;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: 0.18s ease;
+    cursor: pointer;
+    flex: none;
+}
+.day:hover .title-edit,
+.title-edit:focus-visible {
+    opacity: 0.6;
+    transform: scale(1);
+}
+.title-edit:hover {
+    opacity: 1;
+}
+.day-title input.editing {
+    border: 0;
+    border-bottom: 1.5px solid var(--red);
+    padding: 0 0 2px;
+    font: inherit;
+    font-weight: 700;
+    color: var(--ink);
+    background: transparent;
+    width: 100%;
+    outline: none;
+}
+.day-title small {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+}
+.day-options,
+.day-duplicate,
+.day-collapse {
+    border: 0;
+    background: transparent;
+    color: #858d90;
+    font-size: 21px;
+    padding: 0 4px;
+}
+.day-duplicate {
+    font-size: 16px;
+}
+.day-collapse {
+    font-size: 14px;
+    cursor: pointer;
+}
+.day-collapse:hover {
+    color: var(--ink);
+}
+.day.collapsed .day-head {
+    border-bottom: 0;
+}
+.day.collapsed .spots,
+.day.collapsed .day-schedule,
+.day.collapsed .add-place {
+    display: none;
+}
+.day-schedule {
+    border-bottom: 1px solid var(--line);
+    background: #fbfaf7;
+}
+.day-schedule summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    padding: 7px 15px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    transition: color 0.15s ease;
+}
+.day-schedule summary::-webkit-details-marker {
+    display: none;
+}
+.day-schedule summary:hover,
+.day-schedule summary:focus-visible {
+    color: var(--green);
+    outline: none;
+}
+.day-schedule-summary-icon {
+    font-size: 14px;
+}
+.day-schedule-count {
+    display: grid;
+    min-width: 17px;
+    height: 17px;
+    place-items: center;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #e9e7e0;
+    color: #737a79;
+    font: 10px "DM Mono";
+}
+.day-schedule-chevron {
+    font-size: 13px;
+    transition: transform 0.15s ease;
+}
+.day-schedule[open] .day-schedule-chevron {
+    transform: rotate(180deg);
+}
+.day-schedule-body {
+    position: relative;
+    padding: 1px 15px 12px;
+}
+.day-schedule-guide {
+    position: absolute;
+    top: 4px;
+    bottom: 8px;
+    left: var(--guide-x, 0);
+    z-index: 2;
+    width: 2px;
+    background: repeating-linear-gradient(
+        to bottom,
+        var(--guide-color, var(--green)) 0 3px,
+        transparent 3px 7px
+    );
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-1px);
+    transition: opacity 0.12s ease;
+}
+.day-schedule-body.has-guide .day-schedule-guide {
+    opacity: 0.75;
+}
+.day-schedule-axis,
+.day-schedule-row {
+    display: grid;
+    grid-template-columns: minmax(150px, 0.75fr) minmax(220px, 2.25fr);
+    align-items: center;
+    gap: 18px;
+}
+.day-schedule-axis {
+    margin-bottom: 3px;
+    color: #a0a5a3;
+    font: 9px "DM Mono";
+}
+.day-schedule-axis-hours {
+    display: flex;
+    justify-content: space-between;
+}
+.day-schedule-axis-hours i {
+    font-style: normal;
+}
+.day-schedule-row {
+    min-height: 25px;
+    border-radius: 4px;
+    outline: none;
+}
+.day-schedule-name {
+    overflow: hidden;
+    color: var(--ink);
+    font-size: 11px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition:
+        color 0.15s ease,
+        opacity 0.15s ease;
+}
+.day-schedule-time {
+    position: absolute;
+    left: var(--tooltip-position);
+    bottom: calc(100% + 7px);
+    z-index: 3;
+    padding: 5px 7px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--card);
+    box-shadow: 0 4px 12px #2222;
+    color: var(--ink);
+    font: 10px "DM Mono";
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 3px);
+    transition:
+        opacity 0.15s ease,
+        transform 0.15s ease;
+}
+.day-schedule-time::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--card);
+    transform: translate(-50%, -3px) rotate(45deg);
+}
+.day-schedule-row:hover .day-schedule-time,
+.day-schedule-row:focus-visible .day-schedule-time {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+.day-schedule-row:focus-visible {
+    box-shadow: 0 0 0 2px #386f6626;
+}
+.day-schedule-rail {
+    position: relative;
+    height: 6px;
+    border-radius: 999px;
+    background-color: #e5e5e1;
+    background-image: linear-gradient(to right, #caccc8 1px, transparent 1px);
+    background-size: 25% 100%;
+}
+.day-schedule-segment {
+    position: absolute;
+    inset-block: 0;
+    left: var(--segment-start);
+    width: var(--segment-width);
+    min-width: 3px;
+    border-radius: 999px;
+    background: var(--schedule-color);
+    opacity: 0.76;
+    transition:
+        opacity 0.15s ease,
+        filter 0.15s ease,
+        box-shadow 0.15s ease;
+}
+.day-schedule-segment.is-equal {
+    width: 100%;
+}
+.day-schedule-marker {
+    position: absolute;
+    top: 50%;
+    left: var(--marker-position);
+    width: 7px;
+    height: 7px;
+    border: 2px solid var(--schedule-color);
+    border-radius: 50%;
+    background: #fbfaf7;
+    transform: translate(-50%, -50%);
+    transition:
+        background 0.15s ease,
+        box-shadow 0.15s ease;
+}
+.day-schedule-body.has-guide .day-schedule-row:not(.is-hovered):not(.is-coincident) .day-schedule-name,
+.day-schedule-body.has-guide .day-schedule-row:not(.is-hovered):not(.is-coincident) .day-schedule-segment,
+.day-schedule-body.has-guide .day-schedule-row:not(.is-hovered):not(.is-coincident) .day-schedule-marker {
+    opacity: 0.4;
+}
+.day-schedule-row.is-hovered .day-schedule-name {
+    color: #3d8075;
+}
+.day-schedule-row.is-hovered .day-schedule-segment {
+    opacity: 1;
+    background: #3d8075;
+    box-shadow: 0 0 0 2px #3d80752e;
+}
+.day-schedule-row.is-hovered .day-schedule-marker {
+    border-color: #3d8075;
+    background: #e2efec;
+    box-shadow: 0 0 0 3px #3d807529;
+}
+.day-schedule-row.is-coincident .day-schedule-name {
+    color: #b66d16;
+}
+.day-schedule-row.is-coincident .day-schedule-segment {
+    background: #d68b2b;
+    opacity: 1;
+    box-shadow: 0 0 0 2px #d68b2b2b;
+}
+.day-schedule-row.is-coincident .day-schedule-rail::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: var(--guide-ratio);
+    z-index: 2;
+    width: 8px;
+    height: 8px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: #d68b2b;
+    box-shadow: 0 0 0 2px #d68b2b42;
+    transform: translate(-50%, -50%);
+}
+.day-schedule-marker.is-opening::after,
+.day-schedule-marker.is-closing::before {
+    content: "";
+    position: absolute;
+    top: 1px;
+    width: 15px;
+    border-top: 1px dashed var(--schedule-color);
+    opacity: 0.55;
+}
+.day-schedule-marker.is-opening::after {
+    left: 6px;
+}
+.day-schedule-marker.is-closing::before {
+    right: 6px;
+}
+.spots {
+    min-height: 45px;
+    padding: 8px;
+}
+.spots.drag-over {
+    background: #fbf1ef;
+}
+.spot {
+    display: grid;
+    grid-template-columns: 26px 20px 1fr auto auto;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid transparent;
+    padding: 8px;
+    border-radius: 5px;
+    cursor: grab;
+    transition:
+        transform 0.14s ease,
+        background 0.14s ease,
+        border-color 0.14s ease,
+        box-shadow 0.14s ease;
+}
+.spot-cost {
+    display: grid;
+    gap: 0;
+    justify-items: end;
+    text-align: right;
+    padding: 1px 0 1px 8px;
+    border-left: 2px solid #e2d3b6;
+    color: #6f5837;
+    font: 600 10px "DM Mono";
+    white-space: nowrap;
+}
+.spot-cost strong { font: inherit; }
+.spot-cost small { color: var(--muted); font: 8px "DM Mono"; }
+.spot:hover {
+    border-color: var(--line);
+    background: #fcfcfa;
+}
+.spot.spot-disabled .spot-content,
+.spot.spot-disabled .spot-cost {
+    opacity: 0.52;
+}
+.spot.dragging {
+    opacity: 0.4;
+    background: #fbf1ef;
+    border: 1px dashed #d44d4366;
+    box-shadow: none;
+    transform: none;
+}
+.spot-ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 9999;
+    pointer-events: none;
+    margin: 0;
+    background: #fff;
+    border: 1px solid #d44d4380;
+    border-radius: 5px;
+    box-shadow: 0 22px 48px #d44d4330;
+    opacity: 0.97;
+    will-change: transform;
+    transition: none;
+}
+.spots.drag-over .empty {
+    display: none;
+}
+.days.is-dragging .spot:not(.dragging) {
+    transition:
+        transform 0.14s ease,
+        background 0.14s ease,
+        border-color 0.14s ease;
+}
+.handle {
+    color: #b3b7b6;
+    font-size: 17px;
+    letter-spacing: -3px;
+    touch-action: none;
+    cursor: grab;
+}
+.number {
+    background: var(--green);
+    color: white;
+    width: 21px;
+    height: 21px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font: 11px "DM Mono";
+    margin-left: 1px;
+}
+.number-placeholder {
+    background: #8f9795;
+}
+.spot-content {
+    min-width: 0;
+}
+.spot-name {
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.spot-meta {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+}
+.spot-hours {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: min(100%, 290px);
+    min-height: 16px;
+    margin-top: 3px;
+    color: var(--muted);
+    font: 11px "DM Mono";
+    line-height: 1;
+    pointer-events: none;
+    transition:
+        color 0.15s ease,
+        opacity 0.15s ease;
+}
+.spot-hours-icon {
+    flex: none;
+    color: #8b9295;
+    font-size: 13px;
+    transition: color 0.15s ease;
+}
+.spot-hours-text {
+    flex: none;
+    white-space: nowrap;
+}
+.spot-hours-rail {
+    position: relative;
+    flex: 1 1 90px;
+    min-width: 56px;
+    height: 4px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #dfe1df;
+    opacity: 0.72;
+    transition:
+        background 0.15s ease,
+        opacity 0.15s ease;
+}
+.spot-hours-segment {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--segment-start, 0%);
+    width: var(--segment-width, 0%);
+    min-width: 2px;
+    background: #929b98;
+    border-radius: 999px;
+    opacity: 0.82;
+    transition: opacity 0.15s ease;
+}
+.spot-hours-segment.is-equal {
+    min-width: 100%;
+    background: #929997;
+}
+.spot-hours-overlaps {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.spot-hours-overlap-segment {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--overlap-start, 0%);
+    width: var(--overlap-width, 0%);
+    min-width: 2px;
+    background: #d68b2b;
+    border-radius: 999px;
+}
+.spot-hours-detail {
+    position: absolute;
+    left: 20px;
+    bottom: calc(100% + 4px);
+    z-index: 2;
+    display: flex;
+    gap: 10px;
+    padding: 5px 7px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--card);
+    box-shadow: 0 4px 12px #2222;
+    color: var(--ink);
+    font-size: 10px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(2px);
+    transition:
+        opacity 0.15s ease,
+        transform 0.15s ease;
+}
+.spot-hours-detail span {
+    white-space: nowrap;
+}
+.spot-hours.is-complete {
+    pointer-events: auto;
+    cursor: default;
+}
+.spot-hours.is-complete:hover,
+.spot-hours.is-complete:focus-visible,
+.spot-hours.is-complete.hours-context-active {
+    color: var(--ink);
+    outline: none;
+}
+.spot-hours.is-complete:focus-visible {
+    border-radius: 3px;
+    box-shadow: 0 0 0 2px #386f6638;
+}
+.spot-hours.is-complete:hover .spot-hours-icon,
+.spot-hours.is-complete:focus-visible .spot-hours-icon,
+.spot-hours.is-complete.hours-context-active .spot-hours-icon {
+    color: var(--hours-color, var(--green));
+}
+.spot-hours.is-complete:hover .spot-hours-rail,
+.spot-hours.is-complete:focus-visible .spot-hours-rail,
+.spot-hours.is-complete.hours-context-active .spot-hours-rail {
+    background: #c9d2ce;
+    opacity: 1;
+}
+.spot-hours.is-complete:hover .spot-hours-segment,
+.spot-hours.is-complete:focus-visible .spot-hours-segment,
+.spot-hours.is-complete.hours-context-active .spot-hours-segment {
+    opacity: 1;
+}
+.spot-hours.is-complete:hover .spot-hours-detail,
+.spot-hours.is-complete:focus-visible .spot-hours-detail,
+.spot-hours.is-complete.hours-context-active .spot-hours-detail {
+    opacity: 1;
+    transform: translateY(0);
+}
+.spot-hours.hours-context-active .spot-hours-segment:not(.is-equal) {
+    background: #3d8075;
+}
+.spots.hours-comparison .spot-hours.is-complete {
+    opacity: 0.36;
+}
+.spots.hours-comparison .spot-hours.hours-context-active,
+.spots.hours-comparison .spot-hours.hours-context-overlap {
+    opacity: 1;
+}
+.spot-hours.hours-context-overlap .spot-hours-rail {
+    background: #dfe1df;
+    opacity: 1;
+}
+.spot-hours.hours-context-overlap .spot-hours-segment {
+    opacity: 1;
+}
+.spot-actions {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+.spot-toggle {
+    display: grid;
+    width: 20px;
+    height: 20px;
+    place-items: center;
+    cursor: pointer;
+}
+.spot-toggle input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--green);
+    cursor: pointer;
+}
+.spot-toggle:has(input:focus-visible) {
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
+}
+.spot-actions button,
+.spot-actions > a {
+    border: 0;
+    background: #f5f3ee;
+    color: #697277;
+    width: 24px;
+    height: 24px;
+    border-radius: 3px;
+    padding: 0;
+    font-size: 15px;
+}
+.spot-actions > a {
+    display: inline-grid;
+    place-items: center;
+    text-decoration: none;
+}
+.spot-actions button:hover,
+.spot-actions > a:hover {
+    background: #e9e6de;
+}
+.spot-actions > a:focus-visible {
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
+}
+.day-directions-link {
+    display: inline-block;
+    margin-left: 8px;
+    color: var(--green);
+    font-weight: 700;
+}
+.spot-actions .move-button {
+    width: 24px;
+    min-width: 24px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--red);
+    font-size: 15px;
+    font-weight: 700;
+}
+.move-control {
+    position: relative;
+    display: inline-flex;
+}
+.move-menu {
+    position: absolute;
+    z-index: 50;
+    top: calc(100% + 8px);
+    right: 0;
+    width: min(260px, calc(100vw - 34px));
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 7px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 16px 42px #29323724;
+    cursor: default;
+}
+.move-menu::before {
+    content: "";
+    position: absolute;
+    top: -5px;
+    right: 25px;
+    width: 9px;
+    height: 9px;
+    background: #fff;
+    border-left: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+    transform: rotate(45deg);
+}
+.move-menu-title {
+    display: block;
+    padding: 5px 9px 7px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+.spot-actions .move-menu button {
+    width: 100%;
+    height: auto;
+    min-height: 46px;
+    padding: 7px 9px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: transparent;
+    border-radius: 7px;
+    text-align: left;
+}
+.spot-actions .move-menu button:hover:not(:disabled),
+.spot-actions .move-menu button:focus-visible {
+    background: #f7f4ee;
+    outline: none;
+}
+.spot-actions .move-menu button:disabled {
+    color: var(--ink);
+    background: #fbf1ef;
+    opacity: 1;
+    cursor: default;
+}
+.move-destination {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+    flex: 1;
+}
+.move-destination strong,
+.move-destination small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.move-destination strong {
+    color: var(--ink);
+    font-size: 13px;
+}
+.move-destination small {
+    color: var(--muted);
+    font-size: 11px;
+}
+.move-current {
+    padding: 3px 6px;
+    color: var(--red);
+    background: #fff;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.move-arrow {
+    color: var(--red);
+    font-size: 20px;
+}
+.empty {
+    padding: 16px;
+    color: #a1a5a4;
+    text-align: center;
+    font-size: 13px;
+    font-style: italic;
+}
+.add-place {
+    width: 100%;
+    border: 0;
+    border-top: 1px dashed #dedbd4;
+    background: #fdfcf9;
+    color: var(--red);
+    padding: 10px;
+    text-align: left;
+    padding-left: 17px;
+    font-weight: 600;
+    font-size: 13px;
+    border-radius: 0 0 6px 6px;
+}
+.add-place:hover {
+    background: #fff6f4;
+}
+.backlog {
+    border-color: #d7d0be;
+    background: #fffcf5;
+}
+.backlog .day-head {
+    background: #fff8e9;
+}
+.backlog .date-box {
+    background: #e9d6ab;
+}
+.backlog .add-place {
+    color: var(--green);
+}
+.add-day {
+    color: var(--green);
+    border-color: var(--green);
+    margin-top: 14px;
+    background: transparent;
+}
+.add-day:hover {
+    background: #edf5f3;
+}

@@ -1,0 +1,184 @@
+@media (max-width: 960px) {
+    .workspace {
+        grid-template-columns: 1fr;
+    }
+    .map-panel {
+        position: relative;
+        top: 0;
+        order: -1;
+    }
+    #map {
+        height: 380px;
+    }
+}
+body.preview-mode .handle,
+body.preview-mode .day-handle,
+body.preview-mode .spot-actions,
+body.preview-mode .spot-toggle,
+body.preview-mode .add-place,
+body.preview-mode .add-day,
+body.preview-mode .day-options,
+body.preview-mode .day-duplicate,
+body.preview-mode .title-edit,
+body.preview-mode .manage-tags {
+    display: none !important;
+}
+body.preview-mode .date-box.editable {
+    cursor: default;
+    pointer-events: none;
+}
+body.preview-mode .date-box.editable::after {
+    display: none;
+}
+body.preview-mode .spots {
+    padding: 6px;
+}
+body.preview-mode .spot {
+    grid-template-columns: 1fr;
+    padding: 6px 8px;
+    cursor: default;
+}
+@media (max-width: 600px) {
+    .top {
+        height: auto;
+        min-height: 68px;
+        padding: 11px 16px;
+    }
+    .brand-meta > small {
+        display: none;
+    }
+    .brand .trip-title {
+        width: min(48vw, 260px);
+        font-size: 18px;
+    }
+    .budget-total {
+        max-width: 100px;
+    }
+    .currency-picker-grid { grid-template-columns: 1fr; }
+    .currency-picker-arrow { justify-self: center; transform: rotate(90deg); }
+    .exchange-rate-card { align-items: flex-start; flex-direction: column; gap: 6px; }
+    /* Collapse the whole action bar behind a hamburger. */
+    .top-actions {
+        position: relative;
+    }
+    .top-actions > .hamburger {
+        display: grid;
+        gap: 4px;
+        justify-content: center;
+        align-content: center;
+        cursor: pointer;
+        padding: 9px;
+        border: 1px solid #ffffff40;
+        border-radius: 4px;
+        background: transparent;
+    }
+    .top-actions > .hamburger span {
+        display: block;
+        width: 20px;
+        height: 2px;
+        background: #fff;
+        border-radius: 2px;
+    }
+    .top-actions > .hamburger:hover {
+        background: #ffffff14;
+    }
+    /* Hidden until opened; when open, drop the items into a panel. */
+    .top-actions .nav-menu-items {
+        display: none;
+    }
+    .top-actions.nav-open .nav-menu-items {
+        display: flex;
+        position: absolute;
+        right: 0;
+        top: calc(100% + 8px);
+        z-index: 40;
+        flex-direction: column;
+        align-items: stretch;
+        min-width: 200px;
+        padding: 7px;
+        background: #1d2d36;
+        border: 1px solid #ffffff26;
+        border-radius: 8px;
+        box-shadow: 0 12px 28px #0b141b66;
+    }
+    .top-actions.nav-open .nav-menu-items > button {
+        text-align: left;
+    }
+    /* Flatten the nested "Gestionar" menu so its options read as plain rows. */
+    .nav-menu-items .manage-menu > summary {
+        display: none;
+    }
+    .nav-menu-items .manage-menu-items {
+        position: static;
+        min-width: 0;
+        padding: 0;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        gap: 9px;
+    }
+    .nav-menu-items .manage-menu-items button {
+        color: #fff;
+        border: 1px solid #ffffff40;
+        padding: 9px 12px;
+        font-size: 13px;
+    }
+    .nav-menu-items .manage-menu-items button:hover {
+        background: #ffffff14;
+    }
+    .intro {
+        display: block;
+    }
+    .intro p {
+        text-align: left;
+        margin-top: 10px;
+    }
+    .workspace {
+        gap: 16px;
+    }
+    main {
+        padding-top: 21px;
+    }
+    .map-foot {
+        font-size: 12px;
+    }
+    .notes-dialog-content { padding: 16px; }
+    .notes-dialog textarea,
+    .trip-notes-preview { min-height: 52vh; }
+    .hours-input-row {
+        grid-template-columns: 1fr;
+    }
+    .spot-hours {
+        width: 100%;
+    }
+    .spot-hours-detail {
+        display: none;
+    }
+    .spot-hours.is-complete:hover .spot-hours-rail,
+    .spot-hours.is-complete:focus-visible .spot-hours-rail {
+        opacity: 1;
+    }
+    .day-schedule-body {
+        padding-inline: 12px;
+    }
+    .day-schedule-axis,
+    .day-schedule-row {
+        grid-template-columns: minmax(88px, 0.8fr) minmax(150px, 2.2fr);
+        gap: 8px;
+    }
+    .day-schedule-axis {
+        grid-template-columns: minmax(88px, 0.8fr) minmax(150px, 2.2fr);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .day-head,
+    .tag-bar,
+    .spot-hours,
+    .spot-hours-icon,
+    .spot-hours-rail,
+    .spot-hours-segment,
+    .spot-hours-detail {
+        transition: none;
+    }
+}
