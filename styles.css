@@ -1412,7 +1412,12 @@ main {
     letter-spacing: 0.4px;
 }
 .notes-dialog { width: min(700px, calc(100% - 32px)); }
-.notes-dialog-content { padding: 20px 22px 22px; min-height: 0; overflow-y: auto; }
+.notes-dialog-content {
+    padding: 20px 22px 22px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+}
 .modal-eyebrow {
     display: block;
     margin-bottom: 3px;
@@ -1469,6 +1474,7 @@ main {
     min-height: min(360px, 48vh);
     max-height: 55vh;
     overflow-y: auto;
+    overscroll-behavior-y: contain;
     padding: 10px 11px;
     border: 1px solid #e4ded2;
     border-radius: 6px;
@@ -1590,7 +1596,12 @@ dialog::backdrop {
 .currency-dialog {
     width: min(620px, calc(100% - 32px));
 }
-.currency-dialog-content { padding: 22px; }
+.currency-dialog-content {
+    padding: 22px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+}
 .currency-dialog-intro {
     max-width: 520px;
     margin: 0 0 20px;
@@ -1658,6 +1669,7 @@ dialog::backdrop {
 .budget-content {
     padding: 20px;
     overflow-y: auto;
+    overscroll-behavior-y: contain;
 }
 .budget-summary {
     display: flex;
@@ -1826,6 +1838,7 @@ dialog::backdrop {
     gap: 14px;
     min-height: 0;
     overflow-y: auto;
+    overscroll-behavior-y: contain;
 }
 /* Wikipedia photo injected into a map marker's popup on open. */
 .popup-image {
@@ -1967,6 +1980,7 @@ dialog::backdrop {
     box-shadow: 0 8px 18px #1c283326;
     max-height: 185px;
     overflow: auto;
+    overscroll-behavior: contain;
 }
 .suggestion {
     display: block;

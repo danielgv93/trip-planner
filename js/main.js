@@ -11,6 +11,7 @@ import "./actions.js";
 import "./budget.js";
 import "./spot-search.js";
 import "./sticky-days.js";
+import "./modal-scroll.js?v=1";
 import { store } from "./store.js";
 import { refreshExchangeRate } from "./currency.js";
 
