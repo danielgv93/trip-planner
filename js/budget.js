@@ -47,7 +47,7 @@ function renderBudget() {
         : "Tipo de cambio no disponible";
 }
 
-$("#budgetBtn").onclick = () => {
+$("#tripBudgetTotal").onclick = () => {
     renderBudget();
     dialog.showModal();
 };

@@ -40,6 +40,7 @@ main {
 }
 .days {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 13px;
 }
 .day {

@@ -72,12 +72,15 @@
     font-weight: 600;
     cursor: pointer;
 }
-/* Header "Gestionar" dropdown (tags + categories). The <summary> is styled to
-   match the other header buttons; the panel floats below, right-aligned. */
+/* Secondary header actions. The frequent file/sync actions remain visible;
+   taxonomy and sample restoration live in this small overflow menu. */
 .manage-menu {
     position: relative;
 }
 .manage-menu > summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     list-style: none;
     cursor: pointer;
     user-select: none;
@@ -103,18 +106,35 @@
     right: 0;
     top: calc(100% + 6px);
     z-index: 30;
-    min-width: 180px;
+    min-width: 225px;
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 5px;
+    padding: 7px;
     background: #fff;
     border: 1px solid var(--line);
     border-radius: 6px;
     box-shadow: 0 10px 24px #1c283330;
 }
+.manage-menu-title {
+    padding: 5px 9px 7px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+}
+.manage-menu-divider {
+    height: 1px;
+    margin: 4px 3px;
+    background: var(--line);
+}
 .manage-menu-items button {
     width: 100%;
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    align-items: center;
+    gap: 7px;
     text-align: left;
     border: 0;
     background: transparent;
@@ -124,8 +144,19 @@
     font-size: 13px;
     cursor: pointer;
 }
+.manage-menu-items button > span {
+    color: var(--red);
+    font-weight: 700;
+    text-align: center;
+}
 .manage-menu-items button:hover {
     background: #f3f1ec;
+}
+.manage-menu-items .manage-menu-danger {
+    color: var(--red-dark);
+}
+.manage-menu-items .manage-menu-danger:hover {
+    background: #fbebe8;
 }
 .spot-tags {
     display: flex;

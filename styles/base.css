@@ -37,9 +37,10 @@ button {
     height: 72px;
     background: #1d2d36;
     color: #fff;
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(330px, 1fr) minmax(240px, 300px) minmax(330px, 1fr);
     align-items: center;
-    justify-content: space-between;
+    gap: 20px;
     padding: 0 clamp(20px, 4vw, 58px);
     border-bottom: 3px solid var(--red);
 }
@@ -47,6 +48,10 @@ button {
     display: flex;
     gap: 13px;
     align-items: center;
+    min-width: 0;
+}
+.brand > div:last-child {
+    min-width: 0;
 }
 .stamp {
     width: 33px;
@@ -108,9 +113,15 @@ button {
     padding: 2px 6px;
     border: 1px solid #ffffff30;
     border-radius: 999px;
+    background: #ffffff0d;
     color: #f1c865;
     font: 500 10px "DM Mono";
     white-space: nowrap;
+}
+.budget-total:hover,
+.budget-total:focus-visible {
+    border-color: #ffffff70;
+    background: #ffffff18;
 }
 .brand .trip-title {
     font-family: "Playfair Display", serif;
@@ -122,7 +133,7 @@ button {
     border: 0;
     border-bottom: 1px dashed transparent;
     color: #fff;
-    width: min(52vw, 360px);
+    width: min(100%, 360px);
     max-width: 100%;
     padding: 1px 0;
     outline: none;
@@ -139,19 +150,41 @@ button {
 }
 .top-actions {
     display: flex;
+    justify-self: end;
     gap: 9px;
 }
-/* Action bar collapses into a hamburger on mobile. On desktop the items sit
-   inline and the hamburger trigger is hidden. */
 .nav-menu-items {
     display: flex;
     align-items: center;
     gap: 9px;
 }
+.top-search {
+    width: 100%;
+    min-width: 0;
+    justify-content: space-between;
+    padding: 9px 11px;
+    border: 1px solid #ffffff40;
+    border-radius: 7px;
+    background: #ffffff0a;
+    color: #fff;
+    font-size: 13px;
+}
+.top-search:hover,
+.top-search:focus-visible {
+    border-color: #ffffff70;
+    background: #ffffff14;
+    outline: none;
+}
+.top-search-label {
+    flex: 1;
+    text-align: left;
+}
 .top-actions > .hamburger {
     display: none;
 }
-.top button,
+.nav-menu-items > button,
+.nav-menu-items > .github-control > button,
+.top-actions > .hamburger,
 .add-day {
     border: 1px solid #ffffff40;
     background: transparent;
@@ -160,7 +193,9 @@ button {
     border-radius: 4px;
     font-size: 13px;
 }
-.top button:hover {
+.nav-menu-items > button:hover,
+.nav-menu-items > .github-control > button:hover,
+.top-actions > .hamburger:hover {
     background: #ffffff14;
 }
 .top .primary {
@@ -170,14 +205,6 @@ button {
 }
 .top .primary:hover {
     background: #b4352d;
-}
-.top #previewBtn.active {
-    background: var(--ink);
-    border-color: var(--ink);
-    font-weight: 600;
-}
-.top #previewBtn.active:hover {
-    background: #2c3944;
 }
 .github-control {
     position: relative;

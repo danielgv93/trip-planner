@@ -624,7 +624,7 @@ export function render({ persist = true } = {}) {
         fullBudgetTotal = formatDualCost(tripTotal);
     budgetTotal.textContent = `Total: ${store.exchangeRate ? localAmount(tripTotal) : foreignAmount(tripTotal)}`;
     budgetTotal.title = fullBudgetTotal;
-    budgetTotal.setAttribute("aria-label", `Total del viaje: ${fullBudgetTotal}`);
+    budgetTotal.setAttribute("aria-label", `Ver presupuesto. Total del viaje: ${fullBudgetTotal}`);
     if (persist) save();
 }
 

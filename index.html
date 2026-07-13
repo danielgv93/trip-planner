@@ -14,14 +14,14 @@
             rel="stylesheet"
             href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         />
-        <link rel="stylesheet" href="styles/base.css?v=24" />
+        <link rel="stylesheet" href="styles/base.css?v=27" />
         <link rel="stylesheet" href="styles/search.css?v=21" />
-        <link rel="stylesheet" href="styles/planner.css?v=21" />
-        <link rel="stylesheet" href="styles/map-notes.css?v=21" />
+        <link rel="stylesheet" href="styles/planner.css?v=22" />
+        <link rel="stylesheet" href="styles/map-notes.css?v=27" />
         <link rel="stylesheet" href="styles/dialog-finance.css?v=21" />
         <link rel="stylesheet" href="styles/dialogs.css?v=26" />
-        <link rel="stylesheet" href="styles/taxonomy.css?v=21" />
-        <link rel="stylesheet" href="styles/responsive.css?v=24" />
+        <link rel="stylesheet" href="styles/taxonomy.css?v=27" />
+        <link rel="stylesheet" href="styles/responsive.css?v=28" />
     </head>
     <body>
         <header class="top">
@@ -40,12 +40,27 @@
                         <button id="currencyConfigBtn" class="currency-config-trigger" type="button" aria-haspopup="dialog" aria-controls="currencyDialog">
                             <span aria-hidden="true">⇄</span><strong id="currencyConfigLabel">JPY → EUR</strong>
                         </button>
-                        <span id="tripBudgetTotal" class="budget-total"
-                            >Total: 0,00</span
-                        >
+                        <button
+                            id="tripBudgetTotal"
+                            class="budget-total"
+                            type="button"
+                            aria-haspopup="dialog"
+                            aria-controls="budgetDialog"
+                        >Total: 0,00</button>
                     </div>
                 </div>
             </div>
+            <button
+                id="spotSearchBtn"
+                class="spot-search-trigger top-search"
+                type="button"
+                aria-haspopup="dialog"
+                aria-label="Buscar parada"
+            >
+                <span aria-hidden="true">⌕</span>
+                <span class="top-search-label">Buscar parada</span>
+                <kbd>Ctrl K</kbd>
+            </button>
             <div class="top-actions">
                 <button
                     id="navToggle"
@@ -57,19 +72,6 @@
                     <span></span><span></span><span></span>
                 </button>
                 <div id="navMenuItems" class="nav-menu-items">
-                    <button
-                        id="spotSearchBtn"
-                        class="spot-search-trigger"
-                        type="button"
-                        aria-haspopup="dialog"
-                    >
-                        <span aria-hidden="true">⌕</span>
-                        <span>Buscar parada</span>
-                        <kbd>Ctrl K</kbd>
-                    </button>
-                    <button id="previewBtn">Previsualizar</button>
-                    <button id="budgetBtn">Presupuesto</button>
-                    <button id="resetBtn">Restaurar ejemplo</button>
                     <button id="importBtn">Importar</button>
                     <div class="github-control">
                         <button id="githubOpenBtn" type="button" aria-haspopup="menu" aria-controls="githubMenu" aria-expanded="false">
@@ -97,10 +99,16 @@
                     </div>
                     <button class="primary" id="exportBtn">Exportar plan</button>
                     <details id="manageMenu" class="manage-menu">
-                        <summary>⚙ Gestionar</summary>
+                        <summary aria-label="Más opciones">
+                            <span aria-hidden="true">•••</span>
+                            <span class="manage-menu-label">Más</span>
+                        </summary>
                         <div class="manage-menu-items">
-                            <button id="manageTags">Etiquetas</button>
-                            <button id="manageCategories">Categorías</button>
+                            <span class="manage-menu-title">Herramientas</span>
+                            <button id="manageTags"><span aria-hidden="true">#</span> Gestionar etiquetas</button>
+                            <button id="manageCategories"><span aria-hidden="true">◈</span> Gestionar categorías</button>
+                            <span class="manage-menu-divider" aria-hidden="true"></span>
+                            <button id="resetBtn" class="manage-menu-danger"><span aria-hidden="true">↺</span> Restaurar ejemplo</button>
                         </div>
                     </details>
                 </div>
@@ -174,6 +182,12 @@
                     <div class="map-bar">
                         <strong id="mapTitle">Ruta del día</strong
                         ><span class="route-key"><i></i> orden de visita</span
+                        ><button
+                            id="previewBtn"
+                            class="map-preview-btn"
+                            type="button"
+                            aria-pressed="false"
+                        >Vista completa</button
                         ><select
                             id="routeVisualization"
                             class="route-profile"
@@ -494,6 +508,6 @@
             aria-atomic="false"
         ></div>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script type="module" src="js/main.js?v=28"></script>
+        <script type="module" src="js/main.js?v=31"></script>
     </body>
 </html>

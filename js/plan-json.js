@@ -156,8 +156,9 @@ export function applyImportedPlan(plan) {
     document.body.classList.remove("preview-mode");
     const previewBtn = document.querySelector("#previewBtn");
     if (previewBtn) {
-        previewBtn.textContent = "Previsualizar";
+        previewBtn.textContent = "Vista completa";
         previewBtn.classList.remove("active");
+        previewBtn.setAttribute("aria-pressed", "false");
     }
     const routeProfile = document.querySelector("#routeProfile");
     const routeVisualization = document.querySelector("#routeVisualization");

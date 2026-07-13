@@ -9,7 +9,7 @@ import { toast, confirmAction } from "./notify.js?v=3";
 import { sample, DEFAULT_CATEGORIES, DEFAULT_TITLE } from "./constants.js";
 import { syncTripNotes } from "./notes.js";
 import { CURRENCIES, refreshExchangeRate } from "./currency.js";
-import { serializePlan, parsePlanJson, applyImportedPlan } from "./plan-json.js";
+import { serializePlan, parsePlanJson, applyImportedPlan } from "./plan-json.js?v=29";
 
 $("#tripTitle").addEventListener("input", (e) => {
     store.tripTitle = e.target.value;
@@ -80,8 +80,9 @@ function togglePreview() {
     store.previewMode = !store.previewMode;
     document.body.classList.toggle("preview-mode", store.previewMode);
     const btn = $("#previewBtn");
-    btn.textContent = store.previewMode ? "Editar" : "Previsualizar";
+    btn.textContent = store.previewMode ? "Editar plan" : "Vista completa";
     btn.classList.toggle("active", store.previewMode);
+    btn.setAttribute("aria-pressed", String(store.previewMode));
     render();
     drawMap();
 }
@@ -135,11 +136,9 @@ $("#exportBtn").onclick = () => {
     URL.revokeObjectURL(url);
 };
 
-// Header "Gestionar" menu: a native <details> dropdown holding the tag and
-// category managers (their #manageTags/#manageCategories click handlers still
-// live in dialogs.js, wired by id). Unlike <select>, <details> doesn't close on
-// its own, so close it when an option is chosen (it opens a modal dialog) and
-// when the user clicks anywhere outside the menu.
+// Header overflow menu: taxonomy management and the destructive sample reset.
+// Their existing handlers remain wired by id; close the native <details> after
+// choosing an action and when clicking outside it.
 const manageMenu = $("#manageMenu");
 if (manageMenu) {
     manageMenu.addEventListener("click", (e) => {
@@ -153,19 +152,25 @@ if (manageMenu) {
 
 $("#importBtn").onclick = () => $("#importFile").click();
 
-// Mobile hamburger: toggles the collapsed action bar (see the max-width:600px
-// block in styles.css). Desktop hides #navToggle, so this is a no-op there.
+// Responsive hamburger: toggles the action bar at compact widths. Desktop
+// hides #navToggle, so this listener is a no-op there.
 const navToggle = $("#navToggle");
 const topActions = navToggle && navToggle.closest(".top-actions");
 if (navToggle && topActions) {
     const closeNav = () => {
         topActions.classList.remove("nav-open");
         navToggle.setAttribute("aria-expanded", "false");
+        navToggle.setAttribute("aria-label", "Abrir menú");
+        if (matchMedia("(max-width: 860px)").matches && manageMenu)
+            manageMenu.open = false;
     };
     navToggle.addEventListener("click", (e) => {
         e.stopPropagation();
         const open = topActions.classList.toggle("nav-open");
         navToggle.setAttribute("aria-expanded", String(open));
+        navToggle.setAttribute("aria-label", open ? "Cerrar menú" : "Abrir menú");
+        if (matchMedia("(max-width: 860px)").matches && manageMenu)
+            manageMenu.open = open;
     });
     // Close after choosing an action, but keep it open when toggling the
     // nested "Gestionar" <summary> (which isn't a <button>).

@@ -4,7 +4,7 @@
 
 import { store } from "./store.js";
 import { $ } from "./dom.js";
-import { parsePlanJson, applyImportedPlan, serializePlan } from "./plan-json.js";
+import { parsePlanJson, applyImportedPlan, serializePlan } from "./plan-json.js?v=29";
 import { confirmAction, promptAction, toast } from "./notify.js?v=3";
 
 export const GITHUB_API_BASE = "https://api.github.com";

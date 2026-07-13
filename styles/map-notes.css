@@ -1,6 +1,6 @@
 .map-panel {
     position: sticky;
-    top: 92px;
+    top: calc(var(--nav-height) + 20px);
     border: 1px solid var(--line);
     border-radius: 7px;
     overflow: hidden;
@@ -17,6 +17,7 @@
 .map-bar strong {
     font: 700 17px "Playfair Display";
     flex: 1;
+    min-width: 120px;
 }
 .route-key {
     font: 11px "DM Mono";
@@ -38,6 +39,28 @@
     border-radius: 5px;
     padding: 3px 6px;
     cursor: pointer;
+}
+.map-preview-btn {
+    flex: none;
+    padding: 4px 8px;
+    border: 1px solid #d8d4cc;
+    border-radius: 5px;
+    background: #fff;
+    color: var(--green);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.map-preview-btn:hover,
+.map-preview-btn:focus-visible {
+    border-color: #aebfb9;
+    background: #f2f7f5;
+    outline: none;
+}
+.map-preview-btn.active {
+    border-color: var(--green);
+    background: var(--green);
+    color: #fff;
 }
 .leg-label {
     color: var(--red);
