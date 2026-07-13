@@ -17,7 +17,7 @@ import {
     spotIsEnabled,
 } from "./store.js";
 import { $, esc, safeColor, fmt, daysEl, id } from "./dom.js";
-import { toast, confirmAction } from "./notify.js";
+import { toast, confirmAction } from "./notify.js?v=3";
 import { drawMap, mapsLinkFor } from "./map.js";
 import { openDialog } from "./dialogs.js";
 import { foreignAmount, localAmount } from "./currency.js";

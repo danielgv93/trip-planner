@@ -104,6 +104,17 @@ body.preview-mode .spot {
     .top-actions.nav-open .nav-menu-items > button {
         text-align: left;
     }
+    .top-actions.nav-open .github-control {
+        display: flex;
+    }
+    .top-actions.nav-open #githubOpenBtn {
+        width: 100%;
+        text-align: left;
+    }
+    .top-actions.nav-open .github-menu {
+        top: calc(100% + 6px);
+        right: 0;
+    }
     /* Flatten the nested "Gestionar" menu so its options read as plain rows. */
     .nav-menu-items .manage-menu > summary {
         display: none;
@@ -147,6 +158,16 @@ body.preview-mode .spot {
     .trip-notes-preview { min-height: 52vh; }
     .hours-input-row {
         grid-template-columns: 1fr;
+    }
+    .github-dialog-content { padding: 16px; }
+    .github-fields-two,
+    .github-fields-ref { grid-template-columns: 1fr; }
+    .github-actions button { width: 100%; }
+    .change-preview-detail {
+        grid-template-columns: 1fr auto minmax(0, 1fr);
+    }
+    .change-preview-detail b {
+        grid-column: 1 / -1;
     }
     .spot-hours {
         width: 100%;

@@ -64,6 +64,12 @@ export const store = {
     // View-only tag filter (Set<string>). NOT persisted — never part of
     // save()/localStorage/export — resets to empty on every reload.
     activeTagFilter: new Set(),
+    // Runtime-only GitHub integration state. The credential is deliberately
+    // never copied here; github.js reads it from sessionStorage on demand.
+    githubConnection: null,
+    githubVerified: false,
+    githubBusy: false,
+    githubRemoteSnapshot: null,
 };
 store.active = store.state[0]?.id;
 

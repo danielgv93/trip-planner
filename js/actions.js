@@ -5,10 +5,11 @@ import { store, save, clearTagFilter } from "./store.js";
 import { $, slug, id } from "./dom.js";
 import { render, applyTitle } from "./render.js";
 import { drawMap, syncRouteVisualizationControl } from "./map.js";
-import { toast, confirmAction } from "./notify.js";
+import { toast, confirmAction } from "./notify.js?v=3";
 import { sample, DEFAULT_CATEGORIES, DEFAULT_TITLE } from "./constants.js";
 import { syncTripNotes } from "./notes.js";
 import { CURRENCIES, refreshExchangeRate } from "./currency.js";
+import { serializePlan, parsePlanJson, applyImportedPlan } from "./plan-json.js";
 
 $("#tripTitle").addEventListener("input", (e) => {
     store.tripTitle = e.target.value;
@@ -120,22 +121,7 @@ $("#resetBtn").onclick = () => {
 
 $("#exportBtn").onclick = () => {
     const data = JSON.stringify(
-            {
-                version: 16,
-                exportedAt: new Date().toISOString(),
-                tripTitle: store.tripTitle,
-                localCurrency: store.localCurrency,
-                foreignCurrency: store.foreignCurrency,
-                exchangeRate: store.exchangeRate,
-                exchangeRateDate: store.exchangeRateDate,
-                tripNotes: store.tripNotes,
-                days: store.state,
-                backlog: store.backlog,
-                tags: store.tags,
-                categories: store.categories,
-                routeProfile: store.routeProfile,
-                routeVisualization: store.routeVisualization,
-            },
+            serializePlan(),
             null,
             2,
         ),
@@ -184,7 +170,7 @@ if (navToggle && topActions) {
     // Close after choosing an action, but keep it open when toggling the
     // nested "Gestionar" <summary> (which isn't a <button>).
     $("#navMenuItems").addEventListener("click", (e) => {
-        if (e.target.closest("button")) closeNav();
+        if (e.target.closest("button") && !e.target.closest("#githubOpenBtn")) closeNav();
     });
     document.addEventListener("click", (e) => {
         if (topActions.classList.contains("nav-open") && !topActions.contains(e.target))
@@ -195,8 +181,7 @@ $("#importFile").onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     try {
-        const plan = JSON.parse(await file.text());
-        if (!Array.isArray(plan.days)) throw Error();
+        const plan = parsePlanJson(await file.text());
         const ok = await confirmAction({
             title: "Importar plan",
             message:
@@ -207,36 +192,7 @@ $("#importFile").onchange = async (e) => {
             e.target.value = "";
             return;
         }
-        store.state = plan.days;
-        store.backlog = Array.isArray(plan.backlog) ? plan.backlog : [];
-        store.tags = Array.isArray(plan.tags) ? plan.tags : store.tags;
-        store.categories = Array.isArray(plan.categories)
-            ? plan.categories
-            : store.categories;
-        if (typeof plan.tripTitle === "string") store.tripTitle = plan.tripTitle;
-        store.localCurrency = typeof plan.localCurrency === "string" ? plan.localCurrency : "EUR";
-        store.foreignCurrency = typeof plan.foreignCurrency === "string" ? plan.foreignCurrency : "JPY";
-        store.exchangeRate = Number.isFinite(plan.exchangeRate) ? plan.exchangeRate : null;
-        store.exchangeRateDate = typeof plan.exchangeRateDate === "string" ? plan.exchangeRateDate : "";
-        store.tripNotes = typeof plan.tripNotes === "string" ? plan.tripNotes : "";
-        if (["walking", "driving", "cycling"].includes(plan.routeProfile)) {
-            store.routeProfile = plan.routeProfile;
-            $("#routeProfile").value = store.routeProfile;
-        }
-        store.routeVisualization = ["straight", "streets"].includes(
-            plan.routeVisualization,
-        )
-            ? plan.routeVisualization
-            : "straight";
-        $("#routeVisualization").value = store.routeVisualization;
-        syncRouteVisualizationControl();
-        store.active = store.state[0]?.id || "backlog";
-        clearTagFilter();
-        applyTitle();
-        syncTripNotes();
-        save();
-        render();
-        drawMap();
+        applyImportedPlan(plan);
         toast("Plan importado correctamente.", "success");
     } catch {
         toast("Ese archivo no parece un plan válido.", "error");

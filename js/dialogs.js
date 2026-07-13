@@ -3,7 +3,7 @@
 
 import { store, save, dayBy } from "./store.js";
 import { $, esc, slug, id } from "./dom.js";
-import { toast, confirmAction } from "./notify.js";
+import { toast, confirmAction } from "./notify.js?v=3";
 import { render } from "./render.js";
 import { drawMap, setPreview, openPreview } from "./map.js";
 

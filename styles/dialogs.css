@@ -4,6 +4,129 @@
     line-height: 1.5;
     color: var(--ink);
 }
+#confirmDialog:has(.change-preview:not([hidden])) {
+    width: min(640px, calc(100% - 32px));
+}
+.change-preview {
+    display: grid;
+    gap: 11px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: linear-gradient(145deg, #f8f6f1, #fff);
+}
+.change-preview[hidden] { display: none; }
+.change-preview-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+}
+.change-preview-stat {
+    display: grid;
+    gap: 1px;
+    padding: 8px 9px;
+    border: 1px solid #e9e6de;
+    border-radius: 8px;
+    background: #fff;
+}
+.change-preview-stat strong {
+    color: var(--ink);
+    font: 700 18px "DM Mono";
+}
+.change-preview-stat small {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.change-preview-stat[data-tone="add"] { border-top: 3px solid var(--green); }
+.change-preview-stat[data-tone="modify"] { border-top: 3px solid #c58b2b; }
+.change-preview-stat[data-tone="remove"] { border-top: 3px solid var(--red); }
+.change-preview-list {
+    display: grid;
+    gap: 6px;
+    max-height: min(310px, 42vh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+.change-preview-group {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 8px;
+    align-items: start;
+    padding: 8px 9px;
+    border-radius: 7px;
+    background: #fff;
+}
+.change-preview-mark {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    border-radius: 7px;
+    background: #edf4f1;
+    color: var(--green);
+    font: 700 14px "DM Mono";
+}
+.change-preview-group[data-tone="modify"] .change-preview-mark { background: #fbf1dd; color: #9b6816; }
+.change-preview-group[data-tone="remove"] .change-preview-mark { background: #fbebe8; color: var(--red); }
+.change-preview-copy { min-width: 0; }
+.change-preview-copy strong { display: block; font-size: 12px; }
+.change-preview-summary {
+    display: block;
+    margin-top: 2px;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.change-preview-details {
+    display: grid;
+    gap: 3px;
+    margin-top: 5px;
+}
+.change-preview-detail {
+    display: grid;
+    grid-template-columns: minmax(92px, auto) minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 6px;
+    align-items: baseline;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.35;
+}
+.change-preview-detail b {
+    color: var(--ink);
+    font-weight: 600;
+}
+.change-preview-before,
+.change-preview-after {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.change-preview-before { color: #8d8c84; text-decoration: line-through; }
+.change-preview-after { color: var(--ink); font-weight: 600; }
+.change-preview-arrow { color: #b07920; font-family: "DM Mono"; }
+.confirm-input-field {
+    display: grid;
+    gap: 6px;
+    margin-top: 14px;
+    font-size: 13px;
+    font-weight: 600;
+}
+.confirm-input-field[hidden] { display: none; }
+.confirm-input-field input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #d9d8d2;
+    border-radius: 4px;
+    outline: none;
+}
+.confirm-input-field input:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px #386f6615;
+}
 .form-actions .confirm-ok {
     background: var(--red);
     color: #fff;
@@ -204,6 +327,137 @@
     font-size: 12px;
     line-height: 1.4;
 }
+.github-dialog {
+    width: min(700px, calc(100% - 32px));
+}
+.github-dialog-content {
+    min-height: 0;
+    padding: 21px;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+}
+.github-status {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #f7f5f0;
+}
+.github-status-icon {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #9a9a92;
+}
+.github-status[data-state="verified"] .github-status-icon { background: var(--green); }
+.github-status[data-state="busy"] .github-status-icon {
+    background: #3f7d9c;
+    animation: github-pulse 1s ease-in-out infinite;
+}
+.github-status strong,
+.github-status small { display: block; overflow-wrap: anywhere; }
+.github-status strong { font-size: 13px; }
+.github-status small { margin-top: 2px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+@keyframes github-pulse { 50% { opacity: .35; transform: scale(.75); } }
+.github-form {
+    display: grid;
+    gap: 14px;
+}
+.github-form label {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+}
+.github-form input {
+    min-width: 0;
+    width: 100%;
+    border: 1px solid #d9d8d2;
+    border-radius: 4px;
+    padding: 10px;
+    outline: none;
+}
+.github-form input:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px #386f6615;
+}
+.github-autocomplete-field {
+    position: relative;
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+.github-autocomplete-list {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 3px);
+    left: 0;
+    right: 0;
+    max-height: 220px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 1px solid #d9d8d2;
+    border-radius: 6px;
+    background: #fff;
+    box-shadow: 0 10px 24px #1c28332b;
+}
+.github-autocomplete-list button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 10px;
+    border: 0;
+    border-bottom: 1px solid #efeee9;
+    background: #fff;
+    color: var(--ink);
+    text-align: left;
+}
+.github-autocomplete-list button:last-child { border-bottom: 0; }
+.github-autocomplete-list button:hover,
+.github-autocomplete-list button[aria-selected="true"] { background: #f2f7f5; }
+.github-autocomplete-list strong { min-width: 0; overflow-wrap: anywhere; font: 600 12px "DM Mono"; }
+.github-autocomplete-list small { flex: none; color: var(--muted); font-size: 10px; font-weight: 500; }
+.github-autocomplete-message { padding: 10px; color: var(--muted); font-size: 11px; font-weight: 500; }
+.github-fields-two {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.github-fields-ref { grid-template-columns: minmax(150px, .7fr) minmax(0, 1.3fr); }
+.github-token-help,
+.github-limit-note {
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+.github-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 3px;
+}
+.github-actions button {
+    border: 1px solid #d7d7d2;
+    border-radius: 4px;
+    padding: 9px 12px;
+    background: #fff;
+    color: var(--ink);
+}
+.github-actions .save {
+    border-color: var(--red);
+    background: var(--red);
+    color: #fff;
+    font-weight: 600;
+}
+.github-actions button:disabled { cursor: not-allowed; opacity: .45; }
+.github-limit-note { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
 .location-field {
     position: relative;
 }

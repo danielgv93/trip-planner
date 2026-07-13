@@ -8,6 +8,7 @@ import { drawMap } from "./map.js";
 import "./dialogs.js";
 import "./dnd.js";
 import "./actions.js";
+import "./github.js?v=28";
 import "./budget.js";
 import "./spot-search.js";
 import "./sticky-days.js";

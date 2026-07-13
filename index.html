@@ -14,14 +14,14 @@
             rel="stylesheet"
             href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         />
-        <link rel="stylesheet" href="styles/base.css?v=21" />
+        <link rel="stylesheet" href="styles/base.css?v=24" />
         <link rel="stylesheet" href="styles/search.css?v=21" />
         <link rel="stylesheet" href="styles/planner.css?v=21" />
         <link rel="stylesheet" href="styles/map-notes.css?v=21" />
         <link rel="stylesheet" href="styles/dialog-finance.css?v=21" />
-        <link rel="stylesheet" href="styles/dialogs.css?v=21" />
+        <link rel="stylesheet" href="styles/dialogs.css?v=26" />
         <link rel="stylesheet" href="styles/taxonomy.css?v=21" />
-        <link rel="stylesheet" href="styles/responsive.css?v=21" />
+        <link rel="stylesheet" href="styles/responsive.css?v=24" />
     </head>
     <body>
         <header class="top">
@@ -71,6 +71,30 @@
                     <button id="budgetBtn">Presupuesto</button>
                     <button id="resetBtn">Restaurar ejemplo</button>
                     <button id="importBtn">Importar</button>
+                    <div class="github-control">
+                        <button id="githubOpenBtn" type="button" aria-haspopup="menu" aria-controls="githubMenu" aria-expanded="false">
+                            <span class="github-dot" aria-hidden="true"></span> GitHub
+                        </button>
+                        <div id="githubMenu" class="github-menu" role="menu" aria-label="Acciones de GitHub" hidden>
+                            <span class="github-menu-title">GitHub</span>
+                            <button type="button" role="menuitem" data-github-action="configure">
+                                <span class="github-menu-icon" aria-hidden="true">⚙</span>
+                                <span><strong>Configurar GitHub</strong><small>Repositorio, rama, archivo y token</small></span>
+                            </button>
+                            <button type="button" role="menuitem" data-github-action="connect" disabled>
+                                <span class="github-menu-icon" aria-hidden="true">⌁</span>
+                                <span><strong>Conectar a GitHub</strong><small>Verificar el acceso al archivo</small></span>
+                            </button>
+                            <button type="button" role="menuitem" data-github-action="pull" disabled>
+                                <span class="github-menu-icon" aria-hidden="true">↓</span>
+                                <span><strong>Pull y sincronizar</strong><small>Traer los cambios del plan remoto</small></span>
+                            </button>
+                            <button type="button" role="menuitem" data-github-action="publish" disabled>
+                                <span class="github-menu-icon" aria-hidden="true">↑</span>
+                                <span><strong>Publicar cambios</strong><small>Actualizar el archivo en GitHub</small></span>
+                            </button>
+                        </div>
+                    </div>
                     <button class="primary" id="exportBtn">Exportar plan</button>
                     <details id="manageMenu" class="manage-menu">
                         <summary>⚙ Gestionar</summary>
@@ -363,6 +387,11 @@
             </div>
             <div class="form">
                 <p id="confirmMsg" class="confirm-msg"></p>
+                <div id="confirmPreview" class="change-preview" hidden></div>
+                <label id="confirmInputField" class="confirm-input-field" hidden>
+                    <span id="confirmInputLabel">Mensaje</span>
+                    <input id="confirmInput" type="text" maxlength="120" autocomplete="off" />
+                </label>
                 <div class="form-actions">
                     <button type="button" class="cancel" id="confirmCancel">
                         Cancelar</button
@@ -416,6 +445,48 @@
                 <p class="currency-api-note">Cambio diario de referencia proporcionado por Frankfurter.</p>
             </div>
         </dialog>
+        <dialog id="githubDialog" class="github-dialog">
+            <div class="modal-head">
+                <div>
+                    <span class="modal-eyebrow">Sincronización manual</span>
+                    <h3>Conectar con GitHub</h3>
+                </div>
+                <button class="close" aria-label="Cerrar">×</button>
+            </div>
+            <div class="github-dialog-content">
+                <form id="githubForm" class="github-form">
+                    <div class="github-fields-two">
+                        <div class="github-autocomplete-field">
+                            <label for="githubOwner">Propietario</label>
+                            <input id="githubOwner" required autocomplete="off" placeholder="octocat" aria-autocomplete="list" aria-controls="githubOwnerSuggestions" aria-expanded="false" />
+                            <div id="githubOwnerSuggestions" class="github-autocomplete-list" role="listbox" aria-label="Sugerencias de usuarios y organizaciones" hidden></div>
+                        </div>
+                        <div class="github-autocomplete-field">
+                            <label for="githubRepo">Repositorio</label>
+                            <input id="githubRepo" required autocomplete="off" placeholder="viajes" aria-autocomplete="list" aria-controls="githubRepoSuggestions" aria-expanded="false" />
+                            <div id="githubRepoSuggestions" class="github-autocomplete-list" role="listbox" aria-label="Sugerencias de repositorios" hidden></div>
+                        </div>
+                    </div>
+                    <div class="github-fields-two github-fields-ref">
+                        <label>Rama o referencia
+                            <input id="githubRef" required autocomplete="off" value="main" placeholder="main" />
+                        </label>
+                        <label>Ruta del archivo JSON
+                            <input id="githubPath" required autocomplete="off" placeholder="planes/japon.json" />
+                        </label>
+                    </div>
+                    <label>Token personal (opcional para repositorios públicos)
+                        <input id="githubToken" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" />
+                    </label>
+                    <p class="github-token-help">
+                        Usa un token fine-grained limitado a este repositorio: permiso <strong>Contents: read</strong> para importar de un repositorio privado y <strong>Contents: read and write</strong> para publicar. Solo se conserva en esta sesión del navegador.
+                    </p>
+                    <div class="github-actions">
+                        <button id="githubSaveBtn" class="save" type="submit">Guardar configuración</button>
+                    </div>
+                </form>
+            </div>
+        </dialog>
         <div
             id="toasts"
             class="toasts"
@@ -423,6 +494,6 @@
             aria-atomic="false"
         ></div>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script type="module" src="js/main.js?v=21"></script>
+        <script type="module" src="js/main.js?v=28"></script>
     </body>
 </html>

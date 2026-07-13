@@ -8,7 +8,7 @@
 import { daysEl } from "./dom.js";
 import { store } from "./store.js";
 import { moveDay, moveSpot, render } from "./render.js";
-import { toast } from "./notify.js";
+import { toast } from "./notify.js?v=3";
 
 let dragEl = null,
     ghost = null,

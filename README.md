@@ -25,6 +25,7 @@ The interface is currently available in Spanish.
 - **Trip notes** — save general information using lightweight Markdown formatting.
 - **Preview mode** — switch to a cleaner, read-only presentation of the itinerary.
 - **Import and export** — save the complete plan as JSON and restore it later.
+- **GitHub JSON sync** — import an existing repository file and explicitly publish updates with conflict protection.
 - **Local persistence** — changes are automatically stored in the browser with `localStorage`.
 - **Responsive design** — designed for both desktop and mobile use.
 
@@ -52,6 +53,14 @@ Then open [http://localhost:8000](http://localhost:8000) in your browser.
 6. Add categories, tags, schedules, notes, and costs as needed.
 7. Export the plan as JSON when you want a backup or wish to share it.
 
+### GitHub JSON synchronization
+
+Open **GitHub** in the top navigation to access the compact action menu. **Configurar GitHub** stores the owner, repository, branch or ref, path of an existing plan JSON file, and optional session token without importing anything. **Conectar a GitHub** verifies access to that file; **Pull y sincronizar** imports it after confirmation; and **Publicar cambios** updates it explicitly. Public files can be read without authentication, and GitHub never replaces the local plan until you accept the pull confirmation.
+
+Private reads and publishing use a [fine-grained personal access token](https://github.com/settings/personal-access-tokens). Limit the token to the selected repository and grant only **Contents: read** for private reads or **Contents: read and write** for publishing. The token is kept in `sessionStorage` for the current browser session; it is not included in the saved trip, exported JSON, connection metadata, URLs, or commit messages. Because this is a browser-only integration, scripts running on the same origin can access the session credential; close the session when you are finished.
+
+Publishing updates only the connected existing file and is always explicit. It is disabled when the local plan differs from the verified remote file only by `exportedAt`, or when there are no differences at all. A custom commit message can be entered before publishing; leaving it empty uses `Actualizar plan de viaje`. The planner sends the SHA from the last verified read, so GitHub rejects the write if the remote file changed. In that case, export the local plan as a backup, then use **Pull y sincronizar** to inspect/import the remote version or reconcile the changes outside the planner. The integration does not create repositories, branches, files, pull requests, merge changes, poll GitHub, or force an overwrite. Local import/export remains available when GitHub is unavailable.
+
 The app starts with a sample itinerary, which can be restored at any time from the top navigation.
 
 ## Project Structure
@@ -76,6 +85,8 @@ trip-planner/
     ├── dnd.js          # Pointer-based drag and drop
     ├── map.js          # Leaflet maps and route rendering
     ├── actions.js      # Header actions and import/export
+    ├── plan-json.js    # Canonical portable JSON codec
+    ├── github.js       # Optional GitHub file import and publishing
     ├── budget.js       # Budget breakdown
     ├── currency.js     # Currency formatting and exchange rates
     ├── notes.js        # Trip notes and Markdown preview
