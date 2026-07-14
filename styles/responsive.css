@@ -242,7 +242,7 @@ body.preview-mode .spot {
     .change-preview-detail b {
         grid-column: 1 / -1;
     }
-    .spot-hours {
+    .spot-timing {
         width: 100%;
     }
     .spot-hours-detail {
@@ -251,6 +251,9 @@ body.preview-mode .spot {
     .spot-hours.is-complete:hover .spot-hours-rail,
     .spot-hours.is-complete:focus-visible .spot-hours-rail {
         opacity: 1;
+    }
+    .day-load-detail {
+        min-width: 190px;
     }
     .day-schedule-body {
         padding-inline: 12px;
@@ -307,6 +310,10 @@ body.preview-mode .spot {
     .spot-hours-rail,
     .spot-hours-segment,
     .spot-hours-detail {
+        transition: none;
+    }
+    .day-load-track,
+    .day-load-detail {
         transition: none;
     }
 }

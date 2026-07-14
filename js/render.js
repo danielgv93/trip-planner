@@ -505,12 +505,14 @@ function renderList(el, spots, isBacklog = false) {
             ? `<span class="spot-duration" title="Tiempo de visita estimado"><span aria-hidden="true">◔</span> ${formatDurationMinutes(visitMinutes)}</span>`
             : "";
         const spotNote = s.note?.trim()
-            ? `<span class="spot-meta">${esc(s.note)}${spotDuration}</span>`
-            : spotDuration
-              ? `<span class="spot-meta">${spotDuration}</span>`
-              : "";
+            ? `<span class="spot-meta">${esc(s.note)}</span>`
+            : "";
         const enabled = spotIsEnabled(s);
         const spotHours = renderSpotHours(s, cat.color, enabled);
+        const spotTiming =
+            spotHours || spotDuration
+                ? `<span class="spot-timing">${spotHours}${spotDuration}</span>`
+                : "";
         const mapsLink = mapsLinkFor(s);
         const mapsAction = mapsLink
             ? `<a class="open-in-maps" href="${mapsLink}" target="_blank" rel="noopener" title="Abrir en Google Maps" aria-label="Abrir ${esc(s.name || "parada")} en Google Maps"><span aria-hidden="true">↗</span></a>`
@@ -522,7 +524,7 @@ function renderList(el, spots, isBacklog = false) {
               ? `<span class="number">${mapNumber}</span>`
               : '<span class="number number-placeholder" aria-hidden="true">−</span>';
         spot.classList.toggle("spot-disabled", !enabled);
-        spot.innerHTML = `<span class="handle">⠿</span><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number} ${esc(s.name)}</span>${spotNote}${spotHours}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions">${mapsAction}<span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
+        spot.innerHTML = `<span class="handle">⠿</span><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number} ${esc(s.name)}</span>${spotNote}${spotTiming}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions">${mapsAction}<span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
         list.append(spot);
     });
     wireHoursComparison(list);
@@ -579,8 +581,9 @@ function openMoveMenu(button, currentDay) {
 function applyDayLoad(dayEl, day) {
     const loadSpan = dayEl.querySelector("[data-day-load]"),
         badge = dayEl.querySelector(".day-load-badge"),
-        meter = dayEl.querySelector(".day-load-meter");
-    if (!loadSpan || !badge || !meter) return;
+        meter = dayEl.querySelector(".day-load-meter"),
+        detail = meter?.querySelector(".day-load-detail");
+    if (!loadSpan || !badge || !meter || !detail) return;
     const { activity, travel } = dayWorkload(day),
         total = activity + (travel ?? 0),
         isOver = total > DAY_LOAD_WARNING_MINUTES,
@@ -593,11 +596,22 @@ function applyDayLoad(dayEl, day) {
         const { activityPct, travelPct } = dayLoadPercents(activity, travel);
         meter.style.setProperty("--load-activity", `${activityPct.toFixed(4)}%`);
         meter.style.setProperty("--load-travel", `${travelPct.toFixed(4)}%`);
-        meter.title = `Carga estimada: ${formatDurationMinutes(total)} de ${DAY_LOAD_WARNING_MINUTES / 60} h`;
+        const activityText =
+                activity > 0 ? formatDurationMinutes(activity) : "sin estimación",
+            travelText =
+                travel != null ? formatDurationMinutes(travel) : "calculando…",
+            totalText =
+                travel != null ? formatDurationMinutes(total) : "pendiente";
+        detail.innerHTML = `<span><i class="is-activity"></i>Actividad <strong>${esc(activityText)}</strong></span><span><i class="is-travel"></i>Trayectos <strong>${esc(travelText)}</strong></span><span class="day-load-total">Total <strong>${esc(totalText)}</strong></span>`;
+        meter.setAttribute(
+            "aria-label",
+            `Carga del día. Actividad: ${activityText}. Trayectos: ${travelText}. Total: ${totalText}.`,
+        );
     } else {
         meter.style.removeProperty("--load-activity");
         meter.style.removeProperty("--load-travel");
-        meter.removeAttribute("title");
+        meter.removeAttribute("aria-label");
+        detail.textContent = "";
     }
 }
 
@@ -649,10 +663,26 @@ export function render({ persist = true } = {}) {
             (day.id === store.active ? "active " : "") +
             (day.collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
-        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><span class="day-load-meter" hidden aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div>${renderDaySchedule(day.spots, day.id)}<div class="spots"></div><button class="add-place">＋ Añadir una parada</button>`;
+        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div>${renderDaySchedule(day.spots, day.id)}<div class="spots"></div><button class="add-place">＋ Añadir una parada</button>`;
         renderList(el, day.spots);
         wireDaySchedule(el, day.id);
         applyDayLoad(el, day);
+        const loadMeter = el.querySelector(".day-load-meter");
+        loadMeter.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const open = loadMeter.classList.toggle("is-open");
+            loadMeter.setAttribute("aria-expanded", String(open));
+        });
+        loadMeter.addEventListener("blur", () => {
+            loadMeter.classList.remove("is-open");
+            loadMeter.setAttribute("aria-expanded", "false");
+        });
+        loadMeter.addEventListener("keydown", (event) => {
+            if (event.key !== "Escape") return;
+            loadMeter.classList.remove("is-open");
+            loadMeter.setAttribute("aria-expanded", "false");
+            loadMeter.blur();
+        });
         el.querySelector(".day-head").addEventListener("click", (e) => {
             if (
                 e.target.closest(".date-box") ||
