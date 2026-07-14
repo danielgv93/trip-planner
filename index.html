@@ -482,12 +482,16 @@
                         </div>
                     </div>
                     <div class="github-fields-two github-fields-ref">
-                        <label>Rama o referencia
-                            <input id="githubRef" required autocomplete="off" value="main" placeholder="main" />
-                        </label>
-                        <label>Ruta del archivo JSON
-                            <input id="githubPath" required autocomplete="off" placeholder="planes/japon.json" />
-                        </label>
+                        <div class="github-autocomplete-field">
+                            <label for="githubRef">Rama o referencia</label>
+                            <input id="githubRef" required autocomplete="off" value="main" placeholder="main" aria-autocomplete="list" aria-controls="githubRefSuggestions" aria-expanded="false" />
+                            <div id="githubRefSuggestions" class="github-autocomplete-list" role="listbox" aria-label="Sugerencias de ramas" hidden></div>
+                        </div>
+                        <div class="github-autocomplete-field">
+                            <label for="githubPath">Ruta del archivo JSON</label>
+                            <input id="githubPath" required autocomplete="off" placeholder="planes/japon.json" aria-autocomplete="list" aria-controls="githubPathSuggestions" aria-expanded="false" />
+                            <div id="githubPathSuggestions" class="github-autocomplete-list" role="listbox" aria-label="Sugerencias de archivos JSON" hidden></div>
+                        </div>
                     </div>
                     <label>Token personal (opcional para repositorios públicos)
                         <input id="githubToken" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" />
@@ -508,6 +512,6 @@
             aria-atomic="false"
         ></div>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script type="module" src="js/main.js?v=31"></script>
+        <script type="module" src="js/main.js?v=32"></script>
     </body>
 </html>

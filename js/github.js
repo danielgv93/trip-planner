@@ -174,6 +174,78 @@ export async function listGithubRepos(owner, query = "", token = "") {
         }));
 }
 
+let branchesCache = null;
+let filesCache = null;
+
+function repositoryCoordinates(owner, repo) {
+    const normalizedOwner = cleanText(owner);
+    const normalizedRepo = cleanText(repo).replace(/\.git$/i, "");
+    if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(normalizedOwner)) return null;
+    if (!/^[A-Za-z0-9._-]{1,100}$/.test(normalizedRepo)) return null;
+    return { owner: normalizedOwner, repo: normalizedRepo };
+}
+
+export async function listGithubBranches(owner, repo, query = "", token = "") {
+    const repository = repositoryCoordinates(owner, repo);
+    if (!repository) return [];
+    const cacheKey = `${repository.owner.toLowerCase()}/${repository.repo.toLowerCase()}`;
+    if (!branchesCache || branchesCache.key !== cacheKey || branchesCache.token !== token) {
+        const params = new URLSearchParams({ per_page: "100" });
+        const data = await requestJson(
+            `${GITHUB_API_BASE}/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}/branches?${params}`,
+            { headers: githubHeaders(token) },
+        );
+        if (!Array.isArray(data)) throw new GithubError("RESPONSE");
+        branchesCache = {
+            key: cacheKey,
+            token,
+            names: data.filter((branch) => typeof branch?.name === "string").map((branch) => branch.name),
+        };
+    }
+    const normalizedQuery = cleanText(query).toLowerCase();
+    return branchesCache.names
+        .filter((name) => name.toLowerCase().includes(normalizedQuery))
+        .sort((a, b) => {
+            const aStarts = a.toLowerCase().startsWith(normalizedQuery);
+            const bStarts = b.toLowerCase().startsWith(normalizedQuery);
+            return Number(bStarts) - Number(aStarts) || a.localeCompare(b);
+        })
+        .slice(0, 20)
+        .map((name) => ({ value: name, label: name, detail: "Rama" }));
+}
+
+export async function listGithubJsonFiles(owner, repo, ref, query = "", token = "") {
+    const repository = repositoryCoordinates(owner, repo);
+    const normalizedRef = cleanText(ref);
+    if (!repository || !normalizedRef) return [];
+    const cacheKey = `${repository.owner.toLowerCase()}/${repository.repo.toLowerCase()}@${normalizedRef}`;
+    if (!filesCache || filesCache.key !== cacheKey || filesCache.token !== token) {
+        const params = new URLSearchParams({ recursive: "1" });
+        const data = await requestJson(
+            `${GITHUB_API_BASE}/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}/git/trees/${encodeURIComponent(normalizedRef)}?${params}`,
+            { headers: githubHeaders(token) },
+        );
+        if (!Array.isArray(data?.tree)) throw new GithubError("RESPONSE");
+        filesCache = {
+            key: cacheKey,
+            token,
+            paths: data.tree
+                .filter((item) => item?.type === "blob" && typeof item.path === "string" && item.path.toLowerCase().endsWith(".json"))
+                .map((item) => item.path),
+        };
+    }
+    const normalizedQuery = cleanText(query).toLowerCase();
+    return filesCache.paths
+        .filter((path) => path.toLowerCase().includes(normalizedQuery))
+        .sort((a, b) => {
+            const aStarts = a.toLowerCase().startsWith(normalizedQuery);
+            const bStarts = b.toLowerCase().startsWith(normalizedQuery);
+            return Number(bStarts) - Number(aStarts) || a.localeCompare(b);
+        })
+        .slice(0, 30)
+        .map((path) => ({ value: path, label: path, detail: "Archivo JSON" }));
+}
+
 function base64ToUtf8(value) {
     try {
         const binary = atob(value.replace(/\s/g, ""));
@@ -665,6 +737,8 @@ function createGithubAutocomplete({ input, list, minimumLength = 0, load, select
 
 const ownerInput = $("#githubOwner");
 const repoInput = $("#githubRepo");
+const refInput = $("#githubRef");
+const pathInput = $("#githubPath");
 let repoAutocomplete;
 const ownerAutocomplete = createGithubAutocomplete({
     input: ownerInput,
@@ -682,8 +756,33 @@ repoAutocomplete = createGithubAutocomplete({
     load: (query) => listGithubRepos(ownerInput.value, query, tokenInput.value.trim() || getGithubToken()),
     select: (item) => {
         repoInput.dataset.owner = ownerInput.value.trim();
-        if (item.defaultBranch) $("#githubRef").value = item.defaultBranch;
+        if (item.defaultBranch) refInput.value = item.defaultBranch;
     },
+});
+const refAutocomplete = createGithubAutocomplete({
+    input: refInput,
+    list: $("#githubRefSuggestions"),
+    load: (query) => listGithubBranches(
+        ownerInput.value,
+        repoInput.value,
+        query,
+        tokenInput.value.trim() || getGithubToken(),
+    ),
+    select: () => {
+        pathInput.value = "";
+    },
+});
+const pathAutocomplete = createGithubAutocomplete({
+    input: pathInput,
+    list: $("#githubPathSuggestions"),
+    load: (query) => listGithubJsonFiles(
+        ownerInput.value,
+        repoInput.value,
+        refInput.value,
+        query,
+        tokenInput.value.trim() || getGithubToken(),
+    ),
+    select: () => {},
 });
 
 function fillTarget(connection) {
@@ -808,6 +907,8 @@ githubDialog.querySelector(".close").onclick = () => githubDialog.close();
 githubDialog.addEventListener("close", () => {
     ownerAutocomplete.hide();
     repoAutocomplete.hide();
+    refAutocomplete.hide();
+    pathAutocomplete.hide();
 });
 githubDialog.addEventListener("click", (event) => {
     if (event.target === githubDialog) githubDialog.close();
