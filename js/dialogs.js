@@ -5,7 +5,12 @@ import { store, save, dayBy } from "./store.js";
 import { $, esc, slug, id } from "./dom.js";
 import { toast, confirmAction } from "./notify.js?v=3";
 import { render } from "./render.js";
-import { drawMap, setPreview, openPreview } from "./map.js";
+import {
+    drawMap,
+    setPreview,
+    openPreview,
+    clearPreviewMarker,
+} from "./map.js";
 
 const dialog = $("#placeDialog");
 const tagDialog = $("#tagDialog");
@@ -115,7 +120,7 @@ export function openDialog(dayId, spot, prefill = {}) {
     $("#suggestions").hidden = true;
     $("#searchStatus").textContent = store.selectedLocation
         ? "Ubicación actual: " + store.selectedLocation.display_name
-        : "Escribe una zona o dirección para ver sugerencias.";
+        : "Busca una dirección o elige un punto en el mapa.";
     dialog.showModal();
     openPreview(store.selectedLocation);
     $("#placeName").focus();
@@ -166,7 +171,7 @@ async function searchPlaces(q) {
 
 $("#placeAddress").addEventListener("input", (e) => {
     store.selectedLocation = null;
-    $("#previewWrap").hidden = true;
+    clearPreviewMarker();
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => searchPlaces(e.target.value.trim()), 450);
 });
@@ -210,13 +215,21 @@ $("#placeForm").addEventListener("submit", async (e) => {
             note,
             tags: spotTags,
         });
-        if (coordinates) Object.assign(spot, coordinates);
+        if (coordinates)
+            Object.assign(spot, {
+                lat: coordinates.lat,
+                lng: coordinates.lng,
+            });
         else (delete spot.lat, delete spot.lng);
         if (category) spot.category = category;
         else delete spot.category;
     } else {
         spot = { id: id(), name, address, note, tags: spotTags };
-        if (coordinates) Object.assign(spot, coordinates);
+        if (coordinates)
+            Object.assign(spot, {
+                lat: coordinates.lat,
+                lng: coordinates.lng,
+            });
         if (category) spot.category = category;
         target.push(spot);
     }

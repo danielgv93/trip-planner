@@ -553,12 +553,18 @@
     font-size: 12px;
     padding: 0;
 }
+.map-picker-hint {
+    margin: 0 0 6px;
+    color: var(--muted);
+    font-size: 12px;
+}
 .preview-map {
-    height: 145px;
+    height: 165px;
     border: 1px solid #ddd9d1;
     border-radius: 4px;
     background: #edf0eb;
     overflow: hidden;
+    cursor: crosshair;
 }
 .location-field {
     z-index: 1000;

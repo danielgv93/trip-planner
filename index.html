@@ -19,7 +19,7 @@
         <link rel="stylesheet" href="styles/planner.css?v=24" />
         <link rel="stylesheet" href="styles/map-notes.css?v=27" />
         <link rel="stylesheet" href="styles/dialog-finance.css?v=21" />
-        <link rel="stylesheet" href="styles/dialogs.css?v=28" />
+        <link rel="stylesheet" href="styles/dialogs.css?v=31" />
         <link rel="stylesheet" href="styles/taxonomy.css?v=27" />
         <link rel="stylesheet" href="styles/responsive.css?v=28" />
     </head>
@@ -280,13 +280,13 @@
                     <div id="suggestions" class="suggestions" hidden></div
                 ></label>
                 <div id="searchStatus" class="searching">
-                    Escribe una zona o dirección para ver sugerencias.
+                    Busca una dirección o elige un punto en el mapa.
                 </div>
-                <p class="form-hint">
-                    Selecciona una sugerencia para fijar el punto y comprobar en
-                    qué zona está antes de guardar.
-                </p>
-                <div id="previewWrap" hidden>
+                <div id="previewWrap">
+                    <p class="map-picker-hint">
+                        Haz clic en el mapa para colocar la chincheta; vuelve a
+                        hacer clic o arrástrala para moverla.
+                    </p>
                     <div id="previewMap" class="preview-map"></div>
                 </div>
                 <details id="placeDetails">
@@ -532,6 +532,6 @@
             aria-atomic="false"
         ></div>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script type="module" src="js/main.js?v=32"></script>
+        <script type="module" src="js/main.js?v=33"></script>
     </body>
 </html>

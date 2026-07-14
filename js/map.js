@@ -456,6 +456,16 @@ function initPreview(lat = 20, lng = 0, zoom = 2) {
         L.tileLayer(
             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         ).addTo(previewMap);
+        L.control.zoom({ position: "bottomright" }).addTo(previewMap);
+        previewMap.on("click", ({ latlng }) => {
+            const lat = +latlng.lat.toFixed(6);
+            const lng = +latlng.lng.toFixed(6);
+            setPreview({
+                lat,
+                lng,
+                display_name: `Punto elegido en el mapa (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
+            });
+        });
     }
     previewMap.setView([lat, lng], zoom);
     previewLayer?.remove();
@@ -463,25 +473,48 @@ function initPreview(lat = 20, lng = 0, zoom = 2) {
     setTimeout(() => previewMap.invalidateSize(), 50);
 }
 
-// Point the dialog's preview map at a location and drop a marker. With no
-// location, keep the preview out of the dialog and avoid initializing Leaflet
-// inside a hidden container.
+function addPreviewMarker(loc) {
+    previewLayer = L.marker([loc.lat, loc.lng], { draggable: true }).addTo(
+        previewMap,
+    );
+    previewLayer.on("dragend", ({ target }) => {
+        const point = target.getLatLng();
+        const lat = +point.lat.toFixed(6);
+        const lng = +point.lng.toFixed(6);
+        setPreview({
+            lat,
+            lng,
+            display_name: `Punto elegido en el mapa (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
+        });
+    });
+}
+
+// The map is always available in the dialog. Existing spots open on their
+// current coordinates; new ones start around the active route on the main map.
 export function openPreview(loc) {
-    const wrap = $("#previewWrap");
-    if (!loc) {
-        wrap.hidden = true;
-        return;
+    $("#previewWrap").hidden = false;
+    if (loc) {
+        initPreview(loc.lat, loc.lng, 14);
+        addPreviewMarker(loc);
+    } else {
+        const center = map.getCenter();
+        initPreview(
+            center.lat,
+            center.lng,
+            Math.min(Math.max(map.getZoom(), 2), 14),
+        );
     }
-    wrap.hidden = false;
-    initPreview(loc.lat, loc.lng, 14);
-    previewLayer = L.marker([loc.lat, loc.lng]).addTo(previewMap);
+}
+
+export function clearPreviewMarker() {
+    previewLayer?.remove();
+    previewLayer = null;
 }
 
 export function setPreview(loc) {
     store.selectedLocation = loc;
-    $("#previewWrap").hidden = false;
     initPreview(loc.lat, loc.lng, 14);
-    previewLayer = L.marker([loc.lat, loc.lng]).addTo(previewMap);
+    addPreviewMarker(loc);
     $("#searchStatus").textContent =
         "Ubicación seleccionada: " + loc.display_name;
 }
