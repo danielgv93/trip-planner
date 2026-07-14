@@ -74,10 +74,10 @@ function selectedCategory() {
     return el ? el.dataset.category : undefined;
 }
 
-export function openDialog(dayId, spot) {
+export function openDialog(dayId, spot, prefill = {}) {
     editing = { dayId, spot };
     store.selectedLocation =
-        spot?.lat != null
+        Number.isFinite(spot?.lat) && Number.isFinite(spot?.lng)
             ? {
                   lat: spot.lat,
                   lng: spot.lng,
@@ -85,7 +85,11 @@ export function openDialog(dayId, spot) {
               }
             : null;
     $("#dialogTitle").textContent = spot ? "Editar parada" : "Añadir una parada";
-    $("#placeName").value = spot?.name || "";
+    $("#placeName").value = spot
+        ? spot.name || ""
+        : typeof prefill?.name === "string"
+          ? prefill.name
+          : "";
     $("#placeAddress").value = spot?.address || "";
     $("#placeNote").value = spot?.note || "";
     $("#placeCost").value = Number.isFinite(spot?.cost) ? spot.cost : "";
@@ -96,6 +100,15 @@ export function openDialog(dayId, spot) {
         Number.isInteger(spot?.visitMinutes) && spot.visitMinutes > 0
             ? spot.visitMinutes
             : "";
+    const hasDetails = !!(
+        spot?.category ||
+        spot?.tags?.length ||
+        (typeof spot?.note === "string" && spot.note.trim()) ||
+        Number.isFinite(spot?.cost) ||
+        normalizeTime(spot?.openingTime) ||
+        normalizeTime(spot?.closingTime)
+    );
+    $("#placeDetails").open = !!spot && hasDetails;
     $("#resetCost").hidden = !spot;
     renderTagOptions(spot?.tags || []);
     renderCategoryOptions(spot?.category ? [spot.category] : []);
@@ -153,6 +166,7 @@ async function searchPlaces(q) {
 
 $("#placeAddress").addEventListener("input", (e) => {
     store.selectedLocation = null;
+    $("#previewWrap").hidden = true;
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => searchPlaces(e.target.value.trim()), 450);
 });

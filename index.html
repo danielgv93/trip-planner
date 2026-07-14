@@ -16,10 +16,10 @@
         />
         <link rel="stylesheet" href="styles/base.css?v=27" />
         <link rel="stylesheet" href="styles/search.css?v=21" />
-        <link rel="stylesheet" href="styles/planner.css?v=23" />
+        <link rel="stylesheet" href="styles/planner.css?v=24" />
         <link rel="stylesheet" href="styles/map-notes.css?v=27" />
         <link rel="stylesheet" href="styles/dialog-finance.css?v=21" />
-        <link rel="stylesheet" href="styles/dialogs.css?v=27" />
+        <link rel="stylesheet" href="styles/dialogs.css?v=28" />
         <link rel="stylesheet" href="styles/taxonomy.css?v=27" />
         <link rel="stylesheet" href="styles/responsive.css?v=28" />
     </head>
@@ -282,69 +282,79 @@
                 <div id="searchStatus" class="searching">
                     Escribe una zona o dirección para ver sugerencias.
                 </div>
-                <div id="previewMap" class="preview-map"></div>
-                <label
-                    >Categoría
-                    <div id="categoryOptions" class="category-options"></div
-                ></label>
-                <label
-                    >Etiquetas
-                    <div id="tagOptions" class="tag-options"></div></label
-                ><label
-                    >Nota
-                    <textarea
-                        id="placeNote"
-                        placeholder="Reserva, horario, idea de comida…"
-                    ></textarea>
-                </label>
-                <label class="cost-field"
-                    ><span class="cost-label">Coste en moneda extranjera (<span id="placeCostCurrency">JPY</span>)</span>
-                    <span class="cost-input-row">
-                        <input
-                            id="placeCost"
-                            type="number"
-                            step="0.01"
-                            inputmode="decimal"
-                            placeholder="0,00"
-                        />
-                        <button
-                            id="resetCost"
-                            class="reset-cost"
-                            type="button"
-                            title="Restablecer el coste a 0"
-                            hidden
-                        >
-                            ↺ Poner a 0
-                        </button>
-                    </span>
-                </label>
-                <fieldset class="hours-field">
-                    <legend>Horario (opcional)</legend>
-                    <div class="hours-input-row">
-                        <label
-                            >Apertura
-                            <input id="placeOpeningTime" type="time" />
-                        </label>
-                        <label
-                            >Cierre
-                            <input id="placeClosingTime" type="time" />
-                        </label>
-                        <label
-                            >Tiempo de visita (min)
-                            <input
-                                id="placeVisitMinutes"
-                                type="number"
-                                min="1"
-                                step="1"
-                                inputmode="numeric"
-                            />
-                        </label>
-                    </div>
-                </fieldset>
                 <p class="form-hint">
                     Selecciona una sugerencia para fijar el punto y comprobar en
                     qué zona está antes de guardar.
                 </p>
+                <div id="previewWrap" hidden>
+                    <div id="previewMap" class="preview-map"></div>
+                </div>
+                <details id="placeDetails">
+                    <summary>
+                        <span>Más detalles</span>
+                        <span class="place-details-chevron" aria-hidden="true">⌄</span>
+                    </summary>
+                    <div class="place-details-body">
+                        <label
+                            >Categoría
+                            <div id="categoryOptions" class="category-options"></div
+                        ></label>
+                        <label
+                            >Etiquetas
+                            <div id="tagOptions" class="tag-options"></div></label
+                        ><label
+                            >Nota
+                            <textarea
+                                id="placeNote"
+                                placeholder="Reserva, horario, idea de comida…"
+                            ></textarea>
+                        </label>
+                        <label class="cost-field"
+                            ><span class="cost-label">Coste en moneda extranjera (<span id="placeCostCurrency">JPY</span>)</span>
+                            <span class="cost-input-row">
+                                <input
+                                    id="placeCost"
+                                    type="number"
+                                    step="0.01"
+                                    inputmode="decimal"
+                                    placeholder="0,00"
+                                />
+                                <button
+                                    id="resetCost"
+                                    class="reset-cost"
+                                    type="button"
+                                    title="Restablecer el coste a 0"
+                                    hidden
+                                >
+                                    ↺ Poner a 0
+                                </button>
+                            </span>
+                        </label>
+                        <fieldset class="hours-field">
+                            <legend>Horario (opcional)</legend>
+                            <div class="hours-input-row">
+                                <label
+                                    >Apertura
+                                    <input id="placeOpeningTime" type="time" />
+                                </label>
+                                <label
+                                    >Cierre
+                                    <input id="placeClosingTime" type="time" />
+                                </label>
+                                <label
+                                    >Tiempo de visita (min)
+                                    <input
+                                        id="placeVisitMinutes"
+                                        type="number"
+                                        min="1"
+                                        step="1"
+                                        inputmode="numeric"
+                                    />
+                                </label>
+                            </div>
+                        </fieldset>
+                    </div>
+                </details>
                 <div class="form-actions">
                     <button type="button" class="cancel">Cancelar</button
                     ><button class="save">Guardar parada</button>

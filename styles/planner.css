@@ -404,7 +404,11 @@ main {
 }
 .day.collapsed .spots,
 .day.collapsed .day-schedule,
-.day.collapsed .add-place {
+.day.collapsed .add-place,
+.day.collapsed .quick-add {
+    display: none;
+}
+body.preview-mode .quick-add {
     display: none;
 }
 .day-schedule {
@@ -1110,6 +1114,49 @@ main {
 .add-place:hover {
     background: #fff6f4;
 }
+.quick-add {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    border-top: 1px dashed #dedbd4;
+    border-radius: 0 0 6px 6px;
+    background: #fdfcf9;
+}
+.quick-add-input {
+    min-width: 0;
+    flex: 1;
+    border: 1px solid #d9d4ca;
+    border-radius: 4px;
+    background: #fff;
+    color: var(--ink);
+    padding: 8px 9px;
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+}
+.quick-add-input::placeholder {
+    color: #9a9e9d;
+}
+.quick-add-input:focus {
+    border-color: var(--red);
+    box-shadow: 0 0 0 2px #d44d4326;
+}
+.quick-add-details {
+    flex: none;
+    border: 0;
+    border-radius: 4px;
+    background: #f6e5e1;
+    color: var(--red);
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 700;
+}
+.quick-add-details:hover,
+.quick-add-details:focus-visible {
+    background: #efd2cc;
+}
 .backlog {
     border-color: #d7d0be;
     background: #fffcf5;
@@ -1122,6 +1169,21 @@ main {
 }
 .backlog .add-place {
     color: var(--green);
+}
+.backlog .quick-add {
+    background: #fffaf0;
+}
+.backlog .quick-add-input:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 2px #386f6626;
+}
+.backlog .quick-add-details {
+    background: #e5f0ed;
+    color: var(--green);
+}
+.backlog .quick-add-details:hover,
+.backlog .quick-add-details:focus-visible {
+    background: #d5e7e2;
 }
 .add-day {
     color: var(--green);

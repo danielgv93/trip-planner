@@ -463,15 +463,23 @@ function initPreview(lat = 20, lng = 0, zoom = 2) {
     setTimeout(() => previewMap.invalidateSize(), 50);
 }
 
-// Point the dialog's preview map at a location and drop a marker. `loc` null
-// (no location yet) recentres to the world view without a marker.
+// Point the dialog's preview map at a location and drop a marker. With no
+// location, keep the preview out of the dialog and avoid initializing Leaflet
+// inside a hidden container.
 export function openPreview(loc) {
-    initPreview(loc?.lat, loc?.lng, loc ? 14 : 2);
-    if (loc) previewLayer = L.marker([loc.lat, loc.lng]).addTo(previewMap);
+    const wrap = $("#previewWrap");
+    if (!loc) {
+        wrap.hidden = true;
+        return;
+    }
+    wrap.hidden = false;
+    initPreview(loc.lat, loc.lng, 14);
+    previewLayer = L.marker([loc.lat, loc.lng]).addTo(previewMap);
 }
 
 export function setPreview(loc) {
     store.selectedLocation = loc;
+    $("#previewWrap").hidden = false;
     initPreview(loc.lat, loc.lng, 14);
     previewLayer = L.marker([loc.lat, loc.lng]).addTo(previewMap);
     $("#searchStatus").textContent =

@@ -232,6 +232,57 @@
     border-color: var(--green);
     box-shadow: 0 0 0 3px #386f6615;
 }
+#previewWrap[hidden] {
+    display: none;
+}
+#placeDetails {
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fbfaf7;
+}
+#placeDetails > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    transition:
+        color 0.15s ease,
+        background 0.15s ease;
+}
+#placeDetails > summary::-webkit-details-marker {
+    display: none;
+}
+#placeDetails > summary:hover {
+    color: var(--green);
+    background: #f5f3ed;
+}
+#placeDetails > summary:focus-visible {
+    color: var(--green);
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
+}
+.place-details-chevron {
+    font-size: 13px;
+    transition: transform 0.15s ease;
+}
+#placeDetails[open] .place-details-chevron {
+    transform: rotate(180deg);
+}
+.place-details-body {
+    display: grid;
+    gap: 14px;
+    padding: 4px 12px 12px;
+}
+#placeDetails:not([open]) > .place-details-body {
+    display: none;
+}
 .hours-field {
     min-width: 0;
     margin: 0;

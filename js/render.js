@@ -27,6 +27,12 @@ import { DAY_LOAD_WARNING_MINUTES } from "./constants.js";
 // without adding presentation preferences to the persisted trip data.
 const expandedSchedules = new Set();
 
+// View-only state for the single inline quick-add editor. The draft lives here
+// too so an unrelated destructive render cannot silently discard typed text.
+// Neither value is part of the persisted store.
+let quickAddOpenFor = null;
+let quickAddDraft = "";
+
 export function sumCosts(spots) {
     return spots.reduce(
         (total, spot) =>
@@ -628,6 +634,82 @@ export function refreshDayLoad() {
     });
 }
 
+function quickAddMarkup(dayId, buttonLabel) {
+    if (quickAddOpenFor !== dayId)
+        return `<button class="add-place">${buttonLabel}</button>`;
+    return `<div class="quick-add"><input class="quick-add-input" type="text" aria-label="Nombre de la nueva parada" placeholder="Nombre de la parada…" autocomplete="off"><button class="quick-add-details" type="button">Detalles…</button></div>`;
+}
+
+function closeQuickAdd() {
+    quickAddOpenFor = null;
+    quickAddDraft = "";
+    render({ persist: false });
+}
+
+function wireQuickAdd(card, dayId) {
+    const addButton = card.querySelector(".add-place");
+    if (addButton) {
+        addButton.addEventListener("click", () => {
+            quickAddOpenFor = dayId;
+            quickAddDraft = "";
+            render({ persist: false });
+        });
+        return;
+    }
+
+    const editor = card.querySelector(".quick-add"),
+        input = editor?.querySelector(".quick-add-input"),
+        detailsButton = editor?.querySelector(".quick-add-details");
+    if (!editor || !input || !detailsButton) return;
+
+    input.value = quickAddDraft;
+    input.addEventListener("input", () => {
+        quickAddDraft = input.value;
+    });
+    input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            const name = input.value.trim();
+            if (!name) return;
+            const target =
+                dayId === "backlog" ? store.backlog : dayBy(dayId)?.spots;
+            if (!target) return;
+            target.push({ id: id(), name, address: "", note: "", tags: [] });
+            quickAddDraft = "";
+            store.active = dayId;
+            save();
+            render();
+            drawMap();
+        } else if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            closeQuickAdd();
+        }
+    });
+    input.addEventListener("blur", () => {
+        // Let focus settle first: clicking Detalles… blurs the input before
+        // its click handler runs and must not tear down the editor early.
+        setTimeout(() => {
+            if (quickAddOpenFor !== dayId || input.value.trim()) return;
+            if (editor.contains(document.activeElement)) return;
+            closeQuickAdd();
+        }, 0);
+    });
+    detailsButton.addEventListener("click", () => {
+        const name = input.value;
+        quickAddOpenFor = null;
+        quickAddDraft = "";
+        render({ persist: false });
+        openDialog(dayId, undefined, { name });
+    });
+
+    requestAnimationFrame(() => {
+        if (!input.isConnected || quickAddOpenFor !== dayId) return;
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+    });
+}
+
 export function render({ persist = true } = {}) {
     renderTags();
     daysEl.innerHTML = "";
@@ -638,7 +720,7 @@ export function render({ persist = true } = {}) {
         (store.backlogCollapsed ? "collapsed" : "");
     b.dataset.day = "backlog";
     const activeBacklogCount = enabledSpotCount(store.backlog);
-    b.innerHTML = `<div class="day-head"><div class="date-box"><span>ideas</span><strong>+</strong></div><div class="day-title"><div class="title-line"><span class="day-name">Backlog de paradas</span></div><small>${activeBacklogCount} sin asignar · ${esc(formatCost(sumCosts(store.backlog)))} · arrástralas a un día cuando decidáis</small></div><button class="day-collapse" title="${store.backlogCollapsed ? "Restaurar backlog" : "Minimizar backlog"}" aria-label="Minimizar o restaurar backlog">${store.backlogCollapsed ? "▸" : "▾"}</button></div><div class="spots"></div><button class="add-place">＋ Añadir al backlog</button>`;
+    b.innerHTML = `<div class="day-head"><div class="date-box"><span>ideas</span><strong>+</strong></div><div class="day-title"><div class="title-line"><span class="day-name">Backlog de paradas</span></div><small>${activeBacklogCount} sin asignar · ${esc(formatCost(sumCosts(store.backlog)))} · arrástralas a un día cuando decidáis</small></div><button class="day-collapse" title="${store.backlogCollapsed ? "Restaurar backlog" : "Minimizar backlog"}" aria-label="Minimizar o restaurar backlog">${store.backlogCollapsed ? "▸" : "▾"}</button></div><div class="spots"></div>${quickAddMarkup("backlog", "＋ Añadir al backlog")}`;
     renderList(b, store.backlog, true);
     b.querySelector(".day-head").addEventListener("click", (e) => {
         if (e.target.closest("button")) return;
@@ -652,7 +734,7 @@ export function render({ persist = true } = {}) {
         save();
         render();
     };
-    b.querySelector(".add-place").onclick = () => openDialog("backlog");
+    wireQuickAdd(b, "backlog");
     daysEl.append(b);
     store.state.forEach((day) => {
         const f = fmt(day.date),
@@ -663,7 +745,7 @@ export function render({ persist = true } = {}) {
             (day.id === store.active ? "active " : "") +
             (day.collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
-        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div>${renderDaySchedule(day.spots, day.id)}<div class="spots"></div><button class="add-place">＋ Añadir una parada</button>`;
+        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div>${renderDaySchedule(day.spots, day.id)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}`;
         renderList(el, day.spots);
         wireDaySchedule(el, day.id);
         applyDayLoad(el, day);
@@ -748,7 +830,7 @@ export function render({ persist = true } = {}) {
                 );
             });
         };
-        el.querySelector(".add-place").onclick = () => openDialog(day.id);
+        wireQuickAdd(el, day.id);
         daysEl.append(el);
     });
     const tripTotal =
