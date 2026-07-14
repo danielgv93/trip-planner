@@ -22,6 +22,7 @@
         <link rel="stylesheet" href="styles/dialogs.css?v=31" />
         <link rel="stylesheet" href="styles/taxonomy.css?v=27" />
         <link rel="stylesheet" href="styles/responsive.css?v=28" />
+        <link rel="stylesheet" href="styles/companion.css?v=2" />
     </head>
     <body>
         <header class="top">
@@ -62,6 +63,12 @@
                 <kbd>Ctrl K</kbd>
             </button>
             <div class="top-actions">
+                <button
+                    id="companionEnterBtn"
+                    class="companion-entry"
+                    type="button"
+                    aria-controls="companionView"
+                >En ruta</button>
                 <button
                     id="navToggle"
                     class="hamburger"
@@ -154,6 +161,7 @@
             </section>
         </div>
         <main>
+            <div id="plannerView" class="planner-view">
             <section class="intro">
                 <div>
                     <div class="eyebrow">Planificador colaborativo</div>
@@ -231,6 +239,133 @@
                         </button>
                     </section>
                 </aside>
+            </section>
+            </div>
+            <section
+                id="companionView"
+                class="companion-view"
+                aria-labelledby="companionHeading"
+                hidden
+                inert
+            >
+                <header class="companion-header">
+                    <button
+                        id="companionExitBtn"
+                        class="companion-back"
+                        type="button"
+                    >← Volver al plan</button>
+                    <div>
+                        <span class="companion-eyebrow">Compañero de viaje</span>
+                        <h2 id="companionHeading" tabindex="-1">Tu día en ruta</h2>
+                    </div>
+                    <label class="companion-day-picker" for="companionDaySelect">
+                        <span>Día del viaje</span>
+                        <select id="companionDaySelect" disabled>
+                            <option>Preparando itinerario…</option>
+                        </select>
+                    </label>
+                </header>
+
+                <p
+                    id="companionVisitStatus"
+                    class="visually-hidden"
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                ></p>
+
+                <div class="companion-grid">
+                    <section
+                        class="companion-card companion-location"
+                        aria-labelledby="companionLocationTitle"
+                    >
+                        <div>
+                            <h3 id="companionLocationTitle" class="visually-hidden">Tu ubicación</h3>
+                            <p
+                                id="companionLocationStatus"
+                                role="status"
+                                aria-live="polite"
+                            >Ubicación sin activar.</p>
+                            <small
+                                id="companionLocationAccuracy"
+                                class="companion-location-accuracy"
+                                hidden
+                            ></small>
+                        </div>
+                        <button
+                            id="companionLocationBtn"
+                            class="companion-location-action"
+                            type="button"
+                            aria-label="Activar ubicación"
+                            title="Activar ubicación"
+                        ><span aria-hidden="true">⌖</span></button>
+                    </section>
+
+                    <section
+                        class="companion-card companion-progress"
+                        aria-labelledby="companionProgressTitle"
+                    >
+                        <div>
+                            <h3 id="companionProgressTitle">Progreso del día</h3>
+                            <strong id="companionProgressText">0 de 0 paradas</strong>
+                        </div>
+                        <progress
+                            id="companionProgressBar"
+                            max="1"
+                            value="0"
+                            aria-label="Progreso de visitas"
+                        ></progress>
+                    </section>
+
+                    <article
+                        id="companionNextStop"
+                        class="companion-card companion-next"
+                        aria-labelledby="companionNextTitle"
+                    >
+                        <span class="companion-kicker">Siguiente parada</span>
+                        <h3 id="companionNextTitle">Elige un día para comenzar</h3>
+                        <p>Tu próxima parada aparecerá aquí.</p>
+                    </article>
+
+                    <section
+                        class="companion-card companion-map-card"
+                        aria-labelledby="companionMapTitle"
+                    >
+                        <div class="companion-map-head">
+                            <div>
+                                <h3 id="companionMapTitle">Mapa del día</h3>
+                                <p id="companionMapSummary" class="companion-map-summary">
+                                    Mapa suplementario, sin ubicación activa.
+                                </p>
+                            </div>
+                            <button
+                                id="companionRecenterBtn"
+                                class="companion-recenter"
+                                type="button"
+                                aria-label="Centrar mi ubicación"
+                                title="Centrar mi ubicación"
+                                disabled
+                            ><span aria-hidden="true">⌖</span></button>
+                        </div>
+                        <div
+                            id="companionMap"
+                            class="companion-map-placeholder"
+                            role="region"
+                            aria-label="Mapa interactivo de las paradas del día"
+                            aria-describedby="companionMapSummary"
+                        >El mapa estará disponible al cargar el itinerario.</div>
+                    </section>
+
+                    <section
+                        class="companion-card companion-checklist"
+                        aria-labelledby="companionChecklistTitle"
+                    >
+                        <h3 id="companionChecklistTitle">Paradas del día</h3>
+                        <ol id="companionChecklist">
+                            <li>El itinerario aparecerá aquí.</li>
+                        </ol>
+                    </section>
+                </div>
             </section>
         </main>
         <dialog id="tripNotesDialog" class="notes-dialog">
@@ -535,6 +670,6 @@
             aria-atomic="false"
         ></div>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script type="module" src="js/main.js?v=33"></script>
+        <script type="module" src="js/main.js?v=34"></script>
     </body>
 </html>

@@ -30,6 +30,10 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 let routeLayer = L.layerGroup().addTo(map);
 let legendControl = null;
 
+export function invalidateMainMap() {
+    map.invalidateSize({ pan: false, animate: false });
+}
+
 // In-memory only, keyed by `fromCoord|toCoord|profile`. Derived data: never
 // persisted, rebuilt on load, survives the destructive render.
 const routeCache = new Map();

@@ -1,0 +1,722 @@
+/* Base shell for the runtime-only on-trip view. Preview mode remains an
+   independent planner concern. */
+
+.planner-view[hidden],
+.companion-view[hidden] {
+    display: none !important;
+}
+
+.companion-entry {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 9px 14px;
+    border: 1px solid var(--red);
+    border-radius: 4px;
+    background: var(--red-dark);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.companion-entry:hover,
+.companion-entry:focus-visible {
+    background: var(--red-dark);
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+body.companion-mode .top {
+    display: none;
+}
+
+body.companion-mode main {
+    max-width: 1180px;
+    padding-top: max(clamp(18px, 4vw, 38px), env(safe-area-inset-top));
+    padding-right: max(clamp(18px, 4vw, 58px), env(safe-area-inset-right));
+    padding-bottom: max(42px, env(safe-area-inset-bottom));
+    padding-left: max(clamp(18px, 4vw, 58px), env(safe-area-inset-left));
+}
+
+.companion-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 14px;
+    margin-bottom: 22px;
+}
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+.companion-back,
+.companion-plan-action,
+.companion-visit-action,
+.companion-location button,
+.companion-map-head button {
+    min-height: 44px;
+    padding: 9px 13px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.companion-back:focus-visible,
+.companion-plan-action:focus-visible,
+.companion-visit-action:focus-visible,
+.companion-directions:focus-visible,
+.companion-day-picker select:focus-visible,
+.companion-location button:focus-visible,
+.companion-map-head button:focus-visible {
+    outline: 3px solid var(--red-dark);
+    outline-offset: 2px;
+}
+
+.companion-eyebrow,
+.companion-kicker,
+.companion-day-picker > span {
+    display: block;
+    color: var(--red-dark);
+    font: 500 11px "DM Mono";
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.companion-header h2 {
+    margin: 4px 0 0;
+    font: 700 clamp(27px, 4vw, 38px) "Playfair Display";
+}
+
+.companion-header h2,
+.companion-card h3,
+.companion-card p,
+.companion-next-actions > * {
+    overflow-wrap: anywhere;
+}
+
+.companion-header h2:focus {
+    outline: 2px solid var(--red);
+    outline-offset: 4px;
+}
+
+.companion-day-picker select {
+    width: 100%;
+    min-height: 44px;
+    margin-top: 6px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--card);
+}
+
+.companion-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+        "location"
+        "progress"
+        "next"
+        "map"
+        "checklist";
+    gap: 14px;
+    align-items: start;
+}
+
+.companion-progress { grid-area: progress; }
+.companion-next { grid-area: next; }
+.companion-location { grid-area: location; }
+.companion-map-card { grid-area: map; }
+.companion-checklist { grid-area: checklist; }
+
+.companion-grid > * {
+    min-width: 0;
+}
+
+.companion-card {
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    box-shadow: var(--shadow);
+}
+
+.companion-card h3 {
+    margin: 0;
+    font: 700 21px "Playfair Display";
+}
+
+.companion-card p {
+    margin: 8px 0 0;
+    color: var(--muted);
+}
+
+.companion-progress,
+.companion-progress > div,
+.companion-location,
+.companion-map-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.companion-progress {
+    align-items: stretch;
+    flex-direction: column;
+}
+
+.companion-progress progress {
+    width: 100%;
+    accent-color: var(--green);
+}
+
+.companion-next {
+    border-top: 4px solid var(--red);
+}
+
+.companion-next.is-complete {
+    border-top-color: var(--green);
+    background: #f2f7f4;
+}
+
+.companion-next.is-complete .companion-kicker::before {
+    content: "✓ ";
+    color: var(--green);
+}
+
+.companion-today-notice {
+    margin: 0 0 14px !important;
+    padding: 9px 11px;
+    border-left: 3px solid var(--red);
+    background: #f8eee9;
+    color: var(--ink) !important;
+    font-weight: 600;
+}
+
+.companion-next-address,
+.companion-next-note,
+.companion-schedule,
+.companion-no-location {
+    line-height: 1.5;
+}
+
+.companion-next-address strong {
+    color: var(--ink);
+}
+
+.companion-navigation {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #f5f1e8;
+}
+
+.companion-compass {
+    position: relative;
+    width: 88px;
+    height: 88px;
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+    background: var(--card);
+    box-shadow: inset 0 0 0 5px #f5f1e8;
+}
+
+.companion-compass-north {
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    color: var(--red-dark);
+    font: 700 10px "DM Mono";
+    transform: translateX(-50%);
+}
+
+.companion-compass-arrow {
+    position: absolute;
+    inset: 17px;
+    display: grid;
+    place-items: start center;
+    color: var(--red-dark);
+    font-size: 44px;
+    line-height: 1;
+    transform: rotate(0deg);
+    transform-origin: center;
+    transition: transform 120ms linear;
+}
+
+.companion-navigation-copy {
+    min-width: 0;
+}
+
+.companion-navigation-copy p {
+    line-height: 1.45;
+}
+
+.companion-navigation-copy p:first-child {
+    margin-top: 0;
+    color: var(--ink);
+    font-weight: 700;
+}
+
+.companion-proximity {
+    display: inline-block;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: #e5f1e9;
+    color: #245b45 !important;
+    font-weight: 800;
+}
+
+.companion-proximity[hidden] {
+    display: none;
+}
+
+.companion-directions,
+.companion-plan-action,
+.companion-visit-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    margin-top: 16px;
+    padding: 10px 16px;
+    border: 1px solid var(--red-dark);
+    border-radius: 6px;
+    background: var(--red-dark);
+    color: #fff;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.companion-plan-action {
+    font: inherit;
+    font-weight: 700;
+}
+
+.companion-next-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.companion-visit-action {
+    font: inherit;
+    font-weight: 700;
+}
+
+.companion-visit-action.is-near {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px #386f6638;
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
+}
+
+.companion-directions:hover,
+.companion-plan-action:hover,
+.companion-visit-action:hover {
+    background: var(--red-dark);
+}
+
+.companion-checklist ol {
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.companion-checklist li {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+}
+
+.companion-checklist li:first-child {
+    border-top: 0;
+}
+
+.companion-checklist li.is-next {
+    border-left: 3px solid var(--red);
+    padding-left: 8px;
+    font-weight: 600;
+}
+
+.companion-checklist li.is-visited {
+    background: #eef4f1;
+}
+
+.companion-checklist li.is-visited .companion-stop-copy strong {
+    text-decoration: line-through;
+}
+
+.companion-checklist li.is-remaining .companion-stop-state {
+    color: var(--muted);
+}
+
+.companion-stop-toggle {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.companion-stop-toggle input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.companion-stop-toggle input:focus-visible + .companion-stop-state {
+    outline: 2px solid var(--red);
+    outline-offset: 2px;
+}
+
+.companion-stop-state {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    font-size: 20px;
+    text-align: center;
+}
+
+.companion-stop-copy {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+}
+
+.companion-stop-copy strong,
+.companion-stop-copy small {
+    overflow-wrap: anywhere;
+}
+
+.companion-stop-copy small,
+.companion-stop-label {
+    color: var(--muted);
+}
+
+.companion-stop-label {
+    font: 500 11px "DM Mono";
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.companion-location button:disabled,
+.companion-map-head button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.companion-location {
+    padding: 11px 13px;
+    background: #f8f6f1;
+    box-shadow: none;
+}
+
+.companion-location[hidden] {
+    display: none;
+}
+
+.companion-location p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.companion-location .companion-location-action {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    font-size: 21px;
+    line-height: 1;
+}
+
+.companion-location-accuracy {
+    display: block;
+    margin-top: 5px;
+    color: var(--muted);
+    font: 500 11px "DM Mono";
+}
+
+.companion-location-accuracy[hidden] {
+    display: none;
+}
+
+#companionLocationStatus[data-state="active"]::before {
+    content: "✓ ";
+    color: var(--green);
+    font-weight: 700;
+}
+
+#companionLocationStatus:is(
+        [data-state="denied"],
+        [data-state="unavailable"],
+        [data-state="timeout"],
+        [data-state="error"]
+    ) {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.companion-map-head {
+    margin-bottom: 14px;
+}
+
+.companion-map-head > div {
+    min-width: 0;
+}
+
+.companion-map-head .companion-recenter {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    font-size: 21px;
+    line-height: 1;
+}
+
+.companion-map-summary {
+    margin-top: 4px !important;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.companion-map-placeholder {
+    min-height: 300px;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    border: 1px dashed #c8c5bd;
+    border-radius: 6px;
+    background: #f3f0e8;
+    color: var(--muted);
+    text-align: center;
+}
+
+.companion-map {
+    height: clamp(240px, 46dvh, 430px);
+    min-height: 240px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #e8ede9;
+}
+
+.companion-map-marker {
+    border: 0;
+    background: transparent;
+}
+
+.companion-map-marker > span {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    border: 2px solid #fff;
+    border-radius: 50% 50% 50% 10%;
+    box-shadow: 0 2px 7px #1d273055;
+    color: #fff;
+    font: 700 12px "DM Mono";
+    text-shadow: 0 1px 1px #1d273066;
+    transform: rotate(-45deg);
+}
+
+.companion-map-marker > span b {
+    display: block;
+    font: inherit;
+    transform: rotate(45deg);
+}
+
+.companion-map-marker--remaining > span {
+    background: var(--green);
+}
+
+.companion-map-marker--visited > span {
+    background: #525d62;
+    opacity: 0.86;
+    text-decoration: line-through;
+}
+
+.companion-map-marker--next > span {
+    border-width: 3px;
+    background: var(--red-dark);
+    box-shadow: 0 0 0 3px #d44d4340, 0 3px 9px #1d273066;
+    font-size: 14px;
+}
+
+.companion-map-popup-state {
+    color: var(--red-dark);
+    font-weight: 700;
+}
+
+@media (max-width: 899px) {
+    .companion-back {
+        justify-self: start;
+    }
+
+    .companion-progress > div {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .companion-map-head {
+        align-items: flex-start;
+    }
+
+    .companion-checklist li {
+        grid-template-columns: 44px minmax(0, 1fr);
+    }
+
+    .companion-stop-label {
+        grid-column: 2;
+    }
+
+    .companion-navigation {
+        grid-template-columns: 80px minmax(0, 1fr);
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .companion-compass {
+        width: 76px;
+        height: 76px;
+    }
+
+    .companion-compass-arrow {
+        inset: 14px;
+        font-size: 38px;
+    }
+}
+
+@media (max-width: 400px) {
+    .top {
+        gap: 6px;
+        padding-right: max(8px, env(safe-area-inset-right));
+        padding-left: max(8px, env(safe-area-inset-left));
+    }
+
+    .top .stamp,
+    .top .brand-meta {
+        display: none;
+    }
+
+    .top .brand .trip-title {
+        width: min(30vw, 110px);
+        min-width: 0;
+    }
+
+    .companion-entry {
+        padding-inline: 8px;
+    }
+
+    .companion-card {
+        padding: 15px;
+    }
+
+    .companion-navigation {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .companion-compass {
+        justify-self: center;
+    }
+}
+
+@media (min-width: 900px) {
+    .companion-header {
+        grid-template-columns: auto minmax(0, 1fr) minmax(210px, 280px);
+        align-items: end;
+        gap: 18px;
+    }
+
+    .companion-grid {
+        grid-template-columns: minmax(0, 0.92fr) minmax(360px, 1.08fr);
+        grid-template-areas:
+            "location location"
+            "progress map"
+            "next map"
+            "checklist map";
+        gap: 20px;
+    }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .companion-map-placeholder,
+    .companion-map {
+        height: 210px;
+        min-height: 210px;
+    }
+
+    .companion-navigation {
+        grid-template-columns: 70px minmax(0, 1fr);
+    }
+
+    .companion-compass {
+        width: 66px;
+        height: 66px;
+    }
+
+    .companion-compass-arrow {
+        inset: 12px;
+        font-size: 34px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .companion-compass-arrow,
+    .companion-view *,
+    .companion-view *::before,
+    .companion-view *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition: none;
+        scroll-behavior: auto !important;
+    }
+}
+
+@media (forced-colors: active) {
+    .companion-card,
+    .companion-navigation,
+    .companion-map,
+    .companion-map-placeholder,
+    .companion-stop-state,
+    .companion-compass {
+        border-color: CanvasText;
+    }
+
+    .companion-directions,
+    .companion-plan-action,
+    .companion-visit-action,
+    .companion-entry {
+        border: 2px solid ButtonText;
+    }
+
+    .companion-checklist li.is-visited .companion-stop-copy strong {
+        text-decoration-thickness: 2px;
+    }
+}

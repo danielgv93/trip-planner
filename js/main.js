@@ -7,18 +7,20 @@ import { render, applyTitle } from "./render.js";
 import { drawMap } from "./map.js";
 import "./dialogs.js";
 import "./dnd.js";
-import "./actions.js?v=31";
-import "./github.js?v=29";
+import "./actions.js?v=32";
+import "./github.js?v=30";
 import "./budget.js?v=29";
 import "./spot-search.js";
 import "./sticky-days.js";
 import "./modal-scroll.js?v=1";
+import { initCompanion } from "./companion.js";
 import { store } from "./store.js";
 import { refreshExchangeRate } from "./currency.js";
 
 applyTitle();
 render();
 drawMap();
+initCompanion();
 refreshExchangeRate().then((ok) => {
     document.querySelector("#exchangeRateStatus").textContent = ok
         ? `Cambio del ${store.exchangeRateDate}`
