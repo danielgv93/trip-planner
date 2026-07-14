@@ -18,9 +18,10 @@ import {
 } from "./store.js";
 import { $, esc, safeColor, fmt, daysEl, id } from "./dom.js";
 import { toast, confirmAction } from "./notify.js?v=3";
-import { drawMap, mapsLinkFor } from "./map.js";
+import { drawMap, mapsLinkFor, cachedDayTravelMinutes } from "./map.js";
 import { openDialog } from "./dialogs.js";
 import { foreignAmount, localAmount } from "./currency.js";
+import { DAY_LOAD_WARNING_MINUTES } from "./constants.js";
 
 // View-only state: keep an opened day schedule open across destructive renders
 // without adding presentation preferences to the persisted trip data.
@@ -49,6 +50,55 @@ export function formatCost(amount) {
 
 export function formatDualCost(amount) {
     return `${foreignAmount(amount)} · ${localAmount(amount)}`;
+}
+
+// Spanish duration formatting shared by the spot-card chip and the day-head
+// workload text/meter tooltip: "~45 min" / "~3 h" / "~3 h 30 min".
+export function formatDurationMinutes(minutes) {
+    const total = Math.max(0, Math.round(minutes));
+    if (total < 60) return `~${total} min`;
+    const hours = Math.floor(total / 60),
+        rest = total % 60;
+    return rest === 0 ? `~${hours} h` : `~${hours} h ${rest} min`;
+}
+
+// Estimated activity minutes (sum of enabled spots' visitMinutes) and measured
+// travel minutes (null when not every leg is cached) for one day. Only
+// enabled spots count, matching every other day summary.
+function dayWorkload(day) {
+    const activity = day.spots
+        .filter(spotIsEnabled)
+        .reduce(
+            (total, spot) =>
+                total +
+                (Number.isInteger(spot.visitMinutes) && spot.visitMinutes > 0
+                    ? spot.visitMinutes
+                    : 0),
+            0,
+        );
+    return { activity, travel: cachedDayTravelMinutes(day) };
+}
+
+// Spanish workload segment for the day-head <small> line, e.g.
+// " · ~3 h de actividad · ~45 min de trayectos". Empty string (no leading
+// separator) when neither part has data, so the line stays byte-identical to
+// today's output.
+function dayLoadText(activity, travel) {
+    const parts = [];
+    if (activity > 0) parts.push(`${formatDurationMinutes(activity)} de actividad`);
+    if (travel != null) parts.push(`${formatDurationMinutes(travel)} de trayectos`);
+    return parts.length ? ` · ${parts.join(" · ")}` : "";
+}
+
+// Capacity-meter fill percentages for the two stacked segments (activity
+// first, then travel), scaled down proportionally so their sum never exceeds
+// 100% while preserving their relative proportion.
+function dayLoadPercents(activity, travel) {
+    const activityPct = (activity / DAY_LOAD_WARNING_MINUTES) * 100,
+        travelPct = ((travel || 0) / DAY_LOAD_WARNING_MINUTES) * 100,
+        totalPct = activityPct + travelPct,
+        scale = totalPct > 100 ? 100 / totalPct : 1;
+    return { activityPct: activityPct * scale, travelPct: travelPct * scale };
 }
 
 export function timeToMinutes(value) {
@@ -445,9 +495,20 @@ function renderList(el, spots, isBacklog = false) {
             Number.isFinite(s.cost) && s.cost > 0
                 ? `<span class="spot-cost"><strong>${esc(foreignAmount(s.cost))}</strong><small>${esc(localAmount(s.cost))}</small></span>`
                 : "";
-        const spotNote = s.note?.trim()
-            ? `<span class="spot-meta">${esc(s.note)}</span>`
+        const visitMinutes =
+            Number.isInteger(s.visitMinutes) && s.visitMinutes > 0
+                ? s.visitMinutes
+                : null;
+        // Purely presentational (no tabindex, no pointer handlers) so the
+        // pointer-events drag-and-drop is unaffected when a drag starts here.
+        const spotDuration = visitMinutes
+            ? `<span class="spot-duration" title="Tiempo de visita estimado"><span aria-hidden="true">◔</span> ${formatDurationMinutes(visitMinutes)}</span>`
             : "";
+        const spotNote = s.note?.trim()
+            ? `<span class="spot-meta">${esc(s.note)}${spotDuration}</span>`
+            : spotDuration
+              ? `<span class="spot-meta">${spotDuration}</span>`
+              : "";
         const enabled = spotIsEnabled(s);
         const spotHours = renderSpotHours(s, cat.color, enabled);
         const mapsLink = mapsLinkFor(s);
@@ -511,6 +572,48 @@ function openMoveMenu(button, currentDay) {
     menu.querySelector("button:not(:disabled)")?.focus();
 }
 
+// Targeted status update of the day-head workload text, badge and meter for
+// one already-rendered day article — no node creation, no listener rewiring.
+// Used both right after render() builds a day (so the initial paint and the
+// async refresh share one computation) and from refreshDayLoad().
+function applyDayLoad(dayEl, day) {
+    const loadSpan = dayEl.querySelector("[data-day-load]"),
+        badge = dayEl.querySelector(".day-load-badge"),
+        meter = dayEl.querySelector(".day-load-meter");
+    if (!loadSpan || !badge || !meter) return;
+    const { activity, travel } = dayWorkload(day),
+        total = activity + (travel ?? 0),
+        isOver = total > DAY_LOAD_WARNING_MINUTES,
+        hasData = activity > 0 || travel != null;
+    loadSpan.textContent = dayLoadText(activity, travel);
+    badge.hidden = !isOver;
+    meter.hidden = !hasData;
+    meter.classList.toggle("is-over", hasData && isOver);
+    if (hasData) {
+        const { activityPct, travelPct } = dayLoadPercents(activity, travel);
+        meter.style.setProperty("--load-activity", `${activityPct.toFixed(4)}%`);
+        meter.style.setProperty("--load-travel", `${travelPct.toFixed(4)}%`);
+        meter.title = `Carga estimada: ${formatDurationMinutes(total)} de ${DAY_LOAD_WARNING_MINUTES / 60} h`;
+    } else {
+        meter.style.removeProperty("--load-activity");
+        meter.style.removeProperty("--load-travel");
+        meter.removeAttribute("title");
+    }
+}
+
+// Refreshes the workload text/badge/meter of every real day-head after
+// debounced OSRM legs resolve, WITHOUT running the destructive render() cycle
+// — open move menus, an in-progress title edit and an active drag survive.
+// Never touches the backlog (it has no day-load elements to begin with).
+export function refreshDayLoad() {
+    daysEl.querySelectorAll(".day[data-day]").forEach((dayEl) => {
+        const dayId = dayEl.dataset.day;
+        if (dayId === "backlog") return;
+        const day = dayBy(dayId);
+        if (day) applyDayLoad(dayEl, day);
+    });
+}
+
 export function render({ persist = true } = {}) {
     renderTags();
     daysEl.innerHTML = "";
@@ -546,9 +649,10 @@ export function render({ persist = true } = {}) {
             (day.id === store.active ? "active " : "") +
             (day.collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
-        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))} · pulsa para ver ruta</small></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div>${renderDaySchedule(day.spots, day.id)}<div class="spots"></div><button class="add-place">＋ Añadir una parada</button>`;
+        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><span class="day-load-meter" hidden aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div>${renderDaySchedule(day.spots, day.id)}<div class="spots"></div><button class="add-place">＋ Añadir una parada</button>`;
         renderList(el, day.spots);
         wireDaySchedule(el, day.id);
+        applyDayLoad(el, day);
         el.querySelector(".day-head").addEventListener("click", (e) => {
             if (
                 e.target.closest(".date-box") ||

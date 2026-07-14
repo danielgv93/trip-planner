@@ -117,6 +117,10 @@ export const UNCATEGORIZED = { label: "Sin categoría", color: "#9aa0a6" };
 
 export const DEFAULT_TITLE = "Japón, invierno 2026";
 
+// Fixed capacity threshold for the day workload meter/badge (10 hours). Not
+// configurable in this change — see day-duration-estimates design.md.
+export const DAY_LOAD_WARNING_MINUTES = 600;
+
 export const DAY_COLORS = [
     "#d44d43",
     "#3f7d9c",

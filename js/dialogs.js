@@ -92,6 +92,10 @@ export function openDialog(dayId, spot) {
     $("#placeCostCurrency").textContent = store.foreignCurrency;
     $("#placeOpeningTime").value = normalizeTime(spot?.openingTime) || "";
     $("#placeClosingTime").value = normalizeTime(spot?.closingTime) || "";
+    $("#placeVisitMinutes").value =
+        Number.isInteger(spot?.visitMinutes) && spot.visitMinutes > 0
+            ? spot.visitMinutes
+            : "";
     $("#resetCost").hidden = !spot;
     renderTagOptions(spot?.tags || []);
     renderCategoryOptions(spot?.category ? [spot.category] : []);
@@ -171,6 +175,14 @@ $("#placeForm").addEventListener("submit", async (e) => {
             costValue !== "" && Number.isFinite(parsedCost) && parsedCost > 0
                 ? parsedCost
                 : undefined,
+        visitMinutesValue = $("#placeVisitMinutes").value.trim(),
+        parsedVisitMinutes = Number(visitMinutesValue),
+        visitMinutes =
+            visitMinutesValue !== "" &&
+            Number.isInteger(parsedVisitMinutes) &&
+            parsedVisitMinutes > 0
+                ? parsedVisitMinutes
+                : undefined,
         coordinates = store.selectedLocation || null,
         spotTags = selectedTags(),
         category = selectedCategory();
@@ -196,6 +208,8 @@ $("#placeForm").addEventListener("submit", async (e) => {
     }
     if (cost === undefined) delete spot.cost;
     else spot.cost = cost;
+    if (visitMinutes === undefined) delete spot.visitMinutes;
+    else spot.visitMinutes = visitMinutes;
     if (openingTime === undefined) delete spot.openingTime;
     else spot.openingTime = openingTime;
     if (closingTime === undefined) delete spot.closingTime;

@@ -2,6 +2,11 @@
 // small #previewMap inside the add/edit dialog. Also owns real-distance routing
 // (OSRM) with an in-memory cache. Depends on the Leaflet global `L` (loaded via a
 // classic <script> before this deferred module runs).
+//
+// NOTE the circular import with render.js (refreshDayLoad): it's safe because
+// the reference only fires at runtime inside the ensureRoutes() debounced
+// callback, never during module top-level evaluation — the same pattern
+// already used for the render.js/dialogs.js circular import.
 
 import {
     store,
@@ -15,6 +20,7 @@ import {
 import { $, esc, safeColor } from "./dom.js";
 import { DAY_COLORS } from "./constants.js";
 import { fetchSpotImage } from "./images.js";
+import { refreshDayLoad } from "./render.js";
 
 const map = L.map("map", { zoomControl: false }).setView([20, 0], 2);
 L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -239,6 +245,26 @@ function connectingLocated(spots) {
     );
 }
 
+// Read-only synchronous walk of the day's connecting sequence against the
+// in-memory route cache. Mirrors the leg loop in drawMap()/ensureRoutes() but
+// never fetches or writes: it powers the day-head workload summary, which
+// must stay a cheap render-time read. Returns null unless every leg of the
+// sequence is cached with a measured (non-haversine) duration, and null when
+// there are fewer than two connecting located stops (nothing to measure).
+export function cachedDayTravelMinutes(day) {
+    const seq = connectingLocated(day?.spots || []);
+    if (seq.length < 2) return null;
+    let total = 0;
+    for (let i = 0; i < seq.length - 1; i++) {
+        const leg = routeCache.get(
+            keyFor(seq[i], seq[i + 1], store.routeProfile),
+        );
+        if (!leg || leg.min == null) return null;
+        total += leg.min;
+    }
+    return total;
+}
+
 function fmtKm(km) {
     return km >= 10 ? Math.round(km) : Math.round(km * 10) / 10;
 }
@@ -314,6 +340,7 @@ function ensureRoutes() {
             routeCache.set(keyFor(from, to, profile), results[i]),
         );
         drawMap();
+        refreshDayLoad();
     }, 450);
 }
 

@@ -1,4 +1,4 @@
-// Canonical codec for the portable version-16 trip document. Local file import/
+// Canonical codec for the portable version-17 trip document. Local file import/
 // export and GitHub transport all use the same field selection.
 
 import { store, save, clearTagFilter } from "./store.js";
@@ -7,7 +7,7 @@ import { applyTitle, render } from "./render.js";
 import { drawMap, syncRouteVisualizationControl } from "./map.js";
 import { syncTripNotes } from "./notes.js";
 
-export const PLAN_VERSION = 16;
+export const PLAN_VERSION = 17;
 
 export function serializePlan({ exportedAt = true } = {}) {
     const plan = {
@@ -49,6 +49,8 @@ function normalizeSpot(spot) {
     if (!Number.isFinite(spot.lat)) delete normalized.lat;
     if (!Number.isFinite(spot.lng)) delete normalized.lng;
     if (!Number.isFinite(spot.cost) || spot.cost < 0) delete normalized.cost;
+    if (!Number.isInteger(spot.visitMinutes) || spot.visitMinutes <= 0)
+        delete normalized.visitMinutes;
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(spot.openingTime || "")) delete normalized.openingTime;
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(spot.closingTime || "")) delete normalized.closingTime;
     normalized.mapEnabled = spot.mapEnabled !== false;

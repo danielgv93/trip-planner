@@ -9,7 +9,7 @@ import { toast, confirmAction } from "./notify.js?v=3";
 import { sample, DEFAULT_CATEGORIES, DEFAULT_TITLE } from "./constants.js";
 import { syncTripNotes } from "./notes.js";
 import { CURRENCIES, refreshExchangeRate } from "./currency.js";
-import { serializePlan, parsePlanJson, applyImportedPlan } from "./plan-json.js?v=29";
+import { serializePlan, parsePlanJson, applyImportedPlan } from "./plan-json.js?v=30";
 
 $("#tripTitle").addEventListener("input", (e) => {
     store.tripTitle = e.target.value;

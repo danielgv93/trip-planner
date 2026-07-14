@@ -16,10 +16,10 @@
         />
         <link rel="stylesheet" href="styles/base.css?v=27" />
         <link rel="stylesheet" href="styles/search.css?v=21" />
-        <link rel="stylesheet" href="styles/planner.css?v=22" />
+        <link rel="stylesheet" href="styles/planner.css?v=23" />
         <link rel="stylesheet" href="styles/map-notes.css?v=27" />
         <link rel="stylesheet" href="styles/dialog-finance.css?v=21" />
-        <link rel="stylesheet" href="styles/dialogs.css?v=26" />
+        <link rel="stylesheet" href="styles/dialogs.css?v=27" />
         <link rel="stylesheet" href="styles/taxonomy.css?v=27" />
         <link rel="stylesheet" href="styles/responsive.css?v=28" />
     </head>
@@ -328,6 +328,16 @@
                         <label
                             >Cierre
                             <input id="placeClosingTime" type="time" />
+                        </label>
+                        <label
+                            >Tiempo de visita (min)
+                            <input
+                                id="placeVisitMinutes"
+                                type="number"
+                                min="1"
+                                step="1"
+                                inputmode="numeric"
+                            />
                         </label>
                     </div>
                 </fieldset>

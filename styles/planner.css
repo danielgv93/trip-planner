@@ -261,6 +261,56 @@ main {
     font-size: 12px;
     margin-top: 2px;
 }
+/* Empty when a day has no workload data, so the line stays visually
+   identical to the no-estimates default. */
+.day-load:empty {
+    display: none;
+}
+.day-load-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    border-radius: 999px;
+    background: #f6e6ce;
+    color: #8a5a12;
+    padding: 1px 7px;
+    font-size: 10px;
+    font-weight: 700;
+}
+.day-load-badge[hidden] { display: none; }
+/* Capacity rail: reuses the 3px "hours rail" visual language, but encodes
+   workload against DAY_LOAD_WARNING_MINUTES, not a clock position. */
+.day-load-meter {
+    position: relative;
+    display: block;
+    width: min(100%, 220px);
+    height: 3px;
+    margin-top: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e5e5e1;
+}
+.day-load-meter[hidden] { display: none; }
+.day-load-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    height: 100%;
+}
+.day-load-fill.is-activity {
+    left: 0;
+    width: var(--load-activity, 0%);
+    background: var(--green);
+}
+.day-load-fill.is-travel {
+    left: var(--load-activity, 0%);
+    width: var(--load-travel, 0%);
+    background: #8b9295;
+}
+.day-load-meter.is-over .day-load-fill.is-activity,
+.day-load-meter.is-over .day-load-fill.is-travel {
+    background: #c9822b;
+}
 .day-options,
 .day-duplicate,
 .day-collapse {
@@ -784,6 +834,17 @@ main {
 }
 .spot-hours.hours-context-overlap .spot-hours-segment {
     opacity: 1;
+}
+/* Presentational duration chip: muted, inline with the note text, no
+   interaction affordance so drag-and-drop can start from it. */
+.spot-duration {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 6px;
+    color: var(--muted);
+    font: 11px "DM Mono";
+    white-space: nowrap;
 }
 .spot-actions {
     display: flex;
