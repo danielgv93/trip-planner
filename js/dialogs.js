@@ -20,6 +20,13 @@ const categoryDialog = $("#categoryDialog");
 // touches it, so it stays a module-local rather than living in the store.
 let editing = null;
 let searchTimer;
+let searchController;
+
+function cancelPendingSearch() {
+    clearTimeout(searchTimer);
+    searchController?.abort();
+    searchController = undefined;
+}
 
 // Native time inputs normally provide this shape, but stored/imported data may
 // not. Keep only canonical 24-hour values before they reach the form or state.
@@ -80,6 +87,7 @@ function selectedCategory() {
 }
 
 export function openDialog(dayId, spot, prefill = {}) {
+    cancelPendingSearch();
     editing = { dayId, spot };
     store.selectedLocation =
         Number.isFinite(spot?.lat) && Number.isFinite(spot?.lng)
@@ -120,17 +128,27 @@ export function openDialog(dayId, spot, prefill = {}) {
     $("#suggestions").hidden = true;
     $("#searchStatus").textContent = store.selectedLocation
         ? "Ubicación actual: " + store.selectedLocation.display_name
-        : "Busca una dirección o elige un punto en el mapa.";
+        : "Escribe el nombre del lugar o una dirección para ver sugerencias.";
     dialog.showModal();
     openPreview(store.selectedLocation);
     $("#placeName").focus();
+    const prefilledName =
+        !spot &&
+        typeof prefill?.name === "string" &&
+        prefill.name.trim();
+    if (prefilledName) queueSearch(prefilledName, { clearsLocation: false });
 }
 
 async function searchPlaces(q) {
+    searchController?.abort();
+    const controller = new AbortController();
+    searchController = controller;
+
     if (q.length < 3) {
         $("#suggestions").hidden = true;
         $("#searchStatus").textContent =
             "Escribe al menos 3 caracteres para buscar.";
+        searchController = undefined;
         return;
     }
     $("#searchStatus").textContent = "Buscando lugares…";
@@ -138,9 +156,15 @@ async function searchPlaces(q) {
         const r = await fetch(
             "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&q=" +
                 encodeURIComponent(q),
-            { headers: { "Accept-Language": "es" } },
+            {
+                headers: { "Accept-Language": "es" },
+                signal: controller.signal,
+            },
         );
-        const results = await r.json(),
+        if (!r.ok) throw new Error(`Nominatim respondió con ${r.status}`);
+        const response = await r.json();
+        if (controller !== searchController) return;
+        const results = Array.isArray(response) ? response.slice(0, 5) : [],
             box = $("#suggestions");
         box.innerHTML = "";
         results.forEach((place) => {
@@ -163,17 +187,33 @@ async function searchPlaces(q) {
         $("#searchStatus").textContent = results.length
             ? "Elige una sugerencia para ver el punto exacto."
             : "No se han encontrado resultados.";
-    } catch {
+    } catch (error) {
+        if (error?.name === "AbortError" || controller !== searchController)
+            return;
         $("#searchStatus").textContent =
             "No se ha podido buscar ahora. Puedes guardar la parada manualmente.";
+    } finally {
+        if (controller === searchController) searchController = undefined;
     }
 }
 
-$("#placeAddress").addEventListener("input", (e) => {
-    store.selectedLocation = null;
-    clearPreviewMarker();
+function queueSearch(query, { clearsLocation }) {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => searchPlaces(e.target.value.trim()), 450);
+    searchController?.abort();
+    searchController = undefined;
+    if (clearsLocation) {
+        store.selectedLocation = null;
+        clearPreviewMarker();
+    }
+    searchTimer = setTimeout(() => searchPlaces(query), 450);
+}
+
+$("#placeName").addEventListener("input", (e) => {
+    queueSearch(e.target.value.trim(), { clearsLocation: false });
+});
+
+$("#placeAddress").addEventListener("input", (e) => {
+    queueSearch(e.target.value.trim(), { clearsLocation: true });
 });
 
 $("#resetCost").addEventListener("click", () => {
@@ -251,6 +291,7 @@ $("#placeForm").addEventListener("submit", async (e) => {
 dialog.querySelector(".close").onclick = dialog.querySelector(
     ".cancel",
 ).onclick = () => dialog.close();
+dialog.addEventListener("close", cancelPendingSearch);
 
 // A click whose target is the <dialog> itself happened on its backdrop, rather
 // than on the dialog content. Keep clicks inside forms and managers untouched.
