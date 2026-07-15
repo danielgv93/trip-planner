@@ -13,7 +13,7 @@ import "./budget.js?v=29";
 import "./spot-search.js";
 import "./sticky-days.js";
 import "./modal-scroll.js?v=1";
-import { initCompanion } from "./companion.js";
+import { initCompanion } from "./companion.js?v=2";
 import { store } from "./store.js";
 import { refreshExchangeRate } from "./currency.js";
 

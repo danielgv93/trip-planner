@@ -28,6 +28,10 @@ let compassTargetId = null;
 let mappedDayId = null;
 let mapNeedsStopFit = true;
 let didInitialCenter = false;
+let wakeLock = null;
+let wakeLockIntent = false;
+let wakeLockStatus = "idle";
+let wakeLockRequestToken = 0;
 
 const LOCATION_OPTIONS = {
     enableHighAccuracy: true,
@@ -45,6 +49,14 @@ const LOCATION_COPY = {
     timeout:
         "La ubicación está tardando demasiado. Puedes volver a intentarlo.",
     error: "No se pudo obtener tu ubicación. Puedes volver a intentarlo.",
+};
+const WAKE_LOCK_COPY = {
+    idle: "La pantalla puede apagarse.",
+    requesting: "Manteniendo la pantalla activa…",
+    active: "Pantalla activa durante la ruta.",
+    paused: "Pantalla activa en pausa mientras la pestaña está oculta.",
+    unavailable: "Este navegador no permite mantener la pantalla activa.",
+    error: "No se pudo mantener la pantalla activa.",
 };
 
 const COMPANION_TILE_URL =
@@ -71,6 +83,101 @@ function geolocationApi() {
     } catch {
         return null;
     }
+}
+
+function wakeLockApi() {
+    try {
+        const api = navigator.wakeLock;
+        return api && typeof api.request === "function" ? api : null;
+    } catch {
+        return null;
+    }
+}
+
+function updateWakeLockControls() {
+    const status = $("#companionWakeStatus");
+    const button = $("#companionWakeBtn");
+    const available = Boolean(wakeLockApi());
+    const active = wakeLockStatus === "active";
+    status.textContent = WAKE_LOCK_COPY[wakeLockStatus];
+    status.dataset.state = wakeLockStatus;
+    button.disabled = !available || wakeLockStatus === "requesting";
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+    const label = !available
+        ? "Pantalla activa no disponible"
+        : active
+          ? "Permitir que la pantalla se apague"
+          : "Mantener la pantalla activa";
+    button.setAttribute("aria-label", label);
+    button.title = label;
+}
+
+function setWakeLockStatus(status) {
+    if (!Object.hasOwn(WAKE_LOCK_COPY, status)) status = "error";
+    wakeLockStatus = status;
+    updateWakeLockControls();
+}
+
+export async function requestCompanionWakeLock() {
+    const api = wakeLockApi();
+    if (!api) {
+        wakeLockIntent = false;
+        setWakeLockStatus("unavailable");
+        return false;
+    }
+    if (!companionActive || document.hidden) return false;
+    wakeLockIntent = true;
+    if (wakeLock) return true;
+
+    const token = ++wakeLockRequestToken;
+    setWakeLockStatus("requesting");
+    try {
+        const sentinel = await api.request("screen");
+        if (
+            token !== wakeLockRequestToken ||
+            !wakeLockIntent ||
+            !companionActive ||
+            document.hidden
+        ) {
+            await sentinel.release();
+            return false;
+        }
+        wakeLock = sentinel;
+        sentinel.addEventListener("release", () => {
+            if (wakeLock !== sentinel) return;
+            wakeLock = null;
+            if (!wakeLockIntent) setWakeLockStatus("idle");
+            else if (document.hidden) setWakeLockStatus("paused");
+            else {
+                wakeLockIntent = false;
+                setWakeLockStatus("error");
+            }
+        });
+        setWakeLockStatus("active");
+        return true;
+    } catch {
+        if (token !== wakeLockRequestToken) return false;
+        wakeLock = null;
+        wakeLockIntent = false;
+        setWakeLockStatus("error");
+        return false;
+    }
+}
+
+export async function releaseCompanionWakeLock({ preserveIntent = false } = {}) {
+    wakeLockRequestToken += 1;
+    if (!preserveIntent) wakeLockIntent = false;
+    const sentinel = wakeLock;
+    wakeLock = null;
+    if (sentinel) {
+        try {
+            await sentinel.release();
+        } catch {
+            // Releasing an already-released sentinel is harmless for this UI.
+        }
+    }
+    setWakeLockStatus(preserveIntent ? "paused" : "idle");
 }
 
 function updateLocationControls() {
@@ -878,7 +985,30 @@ function ensureSelectedDay() {
 function dayLabel(day) {
     const title = stringValue(day?.title, "Día sin título").trim() || "Día sin título";
     const date = stringValue(day?.date).trim();
-    return date ? `${date} · ${title}` : title;
+    if (!date) return title;
+    const formattedDate = formatCompanionDate(date);
+    const dateLabel = date === localDateKey() ? `Hoy · ${formattedDate}` : formattedDate;
+    return `${dateLabel} · ${title}`;
+}
+
+export function formatCompanionDate(value) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
+    if (!match) return stringValue(value);
+    const [, year, month, day] = match;
+    const date = new Date(Number(year), Number(month) - 1, Number(day), 12);
+    if (
+        date.getFullYear() !== Number(year) ||
+        date.getMonth() !== Number(month) - 1 ||
+        date.getDate() !== Number(day)
+    )
+        return value;
+    return new Intl.DateTimeFormat("es-ES", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+    })
+        .format(date)
+        .replace(/\.$/, "");
 }
 
 function renderDaySelector(day) {
@@ -913,14 +1043,14 @@ function timeMinutes(value) {
     return hours * 60 + minutes;
 }
 
-export function scheduleCue(spot, now = new Date()) {
+export function scheduleCue(spot, now = new Date(), useCurrentTime = true) {
     const opening = stringValue(spot?.openingTime);
     const closing = stringValue(spot?.closingTime);
     const openingMinutes = timeMinutes(opening);
     const closingMinutes = timeMinutes(closing);
 
     if (openingMinutes !== null && closingMinutes !== null) {
-        if (openingMinutes >= closingMinutes)
+        if (!useCurrentTime || openingMinutes >= closingMinutes)
             return `Horario guardado: ${opening}–${closing}`;
         const current = localMinutes(now);
         if (current < openingMinutes) return `Abre a las ${opening}`;
@@ -933,15 +1063,21 @@ export function scheduleCue(spot, now = new Date()) {
     return "";
 }
 
-function todayNotice() {
-    return store.state.some((day) => day.date === localDateKey())
-        ? ""
-        : '<p class="companion-today-notice">No hay un día planificado para hoy</p>';
+function dayContextNotice(day) {
+    if (!day || day.date === localDateKey()) return "";
+    const selectedDate = esc(formatCompanionDate(day.date) || "este día");
+    const today = store.state.find((candidate) => candidate.date === localDateKey());
+    if (!today)
+        return `<p class="companion-today-notice">No hay un día planificado para hoy. Estás viendo ${selectedDate}.</p>`;
+    const todayTitle = esc(
+        stringValue(today.title, "Día sin título").trim() || "Día sin título",
+    );
+    return `<p class="companion-today-notice">Estás viendo ${selectedDate}. El itinerario de hoy es «${todayTitle}».</p>`;
 }
 
 function renderNextStop(day, next, total, completed) {
     const card = $("#companionNextStop");
-    const notice = todayNotice();
+    const notice = dayContextNotice(day);
     card.classList.toggle("is-complete", Boolean(day && total > 0 && !next));
 
     if (!day) {
@@ -962,7 +1098,7 @@ function renderNextStop(day, next, total, completed) {
     const name = esc(stringValue(next.name, "Parada sin nombre") || "Parada sin nombre");
     const address = stringValue(next.address).trim();
     const note = stringValue(next.note).trim();
-    const schedule = scheduleCue(next);
+    const schedule = scheduleCue(next, new Date(), day.date === localDateKey());
     const mapsLink = mapsLinkFor(next);
     const details = [
         address
@@ -1063,7 +1199,9 @@ export function enterCompanion() {
     companionView.hidden = false;
     companionView.inert = false;
     locationStatus = geolocationApi() ? "idle" : "unavailable";
+    wakeLockStatus = wakeLockApi() ? "idle" : "unavailable";
     updateLocationControls();
+    updateWakeLockControls();
     renderCompanion();
     mapNeedsStopFit = true;
     revealCompanionMap();
@@ -1077,6 +1215,7 @@ export function exitCompanion() {
     if (!companionActive) return;
     companionActive = false;
     stopLocation();
+    releaseCompanionWakeLock();
 
     companionView.hidden = true;
     companionView.inert = true;
@@ -1092,6 +1231,11 @@ export function exitCompanion() {
 }
 
 function handleCompanionClick(event) {
+    if (event.target.closest("#companionWakeBtn")) {
+        if (wakeLockIntent) releaseCompanionWakeLock();
+        else requestCompanionWakeLock();
+        return;
+    }
     if (event.target.closest("#companionLocationBtn")) {
         if (locationIntent) stopLocation();
         else startLocation();
@@ -1139,12 +1283,17 @@ export function initCompanion() {
         if (document.hidden) {
             if (companionActive && locationIntent)
                 stopLocation({ preserveIntent: true });
+            if (companionActive && wakeLockIntent)
+                releaseCompanionWakeLock({ preserveIntent: true });
             return;
         }
         if (companionActive && locationIntent) startLocation();
+        if (companionActive && wakeLockIntent) requestCompanionWakeLock();
     });
     locationStatus = geolocationApi() ? "idle" : "unavailable";
+    wakeLockStatus = wakeLockApi() ? "idle" : "unavailable";
     updateLocationControls();
+    updateWakeLockControls();
 }
 
 export function isCompanionActive() {

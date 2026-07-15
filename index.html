@@ -22,7 +22,7 @@
         <link rel="stylesheet" href="styles/dialogs.css?v=31" />
         <link rel="stylesheet" href="styles/taxonomy.css?v=27" />
         <link rel="stylesheet" href="styles/responsive.css?v=28" />
-        <link rel="stylesheet" href="styles/companion.css?v=4" />
+        <link rel="stylesheet" href="styles/companion.css?v=5" />
     </head>
     <body>
         <header class="top">
@@ -279,26 +279,44 @@
                         class="companion-card companion-location"
                         aria-labelledby="companionLocationTitle"
                     >
-                        <div>
-                            <h3 id="companionLocationTitle" class="visually-hidden">Tu ubicación</h3>
+                        <div class="companion-tool-statuses">
+                            <h3 id="companionLocationTitle" class="visually-hidden">Herramientas en ruta</h3>
+                            <div>
+                                <p
+                                    id="companionLocationStatus"
+                                    role="status"
+                                    aria-live="polite"
+                                >Ubicación sin activar.</p>
+                                <small
+                                    id="companionLocationAccuracy"
+                                    class="companion-location-accuracy"
+                                    hidden
+                                ></small>
+                            </div>
                             <p
-                                id="companionLocationStatus"
+                                id="companionWakeStatus"
+                                data-state="idle"
                                 role="status"
                                 aria-live="polite"
-                            >Ubicación sin activar.</p>
-                            <small
-                                id="companionLocationAccuracy"
-                                class="companion-location-accuracy"
-                                hidden
-                            ></small>
+                            >La pantalla puede apagarse.</p>
                         </div>
-                        <button
-                            id="companionLocationBtn"
-                            class="companion-location-action"
-                            type="button"
-                            aria-label="Activar ubicación"
-                            title="Activar ubicación"
-                        ><span aria-hidden="true">⌖</span></button>
+                        <div class="companion-tool-actions">
+                            <button
+                                id="companionWakeBtn"
+                                class="companion-wake-action"
+                                type="button"
+                                aria-label="Mantener la pantalla activa"
+                                aria-pressed="false"
+                                title="Mantener la pantalla activa"
+                            ><span aria-hidden="true">☀</span></button>
+                            <button
+                                id="companionLocationBtn"
+                                class="companion-location-action"
+                                type="button"
+                                aria-label="Activar ubicación"
+                                title="Activar ubicación"
+                            ><span aria-hidden="true">⌖</span></button>
+                        </div>
                     </section>
 
                     <section
@@ -670,6 +688,6 @@
             aria-atomic="false"
         ></div>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script type="module" src="js/main.js?v=34"></script>
+        <script type="module" src="js/main.js?v=35"></script>
     </body>
 </html>

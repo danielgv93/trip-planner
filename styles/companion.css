@@ -438,23 +438,8 @@ body.companion-mode main {
 }
 
 .companion-location.is-active {
-    justify-self: end;
-    width: fit-content;
-    padding: 4px 5px 4px 10px;
-    gap: 8px;
     border-color: #dbe8df;
-    border-radius: 999px;
     background: #f2f7f4;
-}
-
-.companion-location.is-active p {
-    color: var(--muted);
-    font-size: 11px;
-    white-space: nowrap;
-}
-
-.companion-location.is-active .companion-location-accuracy {
-    display: none;
 }
 
 .companion-location[hidden] {
@@ -467,7 +452,20 @@ body.companion-mode main {
     line-height: 1.35;
 }
 
-.companion-location .companion-location-action {
+.companion-tool-statuses {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.companion-tool-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 8px;
+}
+
+.companion-location .companion-location-action,
+.companion-location .companion-wake-action {
     flex: 0 0 44px;
     width: 44px;
     height: 44px;
@@ -476,15 +474,10 @@ body.companion-mode main {
     line-height: 1;
 }
 
-.companion-location .companion-location-action.is-active {
-    flex-basis: 32px;
-    width: 32px;
-    height: 32px;
-    min-height: 32px;
-    border-color: transparent;
-    color: var(--green);
-    background: transparent;
-    font-size: 13px;
+.companion-location :is(.companion-location-action, .companion-wake-action).is-active {
+    border-color: var(--green);
+    color: #fff;
+    background: var(--green);
 }
 
 .companion-location-accuracy {
@@ -502,6 +495,20 @@ body.companion-mode main {
     content: "✓ ";
     color: var(--green);
     font-weight: 700;
+}
+
+#companionWakeStatus {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+#companionWakeStatus[data-state="active"] {
+    color: var(--green);
+    font-weight: 700;
+}
+
+#companionWakeStatus:is([data-state="error"], [data-state="unavailable"]) {
+    color: var(--ink);
 }
 
 #companionLocationStatus:is(
