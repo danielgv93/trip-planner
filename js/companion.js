@@ -1,6 +1,6 @@
 // Runtime-only switch and derived rendering for the focused on-trip view. It
 // deliberately does not change planner selection, filters, preview state,
-// URLs, browser history, or persisted data.
+// URLs, or browser history. Only explicit visit toggles persist trip data.
 
 import { $, esc } from "./dom.js";
 import { store, save, spotIsEnabled } from "./store.js";
@@ -76,25 +76,28 @@ function geolocationApi() {
 function updateLocationControls() {
     const status = $("#companionLocationStatus");
     const button = $("#companionLocationBtn");
+    const container = button.closest(".companion-location");
     const available = Boolean(geolocationApi());
     status.textContent = LOCATION_COPY[locationStatus];
     status.dataset.state = locationStatus;
 
     const pending = locationStatus === "requesting";
     const active = locationStatus === "active";
-    button.closest(".companion-location").hidden = active;
-    button.disabled = !available || pending || active;
+    container.classList.toggle("is-active", active);
+    button.disabled = !available || pending;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
     const label = !available
         ? "Ubicación no disponible"
         : active
-          ? "Ubicación activa"
+          ? "Desactivar ubicación"
           : locationStatus === "idle"
             ? "Activar ubicación"
             : "Reintentar ubicación";
     const icon = !available
         ? "×"
         : active
-          ? "✓"
+          ? "■"
           : locationStatus === "idle"
             ? "⌖"
             : "↻";
@@ -776,7 +779,9 @@ export function drawCompanionMap() {
     if (dayChanged) {
         mappedDayId = day?.id || null;
         mapNeedsStopFit = true;
-        if (!companionPosition) didInitialCenter = false;
+        // The next stop belongs to the newly selected day, so the previous
+        // position/stop framing is no longer useful even if location is active.
+        didInitialCenter = false;
     }
 
     companionStopLayer.clearLayers();
@@ -836,6 +841,9 @@ export function toggleVisit(spotId, checked) {
 
     save();
     renderCompanion();
+    // Completing a stop changes the navigation target. Frame the user and the
+    // new next stop together instead of leaving the map on the old target.
+    didInitialCenter = false;
     drawCompanionMap();
     const { completed, total } = visitProgress(day);
     const next = nextUnvisitedStop(day);
@@ -1085,7 +1093,8 @@ export function exitCompanion() {
 
 function handleCompanionClick(event) {
     if (event.target.closest("#companionLocationBtn")) {
-        startLocation();
+        if (locationIntent) stopLocation();
+        else startLocation();
         return;
     }
     if (event.target.closest("#companionRecenterBtn")) {

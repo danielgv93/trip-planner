@@ -437,6 +437,26 @@ body.companion-mode main {
     box-shadow: none;
 }
 
+.companion-location.is-active {
+    justify-self: end;
+    width: fit-content;
+    padding: 4px 5px 4px 10px;
+    gap: 8px;
+    border-color: #dbe8df;
+    border-radius: 999px;
+    background: #f2f7f4;
+}
+
+.companion-location.is-active p {
+    color: var(--muted);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.companion-location.is-active .companion-location-accuracy {
+    display: none;
+}
+
 .companion-location[hidden] {
     display: none;
 }
@@ -454,6 +474,17 @@ body.companion-mode main {
     padding: 0;
     font-size: 21px;
     line-height: 1;
+}
+
+.companion-location .companion-location-action.is-active {
+    flex-basis: 32px;
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+    border-color: transparent;
+    color: var(--green);
+    background: transparent;
+    font-size: 13px;
 }
 
 .companion-location-accuracy {
