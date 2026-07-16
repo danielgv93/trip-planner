@@ -43,6 +43,37 @@ function parseCoordinates(value) {
     };
 }
 
+function preferredPlaceName(place) {
+    const names =
+        place?.namedetails && typeof place.namedetails === "object"
+            ? place.namedetails
+            : {};
+    const preferredKeys = [
+        "name:es",
+        "official_name:es",
+        "name:en",
+        "official_name:en",
+        "int_name",
+        "name:ja-Latn",
+        "name",
+    ];
+    const preferred = preferredKeys
+        .map((key) => names[key])
+        .find((name) => typeof name === "string" && name.trim());
+    return preferred || place.display_name?.split(",")[0] || "Lugar";
+}
+
+function localizedDisplayName(place) {
+    const preferredName = preferredPlaceName(place);
+    const parts = String(place.display_name || "")
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean);
+    if (!parts.length) return preferredName;
+    parts[0] = preferredName;
+    return parts.join(", ");
+}
+
 function cancelPendingSearch() {
     clearTimeout(searchTimer);
     searchController?.abort();
@@ -175,10 +206,10 @@ async function searchPlaces(q) {
     $("#searchStatus").textContent = "Buscando lugares…";
     try {
         const r = await fetch(
-            "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&q=" +
+            "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&namedetails=1&accept-language=es,en&q=" +
                 encodeURIComponent(q),
             {
-                headers: { "Accept-Language": "es" },
+                headers: { "Accept-Language": "es, en;q=0.9" },
                 signal: controller.signal,
             },
         );
@@ -189,17 +220,18 @@ async function searchPlaces(q) {
             box = $("#suggestions");
         box.innerHTML = "";
         results.forEach((place) => {
+            const displayName = localizedDisplayName(place);
             const b = document.createElement("button");
             b.type = "button";
             b.className = "suggestion";
-            b.innerHTML = `<b>${esc(place.display_name.split(",").slice(0, 2).join(","))}</b><small>${esc(place.display_name)}</small>`;
+            b.innerHTML = `<b>${esc(preferredPlaceName(place))}</b><small>${esc(displayName)}</small>`;
             b.onclick = () => {
-                $("#placeAddress").value = place.display_name;
+                $("#placeAddress").value = displayName;
                 box.hidden = true;
                 setPreview({
                     lat: +place.lat,
                     lng: +place.lon,
-                    display_name: place.display_name,
+                    display_name: displayName,
                 });
             };
             box.append(b);
