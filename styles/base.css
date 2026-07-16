@@ -87,12 +87,8 @@ button {
 .stamp {
     width: 33px;
     height: 33px;
-    border: 1px solid #ffffff80;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    color: #f1c865;
-    font-size: 19px;
+    display: block;
+    flex: 0 0 auto;
 }
 .brand h1 {
     font-family: "Playfair Display", serif;

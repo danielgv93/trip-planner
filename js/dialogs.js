@@ -22,6 +22,27 @@ let editing = null;
 let searchTimer;
 let searchController;
 
+// Google Maps exposes copied coordinates as "latitude, longitude". Recognize
+// that exact shape locally so choosing a point does not depend on geocoding.
+function parseCoordinates(value) {
+    const number = "[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)";
+    const match = value.match(
+        new RegExp(`^\\s*(${number})\\s*,\\s*(${number})\\s*$`),
+    );
+    if (!match) return null;
+
+    const lat = Number(match[1]);
+    const lng = Number(match[2]);
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        return { error: true };
+    }
+    return {
+        lat,
+        lng,
+        display_name: `Coordenadas (${lat.toFixed(6)}, ${lng.toFixed(6)})`,
+    };
+}
+
 function cancelPendingSearch() {
     clearTimeout(searchTimer);
     searchController?.abort();
@@ -128,7 +149,7 @@ export function openDialog(dayId, spot, prefill = {}) {
     $("#suggestions").hidden = true;
     $("#searchStatus").textContent = store.selectedLocation
         ? "Ubicación actual: " + store.selectedLocation.display_name
-        : "Escribe el nombre del lugar o una dirección para ver sugerencias.";
+        : "Busca un lugar o pega coordenadas en formato latitud, longitud.";
     dialog.showModal();
     openPreview(store.selectedLocation);
     $("#placeName").focus();
@@ -213,7 +234,23 @@ $("#placeName").addEventListener("input", (e) => {
 });
 
 $("#placeAddress").addEventListener("input", (e) => {
-    queueSearch(e.target.value.trim(), { clearsLocation: true });
+    const query = e.target.value.trim();
+    const coordinates = parseCoordinates(query);
+    if (!coordinates) {
+        queueSearch(query, { clearsLocation: true });
+        return;
+    }
+
+    cancelPendingSearch();
+    $("#suggestions").hidden = true;
+    store.selectedLocation = null;
+    clearPreviewMarker();
+    if (coordinates.error) {
+        $("#searchStatus").textContent =
+            "Coordenadas no válidas: la latitud debe estar entre −90 y 90 y la longitud entre −180 y 180.";
+        return;
+    }
+    setPreview(coordinates);
 });
 
 $("#resetCost").addEventListener("click", () => {
