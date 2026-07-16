@@ -15,23 +15,53 @@ import {
     clearTagFilter,
     spotMatchesFilter,
     spotIsEnabled,
+    routeTimeOverride,
+    routeTimeOverrideKey,
 } from "./store.js";
 import { $, esc, safeColor, fmt, daysEl, id } from "./dom.js";
 import { toast, confirmAction } from "./notify.js?v=3";
-import { drawMap, mapsLinkFor, cachedDayTravelMinutes } from "./map.js";
+import {
+    drawMap,
+    mapsLinkFor,
+    cachedDayTravelMinutes,
+    cachedRouteTravelMinutes,
+    ensureRouteTravelTimes,
+    highlightMapSpot,
+} from "./map.js";
 import { openDialog } from "./dialogs.js";
 import { foreignAmount, localAmount } from "./currency.js";
 import { DAY_LOAD_WARNING_MINUTES } from "./constants.js";
+import { buildTimelineProjection, createTimelineView } from "./timeline.js";
 
-// View-only state: keep an opened day schedule open across destructive renders
+// View-only state: keep the selected time panel open across destructive renders
 // without adding presentation preferences to the persisted trip data.
-const expandedSchedules = new Set();
+const expandedDayTools = new Map();
 
 // View-only state for the single inline quick-add editor. The draft lives here
 // too so an unrelated destructive render cannot silently discard typed text.
 // Neither value is part of the persisted store.
 let quickAddOpenFor = null;
 let quickAddDraft = "";
+
+const durationDialog = $("#durationDialog");
+const durationForm = $("#durationForm");
+const durationInput = $("#durationMinutes");
+const removeDurationButton = $("#removeDuration");
+let durationEditing = null;
+
+const travelDialog = $("#travelTimeDialog");
+const travelForm = $("#travelTimeForm");
+const travelInput = $("#travelTimeMinutes");
+const travelApiValue = $("#travelApiValue");
+const resetTravelTimeButton = $("#resetTravelTime");
+let travelEditing = null;
+
+const timelineTooltip = document.createElement("div");
+timelineTooltip.id = "timelineTooltip";
+timelineTooltip.className = "timeline-tooltip";
+timelineTooltip.setAttribute("role", "tooltip");
+timelineTooltip.hidden = true;
+document.body.append(timelineTooltip);
 
 export function sumCosts(spots) {
     return spots.reduce(
@@ -115,6 +145,11 @@ export function timeToMinutes(value) {
         return null;
     const [hours, minutes] = value.split(":").map(Number);
     return hours * 60 + minutes;
+}
+
+function minutesToTime(value) {
+    const minutes = Math.max(0, Math.min(1439, Math.round(value)));
+    return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
 export function openingHourSegments(openingTime, closingTime) {
@@ -211,14 +246,27 @@ export function renderSpotHours(spot, color, interactive = true) {
     return `<span class="spot-hours is-complete"${interactive ? ' tabindex="0"' : ""} data-hours-opening="${esc(openingTime)}" data-hours-closing="${esc(closingTime)}" aria-label="Horario: abre a las ${esc(openingTime)} y cierra a las ${esc(closingTime)}" style="--hours-color:${safeColor(color)}"><span class="spot-hours-icon" aria-hidden="true">◷</span><span class="spot-hours-text">${esc(openingTime)}–${esc(closingTime)}</span><span class="spot-hours-rail" aria-hidden="true">${rail}<span class="spot-hours-overlaps"></span></span><span class="spot-hours-detail" aria-hidden="true">Abre ${esc(openingTime)} · Cierra ${esc(closingTime)}</span></span>`;
 }
 
-function renderDaySchedule(spots, dayId) {
+function timelineTravelForLeg(from, to, profile) {
+    const officialMinutes = cachedRouteTravelMinutes(from, to, profile);
+    const override = routeTimeOverride(from.id, to.id, profile);
+    if (override === null && officialMinutes === null) return null;
+    return {
+        minutes: override ?? officialMinutes,
+        officialMinutes,
+        overridden: override !== null,
+    };
+}
+
+function renderDayTimeTools(day) {
+    const spots = day.spots;
     const scheduled = spots.filter(
         (spot) =>
             spotIsEnabled(spot) &&
             (timeToMinutes(spot?.openingTime) !== null ||
                 timeToMinutes(spot?.closingTime) !== null),
     );
-    if (!scheduled.length) return "";
+    const enabled = spots.filter(spotIsEnabled);
+    if (!enabled.length) return "";
 
     const rows = scheduled
         .map((spot) => {
@@ -258,18 +306,402 @@ function renderDaySchedule(spots, dayId) {
             return `<div class="day-schedule-row" tabindex="0" data-hours-opening="${hasOpening ? esc(spot.openingTime) : ""}" data-hours-closing="${hasClosing ? esc(spot.closingTime) : ""}" aria-label="${esc(spot.name || "Parada sin nombre")}: ${esc(label)}" style="--schedule-color:${safeColor(color)};--tooltip-position:${tooltipPosition.toFixed(4)}%"><span class="day-schedule-name" title="${esc(spot.name || "Parada sin nombre")}">${esc(spot.name || "Parada sin nombre")}</span><span class="day-schedule-rail" aria-hidden="true">${rail}<span class="day-schedule-time">${esc(label)}</span></span></div>`;
         })
         .join("");
-    const count = scheduled.length,
-        open = expandedSchedules.has(dayId) ? " open" : "";
-    return `<details class="day-schedule"${open}><summary><span class="day-schedule-summary-icon" aria-hidden="true">◷</span><span>Horarios</span><span class="day-schedule-count">${count}</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></summary><div class="day-schedule-body"><span class="day-schedule-guide" aria-hidden="true"></span><div class="day-schedule-axis" aria-hidden="true"><span></span><span class="day-schedule-axis-hours"><i>00</i><i>06</i><i>12</i><i>18</i><i>24</i></span></div>${rows}</div></details>`;
+    let selected = expandedDayTools.get(day.id) || "";
+    if (selected === "schedule" && !scheduled.length) selected = "";
+    const scheduleSelected = selected === "schedule";
+    const timelineSelected = selected === "timeline";
+    const timeline = createTimelineView(day, {
+        interactive: true,
+        travelForLeg: timelineTravelForLeg,
+    });
+    const baseId = `day-time-${esc(String(day.id))}`;
+    return `<section class="day-time-tools" aria-label="Planificación horaria"><div class="day-time-tabs" role="group" aria-label="Vista horaria"><button id="${baseId}-schedule-tab" class="day-time-tab" type="button" data-day-time-tab="schedule" aria-expanded="${scheduleSelected}" aria-controls="${baseId}-schedule-panel" ${scheduled.length ? "" : "disabled"}><span class="day-schedule-summary-icon" aria-hidden="true">◷</span><span>Horarios</span><span class="day-schedule-count">${scheduled.length}</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></button><button id="${baseId}-timeline-tab" class="day-time-tab" type="button" data-day-time-tab="timeline" aria-expanded="${timelineSelected}" aria-controls="${baseId}-timeline-panel"><span aria-hidden="true">↝</span><span>Timeline</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></button></div><div id="${baseId}-schedule-panel" class="day-schedule-body" role="region" aria-label="Horarios del día" ${scheduleSelected ? "" : "hidden"}><span class="day-schedule-guide" aria-hidden="true"></span><div class="day-schedule-axis" aria-hidden="true"><span></span><span class="day-schedule-axis-hours"><i>00</i><i>06</i><i>12</i><i>18</i><i>24</i></span></div>${rows}</div><div id="${baseId}-timeline-panel" class="day-timeline-panel" role="region" aria-label="Timeline del día" ${timelineSelected ? "" : "hidden"}><p class="day-timeline-summary">${esc(timeline.summary)} Pulsa para editar o arrastra una parada para planificarla.</p><div class="companion-timeline-canvas" role="group" aria-label="${esc(timeline.aria)}">${timeline.html}</div>${timeline.empty ? "" : `<div class="companion-timeline-insight${timeline.warning ? " is-warning" : ""}" role="status">${esc(timeline.insight)}</div>`}</div></section>`;
 }
 
-function wireDaySchedule(el, dayId) {
-    const schedule = el.querySelector(".day-schedule");
-    schedule?.addEventListener("toggle", () => {
-        if (schedule.open) expandedSchedules.add(dayId);
-        else expandedSchedules.delete(dayId);
+function openDurationDialog(dayId, spotId) {
+    const day = dayBy(dayId);
+    const spot = day?.spots.find((candidate) => String(candidate.id) === spotId);
+    if (!spot) return;
+    durationEditing = { dayId, spot };
+    $("#durationSpotName").textContent = spot.name || "Parada sin nombre";
+    durationInput.value =
+        Number.isInteger(spot.visitMinutes) && spot.visitMinutes > 0
+            ? spot.visitMinutes
+            : "";
+    removeDurationButton.hidden = !durationInput.value;
+    durationDialog.showModal();
+    durationInput.focus();
+    durationInput.select();
+}
+
+function positionTimelineTooltip(target) {
+    const targetRect = target.getBoundingClientRect();
+    timelineTooltip.style.left = "0";
+    timelineTooltip.style.top = "0";
+    timelineTooltip.hidden = false;
+    const tooltipRect = timelineTooltip.getBoundingClientRect();
+    const margin = 10;
+    const left = Math.min(
+        window.innerWidth - tooltipRect.width - margin,
+        Math.max(
+            margin,
+            targetRect.left + targetRect.width / 2 - tooltipRect.width / 2,
+        ),
+    );
+    const above = targetRect.top - tooltipRect.height - 9;
+    const top =
+        above >= margin ? above : Math.min(window.innerHeight - tooltipRect.height - margin, targetRect.bottom + 9);
+    timelineTooltip.style.left = `${Math.round(left)}px`;
+    timelineTooltip.style.top = `${Math.round(top)}px`;
+}
+
+function showTimelineTooltip(target) {
+    timelineTooltip.textContent = target.dataset.timelineTooltip || "";
+    target.setAttribute("aria-describedby", timelineTooltip.id);
+    positionTimelineTooltip(target);
+}
+
+function hideTimelineTooltip(target) {
+    target?.removeAttribute("aria-describedby");
+    timelineTooltip.hidden = true;
+}
+
+function wireTimelineTooltips(tools) {
+    tools?.querySelectorAll("[data-timeline-tooltip]").forEach((target) => {
+        target.addEventListener("mouseenter", () => showTimelineTooltip(target));
+        target.addEventListener("mouseleave", () => hideTimelineTooltip(target));
+        target.addEventListener("focus", () => showTimelineTooltip(target));
+        target.addEventListener("blur", () => hideTimelineTooltip(target));
     });
-    const body = schedule?.querySelector(".day-schedule-body");
+}
+
+function paintTravelDialogValues() {
+    if (!travelEditing) return;
+    const official = cachedRouteTravelMinutes(
+        travelEditing.from,
+        travelEditing.to,
+        "walking",
+    );
+    const override = routeTimeOverride(
+        travelEditing.from.id,
+        travelEditing.to.id,
+        "walking",
+    );
+    travelEditing.officialMinutes = official;
+    travelApiValue.textContent =
+        official === null ? "No disponible" : `${official} min`;
+    travelApiValue.closest(".travel-api-card").dataset.state =
+        official === null ? "unavailable" : "ready";
+    resetTravelTimeButton.disabled = override === null;
+    if (override !== null) travelInput.value = override;
+    else if (official !== null) travelInput.value = official;
+}
+
+async function openTravelTimeDialog(dayId, button) {
+    const day = dayBy(dayId);
+    const from = day?.spots.find(
+        (spot) => String(spot.id) === button.dataset.timelineTravelFrom,
+    );
+    const to = day?.spots.find(
+        (spot) => String(spot.id) === button.dataset.timelineTravelTo,
+    );
+    if (!day || !from || !to) return;
+    travelEditing = { dayId, from, to, officialMinutes: null };
+    $("#travelFromName").textContent = from.name || "Parada anterior";
+    $("#travelToName").textContent = to.name || "Parada siguiente";
+    const shownMinutes = Number(button.dataset.timelineTravelMinutes);
+    travelInput.value =
+        routeTimeOverride(from.id, to.id, "walking") ??
+        (Number.isFinite(shownMinutes) && shownMinutes > 0 ? shownMinutes : "");
+    travelApiValue.textContent = "Consultando…";
+    travelApiValue.closest(".travel-api-card").dataset.state = "loading";
+    resetTravelTimeButton.disabled =
+        routeTimeOverride(from.id, to.id, "walking") === null;
+    travelDialog.showModal();
+    travelInput.focus();
+    travelInput.select();
+    await ensureRouteTravelTimes(day.spots, "walking");
+    if (!travelEditing || travelEditing.from !== from || travelEditing.to !== to)
+        return;
+    paintTravelDialogValues();
+}
+
+function commitTimelineStart(dayId, spotId, minute) {
+    const day = dayBy(dayId);
+    const spot = day?.spots.find((candidate) => String(candidate.id) === spotId);
+    if (!day || !spot) return;
+    const currentStarts = new Map(
+        buildTimelineProjection(day, {
+            travelForLeg: timelineTravelForLeg,
+        }).items.map((item) => [item.spot.id, item.start]),
+    );
+    spot.plannedStart = minutesToTime(minute);
+
+    // The chronological timeline is the source of truth for enabled stops.
+    // Replace only enabled slots so disabled stops keep their relative place.
+    const ordered = day.spots
+        .filter(spotIsEnabled)
+        .map((candidate, index) => ({
+            spot: candidate,
+            start: candidate === spot ? minute : currentStarts.get(candidate.id) ?? 1440,
+            index,
+        }))
+        .sort((a, b) => a.start - b.start || a.index - b.index)
+        .map((item) => item.spot);
+    let enabledIndex = 0;
+    day.spots = day.spots.map((candidate) =>
+        spotIsEnabled(candidate) ? ordered[enabledIndex++] : candidate,
+    );
+    save();
+    render();
+    drawMap();
+}
+
+function paintLiveTimelineConflicts(tools, active) {
+    const blocks = [...tools.querySelectorAll("[data-timeline-spot]")];
+    blocks.forEach((block) =>
+        block.classList.remove("is-live-overlap", "is-live-outside"),
+    );
+    const start = Number(active.dataset.timelineStart);
+    const duration = Number(active.dataset.timelineDuration);
+    const end = start + duration;
+    const opening = Number(active.dataset.timelineOpening);
+    const closing = Number(active.dataset.timelineClosing);
+    const hasOpening = active.dataset.timelineOpening !== "";
+    const hasClosing = active.dataset.timelineClosing !== "";
+    const comparableWindow = !(hasOpening && hasClosing && opening >= closing);
+    if (comparableWindow && (
+        (hasOpening && start < opening) ||
+        (hasClosing && end > closing) ||
+        (hasClosing && !duration && start >= closing)
+    )) active.classList.add("is-live-outside");
+    if (!duration) return;
+    blocks.forEach((other) => {
+        if (other === active) return;
+        const otherStart = Number(other.dataset.timelineStart);
+        const otherEnd = otherStart + Number(other.dataset.timelineDuration);
+        if (start < otherEnd && otherStart < end) {
+            active.classList.add("is-live-overlap");
+            other.classList.add("is-live-overlap");
+        }
+    });
+}
+
+function paintTimelineDragHours(tools, active, visible) {
+    const track = active.closest(".companion-timeline-track");
+    const guides = [...(track?.querySelectorAll(".companion-timeline-drag-hours") || [])];
+    guides.forEach((guide) => {
+        guide.classList.remove("is-visible", "has-label");
+        guide.removeAttribute("data-hours-label");
+    });
+    if (!visible || !track || !guides.length) return;
+
+    const boundStart = Number(track.dataset.timelineBoundStart);
+    const boundEnd = Number(track.dataset.timelineBoundEnd);
+    const opening = Number(active.dataset.timelineOpening);
+    const closing = Number(active.dataset.timelineClosing);
+    const hasOpening = active.dataset.timelineOpening !== "";
+    const hasClosing = active.dataset.timelineClosing !== "";
+    let ranges;
+    if (hasOpening && hasClosing && opening === closing) {
+        ranges = [[boundStart, boundEnd]];
+    } else if (hasOpening && hasClosing && opening > closing) {
+        ranges = [[boundStart, closing], [opening, boundEnd]];
+    } else if (hasOpening && hasClosing) {
+        ranges = [[opening, closing]];
+    } else if (hasOpening) {
+        ranges = [[opening, boundEnd]];
+    } else if (hasClosing) {
+        ranges = [[boundStart, closing]];
+    } else {
+        return;
+    }
+
+    const span = boundEnd - boundStart;
+    const clipped = ranges
+        .map(([start, end]) => [Math.max(boundStart, start), Math.min(boundEnd, end)])
+        .filter(([start, end]) => end > start);
+    const label = hasOpening && hasClosing
+        ? `Horario ${minutesToTime(opening)}–${minutesToTime(closing)}`
+        : hasOpening
+          ? `Abre ${minutesToTime(opening)}`
+          : `Cierra ${minutesToTime(closing)}`;
+    clipped.slice(0, guides.length).forEach(([start, end], index) => {
+        const guide = guides[index];
+        guide.style.setProperty("--drag-hours-start", `${(((start - boundStart) / span) * 100).toFixed(3)}%`);
+        guide.style.setProperty("--drag-hours-width", `${(((end - start) / span) * 100).toFixed(3)}%`);
+        guide.style.setProperty(
+            "--drag-hours-color",
+            active.style.getPropertyValue("--timeline-color") || "#2f678f",
+        );
+        guide.classList.add("is-visible");
+        if (index === 0) {
+            guide.dataset.hoursLabel = label;
+            guide.classList.add("has-label");
+        }
+    });
+}
+
+function wireTimelineSpot(button, tools, dayId) {
+    let pointer = null;
+    let ignoreClick = false;
+
+    const cleanup = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", finish);
+        window.removeEventListener("pointercancel", cancel);
+        window.removeEventListener("keydown", escape);
+        tools.classList.remove("is-timeline-dragging");
+        button.classList.remove("is-dragging");
+        paintTimelineDragHours(tools, button, false);
+        tools.querySelectorAll(".is-live-overlap, .is-live-outside").forEach(
+            (block) => block.classList.remove("is-live-overlap", "is-live-outside"),
+        );
+        document.body.style.userSelect = "";
+        document.body.style.webkitUserSelect = "";
+    };
+
+    const move = (event) => {
+        if (!pointer || event.pointerId !== pointer.id) return;
+        const dx = event.clientX - pointer.x;
+        const dy = event.clientY - pointer.y;
+        if (!pointer.dragging) {
+            if (Math.hypot(dx, dy) <= 7) return;
+            if (Math.abs(dy) > Math.abs(dx) * 1.15) {
+                ignoreClick = true;
+                cleanup();
+                pointer = null;
+                return;
+            }
+            if (Math.abs(dx) <= Math.abs(dy) * 1.15) return;
+            pointer.dragging = true;
+            ignoreClick = true;
+            hideTimelineTooltip(button);
+            tools.classList.add("is-timeline-dragging");
+            button.classList.add("is-dragging");
+            paintTimelineDragHours(tools, button, true);
+            document.body.style.userSelect = "none";
+            document.body.style.webkitUserSelect = "none";
+            getSelection()?.removeAllRanges();
+        }
+        event.preventDefault();
+        const minutesDelta = (dx / pointer.trackWidth) * pointer.span;
+        const duration = Number(button.dataset.timelineDuration) || 0;
+        const latest = Math.min(1439, pointer.end - Math.min(duration, pointer.span));
+        const minute = Math.max(
+            pointer.start,
+            Math.min(latest, Math.round((pointer.minute + minutesDelta) / 5) * 5),
+        );
+        pointer.current = minute;
+        const left = ((minute - pointer.start) / pointer.span) * 100;
+        button.style.setProperty("--timeline-start", `${left.toFixed(3)}%`);
+        button.dataset.timelineStart = String(minute);
+        const timing = button.querySelector("[data-timeline-timing]");
+        if (timing)
+            timing.textContent = duration
+                ? `${minutesToTime(minute)}–${minutesToTime(minute + duration)}`
+                : `${minutesToTime(minute)} · sin duración`;
+        paintLiveTimelineConflicts(tools, button);
+    };
+
+    const finish = (event) => {
+        if (!pointer || event.pointerId !== pointer.id) return;
+        const dragged = pointer.dragging;
+        const minute = pointer.current;
+        cleanup();
+        pointer = null;
+        if (dragged) commitTimelineStart(dayId, button.dataset.timelineSpot, minute);
+    };
+
+    const cancel = (event) => {
+        if (!pointer || event.pointerId !== pointer.id) return;
+        ignoreClick = pointer.dragging || ignoreClick;
+        cleanup();
+        pointer = null;
+        render({ persist: false });
+    };
+
+    const escape = (event) => {
+        if (event.key !== "Escape" || !pointer) return;
+        event.preventDefault();
+        ignoreClick = true;
+        cleanup();
+        pointer = null;
+        render({ persist: false });
+    };
+
+    button.addEventListener("pointerdown", (event) => {
+        if (store.previewMode || (event.button !== undefined && event.button !== 0)) return;
+        const track = button.closest(".companion-timeline-track");
+        if (!track) return;
+        const rect = track.getBoundingClientRect();
+        const start = Number(track.dataset.timelineBoundStart);
+        const end = Number(track.dataset.timelineBoundEnd);
+        pointer = {
+            id: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+            minute: Number(button.dataset.timelineStart),
+            current: Number(button.dataset.timelineStart),
+            start,
+            end,
+            span: end - start,
+            trackWidth: rect.width,
+            dragging: false,
+        };
+        ignoreClick = false;
+        window.addEventListener("pointermove", move, { passive: false });
+        window.addEventListener("pointerup", finish);
+        window.addEventListener("pointercancel", cancel);
+        window.addEventListener("keydown", escape);
+    });
+    button.addEventListener("click", (event) => {
+        if (ignoreClick) {
+            ignoreClick = false;
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+        }
+        openDurationDialog(dayId, button.dataset.timelineSpot);
+    });
+    button.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        const delta = (event.shiftKey ? 15 : 5) * (event.key === "ArrowLeft" ? -1 : 1);
+        const minute = Math.max(0, Math.min(1439, Number(button.dataset.timelineStart) + delta));
+        commitTimelineStart(dayId, button.dataset.timelineSpot, minute);
+    });
+}
+
+function wireDayTimeTools(el, dayId) {
+    const tools = el.querySelector(".day-time-tools");
+    wireTimelineTooltips(tools);
+    tools?.querySelectorAll("[data-day-time-tab]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const panel = button.dataset.dayTimeTab;
+            const opening = expandedDayTools.get(dayId) !== panel;
+            if (!opening) expandedDayTools.delete(dayId);
+            else expandedDayTools.set(dayId, panel);
+            render({ persist: false });
+            if (opening && panel === "timeline") {
+                const day = dayBy(dayId);
+                ensureRouteTravelTimes(day?.spots, "walking").then(() => {
+                    if (expandedDayTools.get(dayId) === "timeline")
+                        render({ persist: false });
+                });
+            }
+        });
+    });
+    tools?.querySelectorAll("[data-timeline-spot]").forEach((button) => {
+        wireTimelineSpot(button, tools, dayId);
+        wireMapSpotHighlight(button, button.dataset.timelineSpot);
+    });
+    tools?.querySelectorAll("[data-timeline-travel-from]").forEach((button) => {
+        button.addEventListener("click", () =>
+            openTravelTimeDialog(dayId, button),
+        );
+    });
+    const body = tools?.querySelector(".day-schedule-body");
     body?.querySelectorAll(".day-schedule-rail").forEach((rail) => {
         rail.addEventListener("pointermove", (event) => {
             const bodyRect = body.getBoundingClientRect(),
@@ -312,6 +744,109 @@ function wireDaySchedule(el, dayId) {
         );
     });
 }
+
+durationForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!durationEditing || !durationInput.reportValidity()) return;
+    const minutes = Number(durationInput.value);
+    if (!Number.isInteger(minutes) || minutes <= 0) return;
+    durationEditing.spot.visitMinutes = minutes;
+    durationDialog.close();
+    save();
+    render();
+    drawMap();
+    toast("Duración de la parada actualizada.", "success");
+});
+
+durationDialog.querySelectorAll("[data-duration-preset]").forEach((button) => {
+    button.addEventListener("click", () => {
+        durationInput.value = button.dataset.durationPreset;
+        durationInput.focus();
+    });
+});
+
+removeDurationButton.addEventListener("click", () => {
+    if (!durationEditing) return;
+    delete durationEditing.spot.visitMinutes;
+    durationDialog.close();
+    save();
+    render();
+    drawMap();
+    toast("Estimación de duración eliminada.", "info");
+});
+
+durationDialog.querySelector(".close").addEventListener("click", () =>
+    durationDialog.close(),
+);
+durationDialog.querySelector(".cancel").addEventListener("click", () =>
+    durationDialog.close(),
+);
+durationDialog.addEventListener("click", (event) => {
+    if (event.target === durationDialog) durationDialog.close();
+});
+durationDialog.addEventListener("close", () => {
+    durationEditing = null;
+});
+
+travelForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!travelEditing || !travelInput.reportValidity()) return;
+    const minutes = Number(travelInput.value);
+    if (!Number.isInteger(minutes) || minutes <= 0) return;
+    const key = routeTimeOverrideKey(
+        travelEditing.from.id,
+        travelEditing.to.id,
+        "walking",
+    );
+    if (minutes === travelEditing.officialMinutes)
+        delete store.routeTimeOverrides[key];
+    else store.routeTimeOverrides[key] = minutes;
+    travelDialog.close();
+    save();
+    render();
+    drawMap();
+    toast("Tiempo de trayecto actualizado.", "success");
+});
+
+travelDialog.querySelectorAll("[data-travel-step]").forEach((button) => {
+    button.addEventListener("click", () => {
+        const current = Number(travelInput.value) || 1;
+        travelInput.value = Math.max(
+            1,
+            current + Number(button.dataset.travelStep),
+        );
+        travelInput.focus();
+    });
+});
+
+resetTravelTimeButton.addEventListener("click", () => {
+    if (!travelEditing) return;
+    delete store.routeTimeOverrides[
+        routeTimeOverrideKey(
+            travelEditing.from.id,
+            travelEditing.to.id,
+            "walking",
+        )
+    ];
+    travelDialog.close();
+    save();
+    render();
+    drawMap();
+    toast("Restablecido el tiempo oficial de la API.", "info");
+});
+
+travelDialog.querySelector(".close").addEventListener("click", () =>
+    travelDialog.close(),
+);
+travelDialog.querySelector(".cancel").addEventListener("click", () =>
+    travelDialog.close(),
+);
+travelDialog.addEventListener("click", (event) => {
+    if (event.target === travelDialog) travelDialog.close();
+});
+travelDialog.addEventListener("close", () => {
+    travelEditing = null;
+});
 
 function spotNameForHours(row) {
     return row.closest(".spot")?.dataset.spotName || "Parada sin nombre";
@@ -531,9 +1066,34 @@ function renderList(el, spots, isBacklog = false) {
               : '<span class="number number-placeholder" aria-hidden="true">−</span>';
         spot.classList.toggle("spot-disabled", !enabled);
         spot.innerHTML = `<span class="handle">⠿</span><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number} ${esc(s.name)}</span>${spotNote}${spotTiming}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions">${mapsAction}<span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
+        wireMapSpotHighlight(spot, s.id);
         list.append(spot);
     });
     wireHoursComparison(list);
+}
+
+function wireMapSpotHighlight(element, spotId) {
+    let pointerInside = false;
+    let focusInside = false;
+    const sync = () =>
+        highlightMapSpot(spotId, pointerInside || focusInside);
+
+    element.addEventListener("pointerenter", () => {
+        pointerInside = true;
+        sync();
+    });
+    element.addEventListener("pointerleave", () => {
+        pointerInside = false;
+        sync();
+    });
+    element.addEventListener("focusin", () => {
+        focusInside = true;
+        sync();
+    });
+    element.addEventListener("focusout", (event) => {
+        focusInside = element.contains(event.relatedTarget);
+        sync();
+    });
 }
 
 function closeMoveMenus(except) {
@@ -711,6 +1271,7 @@ function wireQuickAdd(card, dayId) {
 }
 
 export function render({ persist = true } = {}) {
+    timelineTooltip.hidden = true;
     renderTags();
     daysEl.innerHTML = "";
     const b = document.createElement("article");
@@ -745,9 +1306,9 @@ export function render({ persist = true } = {}) {
             (day.id === store.active ? "active " : "") +
             (day.collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
-        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div>${renderDaySchedule(day.spots, day.id)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}`;
+        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div>${renderDayTimeTools(day)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}`;
         renderList(el, day.spots);
-        wireDaySchedule(el, day.id);
+        wireDayTimeTools(el, day.id);
         applyDayLoad(el, day);
         const loadMeter = el.querySelector(".day-load-meter");
         loadMeter.addEventListener("click", (event) => {
@@ -881,13 +1442,21 @@ function editTitle(day, el) {
 // Single source of truth for relocating a spot between backlog and any day.
 export function moveSpot(spotId, toDay, at) {
     let spot;
+    let fromDay = null;
     const bi = store.backlog.findIndex((s) => s.id === spotId);
-    if (bi > -1) spot = store.backlog.splice(bi, 1)[0];
+    if (bi > -1) {
+        spot = store.backlog.splice(bi, 1)[0];
+        fromDay = "backlog";
+    }
     store.state.forEach((d) => {
         const i = d.spots.findIndex((s) => s.id === spotId);
-        if (i > -1) spot = d.spots.splice(i, 1)[0];
+        if (i > -1) {
+            spot = d.spots.splice(i, 1)[0];
+            fromDay = d.id;
+        }
     });
     if (!spot) return;
+    if (fromDay !== toDay) delete spot.plannedStart;
     const target = toDay === "backlog" ? store.backlog : dayBy(toDay).spots;
     target.splice(at, 0, spot);
     store.active = toDay;

@@ -16,6 +16,7 @@ import {
     categoryConnects,
     spotMatchesFilter,
     spotIsEnabled,
+    routeTimeOverride,
 } from "./store.js";
 import { $, esc, safeColor } from "./dom.js";
 import { DAY_COLORS } from "./constants.js";
@@ -29,6 +30,32 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 let routeLayer = L.layerGroup().addTo(map);
 let legendControl = null;
+// Rebuilt with the map layers. Lets itinerary/timeline UI point at the
+// corresponding marker without putting transient hover state in the store.
+const spotMarkers = new Map();
+let highlightedSpotId = null;
+
+function registerSpotMarker(spot, marker) {
+    spotMarkers.set(String(spot.id), marker);
+}
+
+export function highlightMapSpot(spotId, highlighted = true) {
+    const id = String(spotId);
+    if (!highlighted && highlightedSpotId !== id) return;
+
+    if (highlightedSpotId && highlightedSpotId !== id) {
+        const previous = spotMarkers.get(highlightedSpotId);
+        previous?.setZIndexOffset(0);
+        previous?.getElement()?.classList.remove("is-spot-highlighted");
+        highlightedSpotId = null;
+    }
+
+    const marker = spotMarkers.get(id);
+    if (!marker) return;
+    marker.setZIndexOffset(highlighted ? 1000 : 0);
+    marker.getElement()?.classList.toggle("is-spot-highlighted", highlighted);
+    highlightedSpotId = highlighted ? id : null;
+}
 
 export function invalidateMainMap() {
     map.invalidateSize({ pan: false, animate: false });
@@ -154,8 +181,8 @@ function drawGlobalMap() {
                 opacity: 0.9,
                 dashArray: "7 7",
             }).addTo(routeLayer);
-        located.forEach((s) =>
-            L.marker([s.lat, s.lng], {
+        located.forEach((s) => {
+            const marker = L.marker([s.lat, s.lng], {
                 icon: icon(
                     visibleSpots.indexOf(s) + 1,
                     categoryMeta(s.category).color,
@@ -164,8 +191,9 @@ function drawGlobalMap() {
                 .addTo(routeLayer)
                 .bindPopup(
                     `<b>${esc(day.title)}</b><br>${esc(s.name)}<br><small>${esc(s.note || s.address || "")}</small>`,
-                ),
-        );
+                );
+            registerSpotMarker(s, marker);
+        });
         allPoints.push(...points);
         legendItems.push({ title: day.title, color });
     });
@@ -263,10 +291,51 @@ export function cachedDayTravelMinutes(day) {
         const leg = routeCache.get(
             keyFor(seq[i], seq[i + 1], store.routeProfile),
         );
+        const override = routeTimeOverride(
+            seq[i].id,
+            seq[i + 1].id,
+            store.routeProfile,
+        );
+        if (override !== null) {
+            total += override;
+            continue;
+        }
         if (!leg || leg.min == null) return null;
         total += leg.min;
     }
     return total;
+}
+
+export function cachedRouteTravelMinutes(from, to, profile = "walking") {
+    if (!from || !to) return null;
+    const leg = routeCache.get(keyFor(from, to, profile));
+    return leg?.min == null ? null : Math.max(1, Math.round(leg.min));
+}
+
+// Fetches the official OSRM duration for consecutive enabled stops used by a
+// timeline. Unlike ensureRoutes(), this is independent of the active map and
+// can therefore hydrate a timeline belonging to any visible day card.
+export async function ensureRouteTravelTimes(spots, profile = "walking") {
+    const sequence = Array.isArray(spots) ? spots.filter(spotIsEnabled) : [];
+    const pending = [];
+    for (let i = 0; i < sequence.length - 1; i++) {
+        const from = sequence[i],
+            to = sequence[i + 1];
+        if (
+            !Number.isFinite(from?.lat) ||
+            !Number.isFinite(from?.lng) ||
+            !Number.isFinite(to?.lat) ||
+            !Number.isFinite(to?.lng)
+        )
+            continue;
+        const key = keyFor(from, to, profile);
+        if (!routeCache.has(key)) pending.push({ from, to, key });
+    }
+    if (!pending.length) return;
+    const results = await Promise.all(
+        pending.map(({ from, to }) => fetchLeg(from, to, profile)),
+    );
+    pending.forEach(({ key }, index) => routeCache.set(key, results[index]));
 }
 
 function fmtKm(km) {
@@ -350,6 +419,8 @@ function ensureRoutes() {
 
 export function drawMap() {
     routeLayer.clearLayers();
+    spotMarkers.clear();
+    highlightedSpotId = null;
     if (store.previewMode) return drawGlobalMap();
     removeLegend();
     const day =
@@ -431,6 +502,7 @@ export function drawMap() {
             })
                 .addTo(routeLayer)
                 .bindPopup(baseHtml);
+            registerSpotMarker(s, marker);
             // Fill the popup with the spot's Wikipedia photo the first time it
             // opens (fetchSpotImage caches by name, so reopening is instant).
             // Markers are rebuilt every drawMap(), so imgDone is per-marker.

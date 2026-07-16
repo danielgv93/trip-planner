@@ -126,6 +126,7 @@ body.companion-mode main {
     grid-template-areas:
         "location"
         "progress"
+        "timeline"
         "next"
         "map"
         "checklist";
@@ -134,6 +135,7 @@ body.companion-mode main {
 }
 
 .companion-progress { grid-area: progress; }
+.companion-timeline { grid-area: timeline; }
 .companion-next { grid-area: next; }
 .companion-location { grid-area: location; }
 .companion-map-card { grid-area: map; }
@@ -179,6 +181,405 @@ body.companion-mode main {
 .companion-progress progress {
     width: 100%;
     accent-color: var(--green);
+}
+
+.companion-timeline {
+    overflow: hidden;
+}
+
+.companion-timeline-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(230px, 330px);
+    align-items: end;
+    gap: 22px;
+}
+
+.companion-timeline-head p {
+    margin-top: 5px;
+}
+
+.companion-delay {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.companion-delay output {
+    color: var(--ink);
+    font: 600 14px "DM Mono";
+}
+
+.companion-delay input {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin: 0;
+    accent-color: var(--red-dark);
+}
+
+.companion-timeline-canvas {
+    position: relative;
+    min-height: 182px;
+    margin-top: 20px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+}
+
+.companion-timeline-track {
+    position: relative;
+    min-width: 680px;
+    height: calc(162px + (var(--timeline-lanes, 1) - 1) * 88px);
+    margin-inline: 2px;
+}
+
+.companion-timeline-track.is-interactive {
+    min-width: 960px;
+}
+
+.companion-timeline-axis {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 28px;
+    border-bottom: 1px solid var(--line);
+}
+
+.companion-timeline-drag-hours {
+    position: absolute;
+    z-index: 0;
+    top: 30px;
+    bottom: 7px;
+    left: var(--drag-hours-start);
+    display: none;
+    width: var(--drag-hours-width);
+    border-inline: 1px dashed color-mix(in srgb, var(--drag-hours-color) 66%, transparent);
+    background: color-mix(in srgb, var(--drag-hours-color) 10%, transparent);
+    pointer-events: none;
+}
+
+.companion-timeline-drag-hours.is-visible {
+    display: block;
+}
+
+.companion-timeline-drag-hours.has-label::before {
+    content: attr(data-hours-label);
+    position: absolute;
+    top: 3px;
+    left: 5px;
+    max-width: calc(100% - 10px);
+    overflow: hidden;
+    color: color-mix(in srgb, var(--drag-hours-color) 78%, var(--muted));
+    font: 600 10px "DM Mono";
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.companion-timeline-tick {
+    position: absolute;
+    bottom: 6px;
+    color: var(--muted);
+    font: 500 11px "DM Mono";
+    transform: translateX(-50%);
+}
+
+.companion-timeline-tick::after {
+    content: "";
+    position: absolute;
+    top: 22px;
+    left: 50%;
+    width: 1px;
+    height: calc(120px + (var(--timeline-lanes, 1) - 1) * 88px);
+    background: color-mix(in srgb, var(--line) 65%, transparent);
+}
+
+.companion-timeline-block {
+    position: absolute;
+    z-index: 1;
+    top: calc(59px + var(--timeline-lane, 0) * 88px);
+    left: var(--timeline-start);
+    width: max(var(--timeline-width), 5px);
+    min-width: 5px;
+    height: 82px;
+    padding: 9px 10px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--timeline-color) 70%, #000);
+    border-left: 4px solid var(--timeline-color);
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--timeline-color) 18%, var(--card));
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+}
+
+.companion-timeline-block.is-editable {
+    cursor: grab;
+    touch-action: pan-y;
+    transition: filter 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.companion-timeline-block.is-unsized {
+    border-right-style: dashed;
+    background-image: repeating-linear-gradient(
+        90deg,
+        transparent 0 7px,
+        color-mix(in srgb, var(--timeline-color) 10%, transparent) 7px 11px
+    );
+}
+
+.companion-timeline-block.is-editable::after {
+    content: "";
+    position: absolute;
+    z-index: 3;
+    inset: -6px 0;
+}
+
+.companion-timeline-block.is-dragging {
+    z-index: 6;
+    cursor: grabbing;
+    opacity: .94;
+    filter: none;
+    transform: translateY(-3px) scale(1.01);
+    box-shadow: 0 8px 22px rgb(20 35 42 / .24);
+    transition: none;
+}
+
+.companion-timeline-block.is-editable:hover {
+    z-index: 2;
+    filter: brightness(.97);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 14px rgb(20 35 42 / .16);
+}
+
+.companion-timeline-block.is-editable:focus-visible {
+    z-index: 4;
+    outline: 3px solid color-mix(in srgb, var(--timeline-color) 55%, #fff);
+    outline-offset: 2px;
+}
+
+.companion-timeline-transfer {
+    position: absolute;
+    top: 70px;
+    left: var(--timeline-start);
+    z-index: 0;
+    display: flex;
+    width: max(var(--timeline-width), 7px);
+    min-width: 7px;
+    height: 58px;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 5px 7px;
+    overflow: hidden;
+    border-block: 1px dashed #c66a2f;
+    border-inline: 0;
+    background: #fff2e8;
+    color: #85451f;
+    font: inherit;
+    white-space: nowrap;
+}
+
+.companion-timeline-transfer.is-editable {
+    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.companion-timeline-transfer.is-editable:hover {
+    z-index: 0;
+    background: #ffe7d4;
+    box-shadow: 0 4px 12px rgb(133 69 31 / .18);
+    transform: translateY(-2px);
+}
+
+.companion-timeline-transfer.is-editable:focus-visible {
+    z-index: 0;
+    outline: 3px solid #d98a55;
+    outline-offset: 2px;
+}
+
+.timeline-tooltip {
+    position: fixed;
+    z-index: 10000;
+    width: max-content;
+    max-width: min(320px, calc(100vw - 20px));
+    padding: 8px 10px;
+    border: 1px solid #233842;
+    border-radius: 6px;
+    background: #1d2d36;
+    box-shadow: 0 6px 18px rgb(16 28 34 / .24);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.4;
+    pointer-events: none;
+}
+
+.timeline-tooltip[hidden] {
+    display: none;
+}
+
+.companion-timeline-transfer.is-overridden {
+    border-block-style: solid;
+    background: #eaf2ef;
+    color: var(--green);
+}
+
+.companion-timeline-transfer.is-overridden small {
+    color: var(--green);
+}
+
+.companion-timeline-transfer.is-conflict {
+    border-block-color: #b66d16;
+    background: repeating-linear-gradient(
+        135deg,
+        rgb(214 139 43 / .12) 0 5px,
+        rgb(214 139 43 / .36) 5px 9px
+    );
+    color: #7a470c;
+}
+
+.companion-timeline-transfer > span {
+    font-size: 13px;
+}
+
+.companion-timeline-transfer strong,
+.companion-timeline-transfer small {
+    font: 600 11px "DM Mono";
+}
+
+.companion-timeline-transfer small {
+    color: #92552e;
+}
+
+.companion-timeline-content {
+    position: relative;
+    z-index: 1;
+}
+
+.companion-timeline-block strong,
+.companion-timeline-block small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.companion-timeline-block small {
+    margin-top: 3px;
+    color: var(--muted);
+    font: 500 11px "DM Mono";
+}
+
+.companion-timeline-block .companion-timeline-hours {
+    color: #2f678f;
+    font-weight: 600;
+}
+
+.companion-timeline-outside,
+.companion-timeline-overlap {
+    position: absolute;
+    z-index: 0;
+    inset-block: 0;
+    left: var(--conflict-start);
+    width: var(--conflict-width);
+    pointer-events: none;
+}
+
+.companion-timeline-outside {
+    border-left: 2px solid #a22e28;
+    background: repeating-linear-gradient(
+        135deg,
+        rgb(162 46 40 / .08) 0 5px,
+        rgb(162 46 40 / .32) 5px 9px
+    );
+}
+
+.companion-timeline-overlap {
+    border-inline: 1px solid #b66d16;
+    background: repeating-linear-gradient(
+        45deg,
+        rgb(214 139 43 / .08) 0 5px,
+        rgb(214 139 43 / .34) 5px 9px
+    );
+}
+
+.companion-timeline-block.is-next {
+    outline: 3px solid color-mix(in srgb, var(--timeline-color) 45%, transparent);
+    outline-offset: 2px;
+}
+
+.companion-timeline-block.is-outside-hours {
+    border-color: #a22e28;
+}
+
+.companion-timeline-block.is-overlapping {
+    box-shadow: inset 0 0 0 2px #d68b2b;
+}
+
+.day-time-tools.is-timeline-dragging .companion-timeline-outside,
+.day-time-tools.is-timeline-dragging .companion-timeline-overlap {
+    opacity: .16;
+}
+
+.companion-timeline-block.is-live-outside {
+    border-color: #a22e28;
+    box-shadow: inset 0 0 0 2px rgb(162 46 40 / .42);
+}
+
+.companion-timeline-block.is-live-overlap {
+    border-color: #b66d16;
+    box-shadow: inset 0 0 0 3px rgb(214 139 43 / .58);
+}
+
+.companion-timeline-block.is-visited {
+    opacity: .55;
+}
+
+.companion-now {
+    position: absolute;
+    top: 20px;
+    bottom: 0;
+    left: var(--timeline-now);
+    z-index: 3;
+    width: 2px;
+    background: var(--ink);
+}
+
+.companion-now span {
+    position: absolute;
+    top: -20px;
+    left: 5px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: var(--ink);
+    color: var(--card);
+    font: 500 11px "DM Mono";
+    white-space: nowrap;
+}
+
+.companion-timeline-empty {
+    display: grid;
+    min-height: 110px;
+    place-items: center;
+    padding: 18px;
+    border: 1px dashed var(--line);
+    border-radius: 6px;
+    color: var(--muted);
+    text-align: center;
+}
+
+.companion-timeline-insight {
+    margin-top: 10px;
+    padding: 11px 13px;
+    border-left: 4px solid var(--green);
+    background: #eef6f0;
+    line-height: 1.45;
+}
+
+.companion-timeline-insight.is-warning {
+    border-left-color: #a22e28;
+    background: #fae6e2;
 }
 
 .companion-next {
@@ -622,6 +1023,11 @@ body.companion-mode main {
         flex-direction: column;
     }
 
+    .companion-timeline-head {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: stretch;
+    }
+
     .companion-map-head {
         align-items: flex-start;
     }
@@ -696,6 +1102,7 @@ body.companion-mode main {
         grid-template-columns: minmax(0, 0.92fr) minmax(360px, 1.08fr);
         grid-template-areas:
             "location location"
+            "timeline timeline"
             "progress map"
             "next map"
             "checklist map";

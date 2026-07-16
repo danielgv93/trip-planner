@@ -16,13 +16,14 @@
         />
         <link rel="stylesheet" href="styles/base.css?v=27" />
         <link rel="stylesheet" href="styles/search.css?v=21" />
-        <link rel="stylesheet" href="styles/planner.css?v=24" />
+        <link rel="stylesheet" href="styles/planner.css?v=2026071601" />
+        <link rel="stylesheet" href="styles/workspace-resize.css?v=1" />
         <link rel="stylesheet" href="styles/map-notes.css?v=27" />
         <link rel="stylesheet" href="styles/dialog-finance.css?v=21" />
-        <link rel="stylesheet" href="styles/dialogs.css?v=31" />
+        <link rel="stylesheet" href="styles/dialogs.css?v=33" />
         <link rel="stylesheet" href="styles/taxonomy.css?v=27" />
-        <link rel="stylesheet" href="styles/responsive.css?v=28" />
-        <link rel="stylesheet" href="styles/companion.css?v=5" />
+        <link rel="stylesheet" href="styles/responsive.css?v=29" />
+        <link rel="stylesheet" href="styles/companion.css?v=12" />
     </head>
     <body>
         <header class="top">
@@ -186,6 +187,15 @@
                         ＋ Añadir un día
                     </button>
                 </div>
+                <button
+                    id="workspaceResizeHandle"
+                    class="workspace-resize-handle"
+                    type="button"
+                    role="separator"
+                    aria-label="Ajustar ancho del listado y del mapa"
+                    aria-orientation="vertical"
+                    title="Arrastra para ajustar · Doble clic para restablecer"
+                ><span aria-hidden="true"></span></button>
                 <aside class="map-panel">
                     <div class="map-bar">
                         <strong id="mapTitle">Ruta del día</strong
@@ -335,6 +345,31 @@
                         ></progress>
                     </section>
 
+                    <section
+                        class="companion-card companion-timeline"
+                        aria-labelledby="companionTimelineTitle"
+                    >
+                        <div class="companion-timeline-head">
+                            <div>
+                                <span class="companion-kicker">Previsión</span>
+                                <h3 id="companionTimelineTitle">Timeline del día</h3>
+                                <p id="companionTimelineSummary">Calculando el horario…</p>
+                            </div>
+                            <label class="companion-delay" for="companionDelay">
+                                <span>Retraso simulado</span>
+                                <output id="companionDelayValue" for="companionDelay">0 min</output>
+                                <input id="companionDelay" type="range" min="0" max="180" step="5" value="0" />
+                            </label>
+                        </div>
+                        <div
+                            id="companionTimelineCanvas"
+                            class="companion-timeline-canvas"
+                            role="img"
+                            aria-label="Previsión horaria de las paradas del día"
+                        ></div>
+                        <div id="companionTimelineInsight" class="companion-timeline-insight" role="status" aria-live="polite"></div>
+                    </section>
+
                     <article
                         id="companionNextStop"
                         class="companion-card companion-next"
@@ -411,6 +446,72 @@
                     <span id="tripNotesStatus" class="trip-notes-status" aria-live="polite"></span>
                 </div>
             </div>
+        </dialog>
+        <dialog id="durationDialog" class="duration-dialog" aria-labelledby="durationDialogTitle">
+            <div class="modal-head">
+                <h3 id="durationDialogTitle">Duración de la parada</h3>
+                <button class="close" type="button" aria-label="Cerrar">×</button>
+            </div>
+            <form class="form duration-form" id="durationForm">
+                <p class="duration-stop-name">Parada: <strong id="durationSpotName"></strong></p>
+                <label class="duration-field">
+                    Tiempo de visita (minutos)
+                    <input id="durationMinutes" type="number" min="1" step="1" inputmode="numeric" required />
+                </label>
+                <div class="duration-presets" aria-label="Duraciones rápidas">
+                    <button type="button" data-duration-preset="15">15 min</button>
+                    <button type="button" data-duration-preset="30">30 min</button>
+                    <button type="button" data-duration-preset="45">45 min</button>
+                    <button type="button" data-duration-preset="60">1 h</button>
+                    <button type="button" data-duration-preset="90">1 h 30</button>
+                    <button type="button" data-duration-preset="120">2 h</button>
+                </div>
+                <p class="form-hint">El timeline y las paradas siguientes se recalcularán al guardar.</p>
+                <div class="form-actions">
+                    <button id="removeDuration" class="duration-remove" type="button">Quitar estimación</button>
+                    <button type="button" class="cancel">Cancelar</button>
+                    <button class="save">Guardar</button>
+                </div>
+            </form>
+        </dialog>
+        <dialog id="travelTimeDialog" class="travel-time-dialog" aria-labelledby="travelTimeDialogTitle">
+            <div class="modal-head">
+                <h3 id="travelTimeDialogTitle">Tiempo caminando</h3>
+                <button class="close" type="button" aria-label="Cerrar">×</button>
+            </div>
+            <form class="form travel-time-form" id="travelTimeForm">
+                <div class="travel-route-summary" aria-label="Tramo seleccionado">
+                    <span class="travel-route-dot" aria-hidden="true"></span>
+                    <span class="travel-route-line" aria-hidden="true">···</span>
+                    <span class="travel-route-dot is-destination" aria-hidden="true"></span>
+                    <strong id="travelFromName"></strong>
+                    <span aria-hidden="true">→</span>
+                    <strong id="travelToName"></strong>
+                </div>
+                <div class="travel-api-card" data-state="loading">
+                    <span class="travel-api-icon" aria-hidden="true">↝</span>
+                    <span>
+                        <small>Tiempo oficial de la API</small>
+                        <strong id="travelApiValue">Consultando…</strong>
+                    </span>
+                    <span class="travel-api-badge">OSRM</span>
+                </div>
+                <label class="travel-time-field">
+                    Tu tiempo para este trayecto
+                    <span class="travel-time-stepper">
+                        <button type="button" data-travel-step="-5" aria-label="Restar 5 minutos">−5</button>
+                        <input id="travelTimeMinutes" type="number" min="1" step="1" inputmode="numeric" required aria-label="Tiempo personalizado en minutos" aria-describedby="travelTimeHint" />
+                        <span class="travel-time-unit">min</span>
+                        <button type="button" data-travel-step="5" aria-label="Añadir 5 minutos">+5</button>
+                    </span>
+                </label>
+                <p id="travelTimeHint" class="form-hint">El ajuste solo afecta a este tramo caminando y recalcula el resto del timeline.</p>
+                <div class="form-actions travel-time-actions">
+                    <button id="resetTravelTime" class="travel-reset" type="button" disabled>↺ Usar tiempo de la API</button>
+                    <button type="button" class="cancel">Cancelar</button>
+                    <button class="save">Guardar ajuste</button>
+                </div>
+            </form>
         </dialog>
         <dialog id="placeDialog">
             <div class="modal-head">
@@ -688,6 +789,7 @@
             aria-atomic="false"
         ></div>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script type="module" src="js/main.js?v=35"></script>
+        <script type="module" src="js/main.js?v=2026071606"></script>
+        <script type="module" src="js/workspace-resize.js?v=2"></script>
     </body>
 </html>

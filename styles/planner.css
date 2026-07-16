@@ -403,7 +403,6 @@ main {
     border-bottom: 0;
 }
 .day.collapsed .spots,
-.day.collapsed .day-schedule,
 .day.collapsed .add-place,
 .day.collapsed .quick-add {
     display: none;
@@ -411,30 +410,48 @@ main {
 body.preview-mode .quick-add {
     display: none;
 }
-.day-schedule {
+.day-time-tools {
     border-bottom: 1px solid var(--line);
     background: #fbfaf7;
 }
-.day-schedule summary {
+.day-time-tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    padding-inline: 8px;
+}
+.day-time-tab {
     display: flex;
     align-items: center;
     gap: 6px;
     width: fit-content;
     padding: 7px 15px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: transparent;
     color: var(--muted);
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
-    list-style: none;
-    transition: color 0.15s ease;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
-.day-schedule summary::-webkit-details-marker {
-    display: none;
-}
-.day-schedule summary:hover,
-.day-schedule summary:focus-visible {
+.day-time-tab:hover,
+.day-time-tab:focus-visible,
+.day-time-tab[aria-expanded="true"] {
     color: var(--green);
-    outline: none;
+}
+.day-time-tab:focus-visible {
+    outline: 2px solid var(--green);
+    outline-offset: -2px;
+}
+.day-time-tab[aria-expanded="true"] {
+    border-bottom-color: var(--green);
+    background: #edf4f1;
+}
+.day-time-tab:disabled {
+    cursor: default;
+    opacity: 0.45;
 }
 .day-schedule-summary-icon {
     font-size: 14px;
@@ -454,12 +471,32 @@ body.preview-mode .quick-add {
     font-size: 13px;
     transition: transform 0.15s ease;
 }
-.day-schedule[open] .day-schedule-chevron {
+.day-time-tab[aria-expanded="true"] .day-schedule-chevron {
     transform: rotate(180deg);
 }
 .day-schedule-body {
     position: relative;
     padding: 1px 15px 12px;
+}
+.day-timeline-panel {
+    padding: 4px 15px 14px;
+}
+.day-timeline-summary {
+    margin: 3px 0 0;
+    color: var(--muted);
+    font-size: 11px;
+}
+.day-time-tools .companion-timeline-canvas {
+    min-height: 150px;
+    margin-top: 8px;
+}
+.day-time-tools .companion-timeline-track {
+    min-width: 620px;
+}
+.day-time-tools .companion-timeline-insight {
+    margin-top: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
 }
 .day-schedule-guide {
     position: absolute;

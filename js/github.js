@@ -4,7 +4,7 @@
 
 import { store } from "./store.js";
 import { $ } from "./dom.js";
-import { parsePlanJson, applyImportedPlan, serializePlan } from "./plan-json.js?v=31";
+import { parsePlanJson, applyImportedPlan, serializePlan } from "./plan-json.js?v=32";
 import { confirmAction, promptAction, toast } from "./notify.js?v=3";
 
 export const GITHUB_API_BASE = "https://api.github.com";
@@ -556,6 +556,8 @@ function buildChangesPreview() {
         { label: "Etiquetas", read: (spot) => spot.tags || [] },
         { label: "Categoría", read: (spot) => spot.category },
         { label: "Coste", read: (spot) => spot.cost, format: (value) => value == null ? "Sin coste" : `${value} ${local.foreignCurrency}` },
+        { label: "Duración", read: (spot) => spot.visitMinutes, format: (value) => value == null ? "Sin estimación" : `${value} min` },
+        { label: "Inicio planificado", read: (spot) => spot.plannedStart },
         { label: "Apertura", read: (spot) => spot.openingTime },
         { label: "Cierre", read: (spot) => spot.closingTime },
         { label: "Ubicación", read: (spot) => Number.isFinite(spot.lat) && Number.isFinite(spot.lng) ? `${spot.lat.toFixed(5)}, ${spot.lng.toFixed(5)}` : "", },

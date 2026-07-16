@@ -275,6 +275,12 @@
     border: 2px solid white;
     box-shadow: 0 2px 8px #0004;
     transform: rotate(-45deg);
+    transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+}
+.leaflet-marker-icon.is-spot-highlighted .pin {
+    box-shadow: 0 0 0 5px #d44d4338, 0 5px 13px #0005;
+    filter: saturate(1.12) brightness(1.06);
+    transform: rotate(-45deg) scale(1.16);
 }
 .pin span {
     transform: rotate(45deg);

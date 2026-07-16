@@ -56,6 +56,27 @@ export const store = {
     )
         ? saved.routeVisualization
         : "straight",
+    routeTimeOverrides:
+        saved?.routeTimeOverrides &&
+        typeof saved.routeTimeOverrides === "object" &&
+        !Array.isArray(saved.routeTimeOverrides)
+            ? Object.fromEntries(
+                  Object.entries(saved.routeTimeOverrides).filter(
+                      ([key, value]) =>
+                          typeof key === "string" &&
+                          Number.isInteger(value) &&
+                          value > 0,
+                  ),
+              )
+            : {},
+    // Local presentation preference. It deliberately stays out of portable
+    // plan exports: collaborators can choose their own column balance.
+    workspaceSplit:
+        Number.isFinite(saved?.workspaceSplit) &&
+        saved.workspaceSplit > 0 &&
+        saved.workspaceSplit < 1
+            ? saved.workspaceSplit
+            : null,
     previewMode: false,
     // Held from a picked Nominatim suggestion until the place form is submitted.
     selectedLocation: null,
@@ -101,7 +122,7 @@ export function save() {
     localStorage.setItem(
         "trip-planner",
         JSON.stringify({
-            version: 18,
+            version: 21,
             tripTitle: store.tripTitle,
             localCurrency: store.localCurrency,
             foreignCurrency: store.foreignCurrency,
@@ -115,8 +136,22 @@ export function save() {
             categories: store.categories,
             routeProfile: store.routeProfile,
             routeVisualization: store.routeVisualization,
+            routeTimeOverrides: store.routeTimeOverrides,
+            workspaceSplit: store.workspaceSplit,
         }),
     );
+}
+
+export function routeTimeOverrideKey(fromId, toId, profile = "walking") {
+    return `${profile}:${String(fromId)}>${String(toId)}`;
+}
+
+export function routeTimeOverride(fromId, toId, profile = "walking") {
+    const value =
+        store.routeTimeOverrides[
+            routeTimeOverrideKey(fromId, toId, profile)
+        ];
+    return Number.isInteger(value) && value > 0 ? value : null;
 }
 
 export function dayBy(id) {

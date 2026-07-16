@@ -1,4 +1,4 @@
-// Canonical codec for the portable version-18 trip document. Local file import/
+// Canonical codec for the portable version-20 trip document. Local file import/
 // export and GitHub transport all use the same field selection.
 
 import { store, save, clearTagFilter } from "./store.js";
@@ -7,7 +7,7 @@ import { applyTitle, render } from "./render.js";
 import { drawMap, syncRouteVisualizationControl } from "./map.js";
 import { syncTripNotes } from "./notes.js";
 
-export const PLAN_VERSION = 18;
+export const PLAN_VERSION = 20;
 
 export function serializePlan({ exportedAt = true } = {}) {
     const plan = {
@@ -24,6 +24,7 @@ export function serializePlan({ exportedAt = true } = {}) {
         categories: store.categories,
         routeProfile: store.routeProfile,
         routeVisualization: store.routeVisualization,
+        routeTimeOverrides: store.routeTimeOverrides,
     };
     if (exportedAt) plan.exportedAt = new Date().toISOString();
     return plan;
@@ -53,6 +54,7 @@ function normalizeSpot(spot) {
         delete normalized.visitMinutes;
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(spot.openingTime || "")) delete normalized.openingTime;
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(spot.closingTime || "")) delete normalized.closingTime;
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(spot.plannedStart || "")) delete normalized.plannedStart;
     if (typeof spot.visitedAt === "string" && Number.isFinite(Date.parse(spot.visitedAt))) {
         normalized.visitedAt = new Date(spot.visitedAt).toISOString();
     } else {
@@ -104,6 +106,17 @@ export function normalizePlan(value) {
         })
         : structuredClone(store.categories || DEFAULT_CATEGORIES);
 
+    const routeTimeOverrides = isRecord(value.routeTimeOverrides)
+        ? Object.fromEntries(
+              Object.entries(value.routeTimeOverrides).filter(
+                  ([key, minutes]) =>
+                      typeof key === "string" &&
+                      Number.isInteger(minutes) &&
+                      minutes > 0,
+              ),
+          )
+        : {};
+
     return {
         version: PLAN_VERSION,
         tripTitle: typeof value.tripTitle === "string" ? value.tripTitle : store.tripTitle,
@@ -127,6 +140,7 @@ export function normalizePlan(value) {
         routeVisualization: ["straight", "streets"].includes(value.routeVisualization)
             ? value.routeVisualization
             : "straight",
+        routeTimeOverrides,
     };
 }
 
@@ -155,6 +169,7 @@ export function applyImportedPlan(plan) {
     store.tripNotes = normalized.tripNotes;
     store.routeProfile = normalized.routeProfile;
     store.routeVisualization = normalized.routeVisualization;
+    store.routeTimeOverrides = normalized.routeTimeOverrides;
     store.previewMode = false;
     store.selectedLocation = null;
     store.active = store.state[0]?.id || "backlog";

@@ -372,6 +372,203 @@
     border-color: var(--red);
     font-weight: 600;
 }
+
+.duration-dialog {
+    width: min(390px, calc(100% - 32px));
+}
+.duration-form {
+    gap: 16px;
+}
+.duration-stop-name {
+    margin: -3px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+.duration-stop-name strong {
+    color: var(--ink);
+}
+.duration-field input {
+    width: 100%;
+    font: 600 18px "DM Mono";
+}
+.duration-presets {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+}
+.duration-presets button {
+    padding: 8px 5px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: #f8f6f1;
+    color: var(--ink);
+    font: 600 12px "DM Mono";
+}
+.duration-presets button:hover,
+.duration-presets button:focus-visible {
+    border-color: var(--green);
+    background: #eaf2ef;
+    outline: none;
+}
+.form-actions .duration-remove {
+    margin-right: auto;
+    color: var(--red);
+}
+
+.travel-time-dialog {
+    width: min(430px, calc(100% - 32px));
+}
+.travel-time-form {
+    gap: 16px;
+}
+.travel-route-summary {
+    display: grid;
+    grid-template-columns: 12px 24px 12px minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
+    padding: 2px 1px;
+    color: var(--muted);
+    font-size: 12px;
+}
+.travel-route-summary strong {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ink);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.travel-route-dot {
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--green);
+    border-radius: 50%;
+    background: #fff;
+}
+.travel-route-dot.is-destination {
+    border-color: var(--red);
+    background: var(--red);
+}
+.travel-route-line {
+    overflow: hidden;
+    color: #b8a68c;
+    font: 700 14px "DM Mono";
+    letter-spacing: 2px;
+}
+.travel-api-card {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 11px;
+    padding: 13px 14px;
+    border: 1px solid #d9e6e1;
+    border-radius: 9px;
+    background: linear-gradient(145deg, #f3f8f6, #fff);
+}
+.travel-api-icon {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border-radius: 50%;
+    background: #dfece7;
+    color: var(--green);
+    font-size: 20px;
+}
+.travel-api-card small,
+.travel-api-card strong {
+    display: block;
+}
+.travel-api-card small {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+.travel-api-card strong {
+    margin-top: 2px;
+    font: 600 18px "DM Mono";
+}
+.travel-api-badge {
+    padding: 4px 7px;
+    border-radius: 999px;
+    background: var(--green);
+    color: #fff;
+    font: 700 9px "DM Mono";
+    letter-spacing: .06em;
+}
+.travel-api-card[data-state="loading"] {
+    opacity: .72;
+}
+.travel-api-card[data-state="unavailable"] {
+    border-color: var(--line);
+    background: #f7f5f0;
+}
+.travel-api-card[data-state="unavailable"] .travel-api-badge,
+.travel-api-card[data-state="unavailable"] .travel-api-icon {
+    background: #e7e4dd;
+    color: var(--muted);
+}
+.travel-time-field {
+    gap: 8px !important;
+}
+.travel-time-stepper {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: stretch;
+    overflow: hidden;
+    border: 1px solid #d9d8d2;
+    border-radius: 7px;
+    background: #fff;
+}
+.travel-time-stepper:focus-within {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px #386f6615;
+}
+.travel-time-stepper button {
+    min-width: 48px;
+    border: 0;
+    background: #f3f1eb;
+    color: var(--green);
+    font: 700 12px "DM Mono";
+}
+.travel-time-stepper button:hover,
+.travel-time-stepper button:focus-visible {
+    background: #e4efeb;
+    outline: none;
+}
+.travel-time-stepper input {
+    min-width: 0;
+    border: 0;
+    border-radius: 0;
+    padding-inline: 12px 4px;
+    box-shadow: none !important;
+    font: 600 20px "DM Mono";
+    text-align: right;
+}
+.travel-time-unit {
+    display: grid;
+    place-items: center;
+    padding-right: 10px;
+    color: var(--muted);
+    font: 600 12px "DM Mono";
+}
+.travel-time-actions {
+    flex-wrap: wrap;
+}
+.form-actions .travel-reset {
+    margin-right: auto;
+    border-color: #bdd4cb;
+    color: var(--green);
+}
+.form-actions .travel-reset:not(:disabled):hover,
+.form-actions .travel-reset:not(:disabled):focus-visible {
+    background: #eaf2ef;
+    outline: none;
+}
+.form-actions .travel-reset:disabled {
+    opacity: .45;
+}
 .form-hint {
     margin: 0;
     color: var(--muted);

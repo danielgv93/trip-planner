@@ -7,13 +7,13 @@ import { render, applyTitle } from "./render.js";
 import { drawMap } from "./map.js";
 import "./dialogs.js";
 import "./dnd.js";
-import "./actions.js?v=32";
-import "./github.js?v=30";
+import "./actions.js?v=33";
+import "./github.js?v=31";
 import "./budget.js?v=29";
 import "./spot-search.js";
 import "./sticky-days.js";
 import "./modal-scroll.js?v=1";
-import { initCompanion } from "./companion.js?v=2";
+import { initCompanion } from "./companion.js?v=7";
 import { store } from "./store.js";
 import { refreshExchangeRate } from "./currency.js";
 

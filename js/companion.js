@@ -3,9 +3,16 @@
 // URLs, or browser history. Only explicit visit toggles persist trip data.
 
 import { $, esc } from "./dom.js";
-import { store, save, spotIsEnabled } from "./store.js";
+import { store, save, spotIsEnabled, routeTimeOverride } from "./store.js";
 import { render } from "./render.js";
-import { drawMap, invalidateMainMap, mapsLinkFor } from "./map.js";
+import {
+    drawMap,
+    invalidateMainMap,
+    mapsLinkFor,
+    cachedRouteTravelMinutes,
+} from "./map.js";
+import { createTimelineView } from "./timeline.js";
+export { buildTimelineProjection } from "./timeline.js";
 
 let companionActive = false;
 let selectedDayId = null;
@@ -32,6 +39,8 @@ let wakeLock = null;
 let wakeLockIntent = false;
 let wakeLockStatus = "idle";
 let wakeLockRequestToken = 0;
+let simulatedDelayMinutes = 0;
+let timelineClock = null;
 
 const LOCATION_OPTIONS = {
     enableHighAccuracy: true,
@@ -1043,6 +1052,34 @@ function timeMinutes(value) {
     return hours * 60 + minutes;
 }
 
+function renderTimeline(day, next) {
+    const canvas = $("#companionTimelineCanvas");
+    const summary = $("#companionTimelineSummary");
+    const insight = $("#companionTimelineInsight");
+    const delayOutput = $("#companionDelayValue");
+    delayOutput.value = simulatedDelayMinutes ? `+${simulatedDelayMinutes} min` : "0 min";
+    const view = createTimelineView(day, {
+        delayMinutes: simulatedDelayMinutes,
+        nextSpot: next,
+        travelForLeg: (from, to, profile) => {
+            const officialMinutes = cachedRouteTravelMinutes(from, to, profile);
+            const override = routeTimeOverride(from.id, to.id, profile);
+            if (officialMinutes === null && override === null) return null;
+            return {
+                minutes: override ?? officialMinutes,
+                officialMinutes,
+                overridden: override !== null,
+            };
+        },
+    });
+    summary.textContent = view.summary;
+    canvas.innerHTML = view.html;
+    canvas.setAttribute("aria-label", view.aria);
+    insight.hidden = view.empty;
+    insight.classList.toggle("is-warning", view.warning);
+    insight.textContent = view.insight;
+}
+
 export function scheduleCue(spot, now = new Date(), useCurrentTime = true) {
     const opening = stringValue(spot?.openingTime);
     const closing = stringValue(spot?.closingTime);
@@ -1170,6 +1207,7 @@ export function renderCompanion() {
     );
 
     renderNextStop(day, next, total, completed);
+    renderTimeline(day, next);
     renderChecklist(day, enabled, next);
     updateNavigationUi();
     updateMapSummary();
@@ -1203,6 +1241,10 @@ export function enterCompanion() {
     updateLocationControls();
     updateWakeLockControls();
     renderCompanion();
+    clearInterval(timelineClock);
+    timelineClock = setInterval(() => {
+        if (companionActive && !document.hidden) renderCompanion();
+    }, 60000);
     mapNeedsStopFit = true;
     revealCompanionMap();
 
@@ -1214,6 +1256,8 @@ export function enterCompanion() {
 export function exitCompanion() {
     if (!companionActive) return;
     companionActive = false;
+    clearInterval(timelineClock);
+    timelineClock = null;
     stopLocation();
     releaseCompanionWakeLock();
 
@@ -1257,6 +1301,11 @@ function handleCompanionClick(event) {
 }
 
 function handleCompanionChange(event) {
+    if (event.target.matches("#companionDelay")) {
+        simulatedDelayMinutes = Number(event.target.value) || 0;
+        renderTimeline(selectedDay(), nextUnvisitedStop(selectedDay()));
+        return;
+    }
     if (
         event.target.matches(
             'input[type="checkbox"][data-companion-action="toggle-visit"]',
@@ -1269,6 +1318,8 @@ function handleCompanionChange(event) {
     const day = store.state.find((candidate) => String(candidate.id) === event.target.value);
     if (!day) return;
     selectedDayId = day.id;
+    simulatedDelayMinutes = 0;
+    $("#companionDelay").value = "0";
     renderCompanion();
     drawCompanionMap();
 }
@@ -1279,6 +1330,11 @@ export function initCompanion() {
     enterButton.addEventListener("click", enterCompanion);
     companionView.addEventListener("click", handleCompanionClick);
     companionView.addEventListener("change", handleCompanionChange);
+    companionView.addEventListener("input", (event) => {
+        if (!event.target.matches("#companionDelay")) return;
+        simulatedDelayMinutes = Number(event.target.value) || 0;
+        renderTimeline(selectedDay(), nextUnvisitedStop(selectedDay()));
+    });
     document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
             if (companionActive && locationIntent)

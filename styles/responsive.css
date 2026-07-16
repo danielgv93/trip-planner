@@ -258,6 +258,16 @@ body.preview-mode .spot {
     .day-schedule-body {
         padding-inline: 12px;
     }
+    .day-time-tabs {
+        padding-inline: 4px;
+    }
+    .day-time-tab {
+        min-height: 42px;
+        padding-inline: 10px;
+    }
+    .day-timeline-panel {
+        padding-inline: 12px;
+    }
     .day-schedule-axis,
     .day-schedule-row {
         grid-template-columns: minmax(88px, 0.8fr) minmax(150px, 2.2fr);
