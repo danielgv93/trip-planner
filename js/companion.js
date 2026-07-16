@@ -3,7 +3,13 @@
 // URLs, or browser history. Only explicit visit toggles persist trip data.
 
 import { $, esc } from "./dom.js";
-import { store, save, spotIsEnabled, routeTimeOverride } from "./store.js";
+import {
+    store,
+    save,
+    spotIsEnabled,
+    routeTimeOverride,
+    routeTimeProfile,
+} from "./store.js";
 import { render } from "./render.js";
 import {
     drawMap,
@@ -1057,14 +1063,15 @@ function renderTimeline(day, next) {
     const view = createTimelineView(day, {
         delayMinutes: simulatedDelayMinutes,
         nextSpot: next,
-        travelForLeg: (from, to, profile) => {
+        travelForLeg: (from, to) => {
+            const profile = routeTimeProfile(from.id, to.id);
             const officialMinutes = cachedRouteTravelMinutes(from, to, profile);
             const override = routeTimeOverride(from.id, to.id, profile);
-            if (officialMinutes === null && override === null) return null;
             return {
                 minutes: override ?? officialMinutes,
                 officialMinutes,
                 overridden: override !== null,
+                profile,
             };
         },
     });

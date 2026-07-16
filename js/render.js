@@ -17,6 +17,8 @@ import {
     spotIsEnabled,
     routeTimeOverride,
     routeTimeOverrideKey,
+    routeTimeProfile,
+    routeTimeProfileKey,
 } from "./store.js";
 import { $, esc, safeColor, fmt, daysEl, id } from "./dom.js";
 import { toast, confirmAction } from "./notify.js?v=3";
@@ -56,6 +58,7 @@ let durationEditing = null;
 const travelDialog = $("#travelTimeDialog");
 const travelForm = $("#travelTimeForm");
 const travelInput = $("#travelTimeMinutes");
+const travelMode = $("#travelMode");
 const travelApiValue = $("#travelApiValue");
 const resetTravelTimeButton = $("#resetTravelTime");
 let travelEditing = null;
@@ -250,15 +253,33 @@ export function renderSpotHours(spot, color, interactive = true) {
     return `<span class="spot-hours is-complete"${interactive ? ' tabindex="0"' : ""} data-hours-opening="${esc(openingTime)}" data-hours-closing="${esc(closingTime)}" aria-label="Horario: abre a las ${esc(openingTime)} y cierra a las ${esc(closingTime)}" style="--hours-color:${safeColor(color)}"><span class="spot-hours-icon" aria-hidden="true">◷</span><span class="spot-hours-text">${esc(openingTime)}–${esc(closingTime)}</span><span class="spot-hours-rail" aria-hidden="true">${rail}<span class="spot-hours-overlaps"></span></span><span class="spot-hours-detail" aria-hidden="true">Abre ${esc(openingTime)} · Cierra ${esc(closingTime)}</span></span>`;
 }
 
-function timelineTravelForLeg(from, to, profile) {
+function timelineTravelForLeg(from, to) {
+    const profile = routeTimeProfile(from.id, to.id);
     const officialMinutes = cachedRouteTravelMinutes(from, to, profile);
     const override = routeTimeOverride(from.id, to.id, profile);
-    if (override === null && officialMinutes === null) return null;
     return {
         minutes: override ?? officialMinutes,
         officialMinutes,
         overridden: override !== null,
+        profile,
     };
+}
+
+function timelineProfilesForDay(day) {
+    const spots = day?.spots?.filter(spotIsEnabled) || [];
+    const profiles = new Set(["walking"]);
+    for (let index = 1; index < spots.length; index += 1) {
+        profiles.add(routeTimeProfile(spots[index - 1].id, spots[index].id));
+    }
+    return profiles;
+}
+
+function ensureTimelineTravelTimes(day) {
+    return Promise.all(
+        [...timelineProfilesForDay(day)].map((profile) =>
+            ensureRouteTravelTimes(day?.spots, profile),
+        ),
+    );
 }
 
 function renderDayTimeTools(day) {
@@ -381,15 +402,16 @@ function wireTimelineTooltips(tools) {
 
 function paintTravelDialogValues() {
     if (!travelEditing) return;
+    const profile = travelEditing.profile;
     const official = cachedRouteTravelMinutes(
         travelEditing.from,
         travelEditing.to,
-        "walking",
+        profile,
     );
     const override = routeTimeOverride(
         travelEditing.from.id,
         travelEditing.to.id,
-        "walking",
+        profile,
     );
     travelEditing.officialMinutes = official;
     travelApiValue.textContent =
@@ -410,21 +432,23 @@ async function openTravelTimeDialog(dayId, button) {
         (spot) => String(spot.id) === button.dataset.timelineTravelTo,
     );
     if (!day || !from || !to) return;
-    travelEditing = { dayId, from, to, officialMinutes: null };
+    const profile = routeTimeProfile(from.id, to.id);
+    travelEditing = { dayId, from, to, profile, officialMinutes: null, requestToken: 0 };
     $("#travelFromName").textContent = from.name || "Parada anterior";
     $("#travelToName").textContent = to.name || "Parada siguiente";
     const shownMinutes = Number(button.dataset.timelineTravelMinutes);
+    travelMode.value = profile;
     travelInput.value =
-        routeTimeOverride(from.id, to.id, "walking") ??
+        routeTimeOverride(from.id, to.id, profile) ??
         (Number.isFinite(shownMinutes) && shownMinutes > 0 ? shownMinutes : "");
     travelApiValue.textContent = "Consultando…";
     travelApiValue.closest(".travel-api-card").dataset.state = "loading";
     resetTravelTimeButton.disabled =
-        routeTimeOverride(from.id, to.id, "walking") === null;
+        routeTimeOverride(from.id, to.id, profile) === null;
     travelDialog.showModal();
     travelInput.focus();
     travelInput.select();
-    await ensureRouteTravelTimes(day.spots, "walking");
+    await ensureRouteTravelTimes(day.spots, profile);
     if (!travelEditing || travelEditing.from !== from || travelEditing.to !== to)
         return;
     paintTravelDialogValues();
@@ -924,7 +948,7 @@ function wireDayTimeTools(el, dayId) {
             render({ persist: false });
             if (opening && panel === "timeline") {
                 const day = dayBy(dayId);
-                ensureRouteTravelTimes(day?.spots, "walking").then(() => {
+                ensureTimelineTravelTimes(day).then(() => {
                     if (expandedDayTools.get(dayId) === "timeline")
                         render({ persist: false });
                 });
@@ -1036,16 +1060,49 @@ travelForm.addEventListener("submit", (event) => {
     const key = routeTimeOverrideKey(
         travelEditing.from.id,
         travelEditing.to.id,
-        "walking",
+        travelEditing.profile,
     );
     if (minutes === travelEditing.officialMinutes)
         delete store.routeTimeOverrides[key];
     else store.routeTimeOverrides[key] = minutes;
+    const profileKey = routeTimeProfileKey(
+        travelEditing.from.id,
+        travelEditing.to.id,
+    );
+    if (travelEditing.profile === "walking")
+        delete store.routeTimeProfiles[profileKey];
+    else store.routeTimeProfiles[profileKey] = travelEditing.profile;
     travelDialog.close();
     save();
     render();
     drawMap();
     toast("Tiempo de trayecto actualizado.", "success");
+});
+
+travelMode.addEventListener("change", async () => {
+    if (!travelEditing) return;
+    const profile = travelMode.value === "driving" ? "driving" : "walking";
+    travelEditing.profile = profile;
+    const token = ++travelEditing.requestToken;
+    const override = routeTimeOverride(
+        travelEditing.from.id,
+        travelEditing.to.id,
+        profile,
+    );
+    const cached = cachedRouteTravelMinutes(
+        travelEditing.from,
+        travelEditing.to,
+        profile,
+    );
+    travelInput.value = override ?? cached ?? travelInput.value;
+    travelApiValue.textContent = cached === null ? "Consultando…" : `${cached} min`;
+    travelApiValue.closest(".travel-api-card").dataset.state =
+        cached === null ? "loading" : "ready";
+    resetTravelTimeButton.disabled = override === null;
+    const day = dayBy(travelEditing.dayId);
+    await ensureRouteTravelTimes(day?.spots, profile);
+    if (!travelEditing || travelEditing.requestToken !== token) return;
+    paintTravelDialogValues();
 });
 
 travelDialog.querySelectorAll("[data-travel-step]").forEach((button) => {
@@ -1065,7 +1122,7 @@ resetTravelTimeButton.addEventListener("click", () => {
         routeTimeOverrideKey(
             travelEditing.from.id,
             travelEditing.to.id,
-            "walking",
+            travelEditing.profile,
         )
     ];
     travelDialog.close();

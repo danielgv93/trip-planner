@@ -454,6 +454,22 @@
     font: 700 14px "DM Mono";
     letter-spacing: 2px;
 }
+.travel-mode-field {
+    gap: 7px !important;
+}
+.travel-mode-field select {
+    width: 100%;
+    padding: 10px 11px;
+    border: 1px solid #d9d8d2;
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+    font: 600 14px "DM Sans", sans-serif;
+}
+.travel-mode-field select:focus {
+    border-color: var(--green);
+    outline: 2px solid color-mix(in srgb, var(--green) 20%, transparent);
+}
 .travel-api-card {
     display: grid;
     grid-template-columns: 38px minmax(0, 1fr) auto;

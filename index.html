@@ -491,7 +491,7 @@
         </dialog>
         <dialog id="travelTimeDialog" class="travel-time-dialog" aria-labelledby="travelTimeDialogTitle">
             <div class="modal-head">
-                <h3 id="travelTimeDialogTitle">Tiempo caminando</h3>
+                <h3 id="travelTimeDialogTitle">Tiempo de trayecto</h3>
                 <button class="close" type="button" aria-label="Cerrar">×</button>
             </div>
             <form class="form travel-time-form" id="travelTimeForm">
@@ -503,6 +503,13 @@
                     <span aria-hidden="true">→</span>
                     <strong id="travelToName"></strong>
                 </div>
+                <label class="travel-mode-field">
+                    Modo de transporte
+                    <select id="travelMode">
+                        <option value="walking">A pie</option>
+                        <option value="driving">En coche</option>
+                    </select>
+                </label>
                 <div class="travel-api-card" data-state="loading">
                     <span class="travel-api-icon" aria-hidden="true">↝</span>
                     <span>
@@ -520,7 +527,7 @@
                         <button type="button" data-travel-step="5" aria-label="Añadir 5 minutos">+5</button>
                     </span>
                 </label>
-                <p id="travelTimeHint" class="form-hint">El ajuste solo afecta a este tramo caminando y recalcula el resto del timeline.</p>
+                <p id="travelTimeHint" class="form-hint">El modo y el ajuste solo afectan a este tramo y recalculan el resto del timeline.</p>
                 <div class="form-actions travel-time-actions">
                     <button id="resetTravelTime" class="travel-reset" type="button" disabled>↺ Usar tiempo de la API</button>
                     <button type="button" class="cancel">Cancelar</button>

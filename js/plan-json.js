@@ -1,4 +1,4 @@
-// Canonical codec for the portable version-20 trip document. Local file import/
+// Canonical codec for the portable trip document. Local file import/
 // export and GitHub transport all use the same field selection.
 
 import { store, save, clearTagFilter } from "./store.js";
@@ -7,7 +7,7 @@ import { applyTitle, render } from "./render.js";
 import { drawMap, syncRouteVisualizationControl } from "./map.js";
 import { syncTripNotes } from "./notes.js";
 
-export const PLAN_VERSION = 20;
+export const PLAN_VERSION = 21;
 
 export function serializePlan({ exportedAt = true } = {}) {
     const plan = {
@@ -25,6 +25,7 @@ export function serializePlan({ exportedAt = true } = {}) {
         routeProfile: store.routeProfile,
         routeVisualization: store.routeVisualization,
         routeTimeOverrides: store.routeTimeOverrides,
+        routeTimeProfiles: store.routeTimeProfiles,
     };
     if (exportedAt) plan.exportedAt = new Date().toISOString();
     return plan;
@@ -116,6 +117,15 @@ export function normalizePlan(value) {
               ),
           )
         : {};
+    const routeTimeProfiles = isRecord(value.routeTimeProfiles)
+        ? Object.fromEntries(
+              Object.entries(value.routeTimeProfiles).filter(
+                  ([key, profile]) =>
+                      typeof key === "string" &&
+                      ["walking", "driving"].includes(profile),
+              ),
+          )
+        : {};
 
     return {
         version: PLAN_VERSION,
@@ -141,6 +151,7 @@ export function normalizePlan(value) {
             ? value.routeVisualization
             : "straight",
         routeTimeOverrides,
+        routeTimeProfiles,
     };
 }
 
@@ -170,6 +181,7 @@ export function applyImportedPlan(plan) {
     store.routeProfile = normalized.routeProfile;
     store.routeVisualization = normalized.routeVisualization;
     store.routeTimeOverrides = normalized.routeTimeOverrides;
+    store.routeTimeProfiles = normalized.routeTimeProfiles;
     store.previewMode = false;
     store.selectedLocation = null;
     store.active = store.state[0]?.id || "backlog";

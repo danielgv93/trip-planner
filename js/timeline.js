@@ -1,5 +1,5 @@
 // Shared day timeline used by the planner cards and the on-trip companion.
-// It derives a walking forecast from persisted stop data without mutating it.
+// It derives a route forecast from persisted stop data without mutating it.
 
 import { esc, safeColor } from "./dom.js";
 import { categoryMeta, spotIsEnabled } from "./store.js";
@@ -120,7 +120,11 @@ export function buildTimelineProjection(
             : null;
         let travel = previous
             ? resolvedTravel?.minutes ??
-              estimatedTravelMinutes(previous, spot, profile)
+              estimatedTravelMinutes(
+                  previous,
+                  spot,
+                  resolvedTravel?.profile || profile,
+              )
             : 0;
         let travelStart = cursor;
         let travelEnd = cursor;
@@ -165,7 +169,10 @@ export function buildTimelineProjection(
             travel,
             travelOfficial: resolvedTravel?.officialMinutes ?? null,
             travelOverridden: resolvedTravel?.overridden === true,
-            travelApproximate: previous !== null && !resolvedTravel,
+            travelProfile: resolvedTravel?.profile || profile,
+            travelApproximate:
+                previous !== null &&
+                !Number.isFinite(resolvedTravel?.minutes),
             travelStart,
             travelEnd,
             fromSpot: previous,
@@ -232,17 +239,18 @@ export function createTimelineView(
     const transfers = projection.items.filter((item) => item.travel > 0 && item.fromSpot).map((item) => {
         const from = stringValue(item.fromSpot.name, "la parada anterior") || "la parada anterior";
         const to = stringValue(item.spot.name, "la siguiente parada") || "la siguiente parada";
+        const modeLabel = item.travelProfile === "driving" ? "en coche" : "andando";
         const source = item.travelOverridden
             ? "ajustado"
             : item.travelOfficial !== null
-              ? "API · andando"
+              ? `API · ${modeLabel}`
               : "estimado";
-        const aria = `Trayecto andando de ${from} a ${to}: ${item.travel} min, ${source}`;
+        const aria = `Trayecto ${modeLabel} de ${from} a ${to}: ${item.travel} min, ${source}`;
         const tag = interactive ? "button" : "div";
         const travelConflict = item.travelEnd > item.start;
         const classes = `companion-timeline-transfer${interactive ? " is-editable" : ""}${item.travelOverridden ? " is-overridden" : ""}${travelConflict ? " is-conflict" : ""}`;
         const interactionAttrs = interactive
-            ? ` type="button" data-timeline-travel-from="${esc(String(item.fromSpot.id))}" data-timeline-travel-to="${esc(String(item.spot.id))}" data-timeline-travel-minutes="${item.travel}" data-timeline-start="${item.travelStart}" data-timeline-tooltip="${esc(aria)}" aria-haspopup="dialog"`
+            ? ` type="button" data-timeline-travel-from="${esc(String(item.fromSpot.id))}" data-timeline-travel-to="${esc(String(item.spot.id))}" data-timeline-travel-profile="${esc(item.travelProfile)}" data-timeline-travel-minutes="${item.travel}" data-timeline-start="${item.travelStart}" data-timeline-tooltip="${esc(aria)}" aria-haspopup="dialog"`
             : "";
         const titleAttr = interactive ? "" : ` title="${esc(aria)}"`;
         return `<${tag} class="${classes}"${interactionAttrs} style="--timeline-start:${percent(item.travelStart)};--timeline-width:${((item.travel / span) * 100).toFixed(3)}%"${titleAttr} aria-label="${esc(aria)}"><span aria-hidden="true">↝</span><strong>${item.travel} min</strong><small>${source}</small></${tag}>`;

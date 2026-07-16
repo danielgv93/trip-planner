@@ -74,6 +74,18 @@ export const store = {
                   ),
               )
             : {},
+    routeTimeProfiles:
+        saved?.routeTimeProfiles &&
+        typeof saved.routeTimeProfiles === "object" &&
+        !Array.isArray(saved.routeTimeProfiles)
+            ? Object.fromEntries(
+                  Object.entries(saved.routeTimeProfiles).filter(
+                      ([key, profile]) =>
+                          typeof key === "string" &&
+                          ["walking", "driving"].includes(profile),
+                  ),
+              )
+            : {},
     // Local presentation preference. It deliberately stays out of portable
     // plan exports: collaborators can choose their own column balance.
     workspaceSplit:
@@ -127,7 +139,7 @@ export function save() {
     localStorage.setItem(
         "trip-planner",
         JSON.stringify({
-            version: 22,
+            version: 23,
             tripTitle: store.tripTitle,
             localCurrency: store.localCurrency,
             foreignCurrency: store.foreignCurrency,
@@ -143,6 +155,7 @@ export function save() {
             routeVisualization: store.routeVisualization,
             basemap: store.basemap,
             routeTimeOverrides: store.routeTimeOverrides,
+            routeTimeProfiles: store.routeTimeProfiles,
             workspaceSplit: store.workspaceSplit,
         }),
     );
@@ -158,6 +171,15 @@ export function routeTimeOverride(fromId, toId, profile = "walking") {
             routeTimeOverrideKey(fromId, toId, profile)
         ];
     return Number.isInteger(value) && value > 0 ? value : null;
+}
+
+export function routeTimeProfileKey(fromId, toId) {
+    return `${String(fromId)}>${String(toId)}`;
+}
+
+export function routeTimeProfile(fromId, toId) {
+    const profile = store.routeTimeProfiles[routeTimeProfileKey(fromId, toId)];
+    return profile === "driving" ? "driving" : "walking";
 }
 
 export function dayBy(id) {
