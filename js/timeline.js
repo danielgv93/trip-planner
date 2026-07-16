@@ -281,7 +281,7 @@ export function createTimelineView(
         const aria = `${rawName}: visita prevista ${timing}${hours ? `; horario ${hours}` : ""}${outsideCopy}${hasOverlap ? "; se solapa con otra parada" : ""}`;
         const tag = interactive ? "button" : "div";
         const interactionAttrs = interactive
-            ? ` type="button" data-timeline-spot="${esc(String(item.spot.id))}" data-timeline-start="${item.start}" data-timeline-duration="${item.duration}" data-timeline-outgoing-travel="${outgoingTravel}" data-timeline-opening="${item.opening ?? ""}" data-timeline-closing="${item.closing ?? ""}" data-timeline-tooltip="${esc(aria)}" aria-haspopup="dialog"`
+            ? ` type="button" data-timeline-spot="${esc(String(item.spot.id))}" data-timeline-start="${item.start}" data-timeline-duration="${item.duration}" data-timeline-outgoing-travel="${outgoingTravel}" data-timeline-opening="${item.opening ?? ""}" data-timeline-closing="${item.closing ?? ""}" data-timeline-tooltip="${name}" aria-haspopup="dialog"`
             : "";
         const titleAttr = interactive ? "" : ` title="${esc(aria)}"`;
         return `<${tag} class="${classes}"${interactionAttrs} style="--timeline-start:${percent(item.start)};--timeline-width:${((widthMinutes / span) * 100).toFixed(3)}%;--timeline-color:${color};--timeline-lane:${item.lane}"${titleAttr} aria-label="${esc(aria)}">${outside}${overlaps}<span class="companion-timeline-content"><strong>${name}</strong><small data-timeline-timing>${esc(timing)}</small>${hours ? `<small class="companion-timeline-hours"><span aria-hidden="true">◷</span> ${esc(hours)}</small>` : ""}</span></${tag}>`;
@@ -302,9 +302,19 @@ export function createTimelineView(
     const approximateTravel = projection.items.some(
         (item) => item.travel > 0 && item.travelApproximate,
     );
+    const travelProfiles = new Set(
+        projection.items
+            .filter((item) => item.travel > 0 && item.fromSpot)
+            .map((item) => item.travelProfile),
+    );
+    const modeCopy = travelProfiles.size > 1
+        ? "a pie y en coche"
+        : travelProfiles.has("driving")
+          ? "en coche"
+          : "andando";
     const travelCopy = approximateTravel
-        ? "con trayectos aproximados andando"
-        : "con tiempos de trayecto andando";
+        ? `con trayectos aproximados ${modeCopy}`
+        : `con tiempos de trayecto ${modeCopy}`;
     const summary = projection.isToday
         ? `Proyección desde ahora, ${travelCopy}.`
         : `Simulación del día desde la primera apertura, ${travelCopy}.`;
