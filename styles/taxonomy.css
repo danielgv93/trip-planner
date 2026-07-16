@@ -73,7 +73,7 @@
     cursor: pointer;
 }
 /* Secondary header actions. The frequent file/sync actions remain visible;
-   taxonomy and sample restoration live in this small overflow menu. */
+   on-trip mode, taxonomy and sample restoration live in this overflow menu. */
 .manage-menu {
     position: relative;
 }

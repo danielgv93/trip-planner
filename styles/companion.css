@@ -6,26 +6,6 @@
     display: none !important;
 }
 
-.companion-entry {
-    min-width: 44px;
-    min-height: 44px;
-    padding: 9px 14px;
-    border: 1px solid var(--red);
-    border-radius: 4px;
-    background: var(--red-dark);
-    color: #fff;
-    font-size: 13px;
-    font-weight: 700;
-    white-space: nowrap;
-}
-
-.companion-entry:hover,
-.companion-entry:focus-visible {
-    background: var(--red-dark);
-    outline: 2px solid #fff;
-    outline-offset: 2px;
-}
-
 body.companion-mode .top {
     display: none;
 }
@@ -1074,10 +1054,6 @@ body.companion-mode main {
         min-width: 0;
     }
 
-    .companion-entry {
-        padding-inline: 8px;
-    }
-
     .companion-card {
         padding: 15px;
     }
@@ -1156,8 +1132,7 @@ body.companion-mode main {
 
     .companion-directions,
     .companion-plan-action,
-    .companion-visit-action,
-    .companion-entry {
+    .companion-visit-action {
         border: 2px solid ButtonText;
     }
 
