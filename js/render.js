@@ -1065,7 +1065,7 @@ function renderList(el, spots, isBacklog = false) {
               ? `<span class="number">${mapNumber}</span>`
               : '<span class="number number-placeholder" aria-hidden="true">−</span>';
         spot.classList.toggle("spot-disabled", !enabled);
-        spot.innerHTML = `<span class="handle">⠿</span><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number} ${esc(s.name)}</span>${spotNote}${spotTiming}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions">${mapsAction}<span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button></span>`;
+        spot.innerHTML = `<span class="handle">⠿</span><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number} ${esc(s.name)}</span>${spotNote}${spotTiming}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions">${mapsAction}<span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button><span class="spot-overflow-control"><button type="button" class="spot-overflow-button" data-act="overflow" title="Más acciones" aria-label="Más acciones para ${esc(s.name || "parada")}" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">⋯</span></button></span></span>`;
         wireMapSpotHighlight(spot, s.id);
         list.append(spot);
     });
@@ -1105,14 +1105,40 @@ function closeMoveMenus(except) {
         if (except && b.closest(".move-control")?.contains(except)) return;
         b.setAttribute("aria-expanded", "false");
     });
-    daysEl.querySelectorAll(".day.menu-open").forEach((day) => {
-        if (!except || !day.contains(except)) day.classList.remove("menu-open");
+    syncOpenMenuDays();
+}
+
+function closeOverflowMenus(except) {
+    daysEl.querySelectorAll(".spot-overflow-menu").forEach((menu) => {
+        if (menu === except) return;
+        menu.remove();
+    });
+    daysEl
+        .querySelectorAll('.spot-overflow-button[aria-expanded="true"]')
+        .forEach((button) => {
+            if (
+                except &&
+                button.closest(".spot-overflow-control")?.contains(except)
+            )
+                return;
+            button.setAttribute("aria-expanded", "false");
+        });
+    syncOpenMenuDays();
+}
+
+function syncOpenMenuDays() {
+    daysEl.querySelectorAll(".day").forEach((day) => {
+        day.classList.toggle(
+            "menu-open",
+            Boolean(day.querySelector(".move-menu, .spot-overflow-menu")),
+        );
     });
 }
 
 function openMoveMenu(button, currentDay) {
     const control = button.closest(".move-control"),
         alreadyOpen = button.getAttribute("aria-expanded") === "true";
+    closeOverflowMenus(button.closest(".spot-overflow-menu"));
     closeMoveMenus();
     if (alreadyOpen) return;
 
@@ -1138,6 +1164,32 @@ function openMoveMenu(button, currentDay) {
     control.closest(".day").classList.add("menu-open");
     button.setAttribute("aria-expanded", "true");
     menu.querySelector("button:not(:disabled)")?.focus();
+}
+
+function openOverflowMenu(button, spot, currentDay) {
+    const control = button.closest(".spot-overflow-control"),
+        alreadyOpen = button.getAttribute("aria-expanded") === "true";
+    closeMoveMenus();
+    closeOverflowMenus();
+    if (alreadyOpen || !control) return;
+
+    const mapsLink = mapsLinkFor(spot);
+    const menu = document.createElement("span");
+    menu.className = "spot-overflow-menu";
+    menu.setAttribute("role", "menu");
+    menu.setAttribute(
+        "aria-label",
+        `Acciones para ${spot.name || "parada"}`,
+    );
+    menu.innerHTML = `${
+        mapsLink
+            ? `<a class="spot-overflow-item" href="${mapsLink}" target="_blank" rel="noopener" role="menuitem" data-act="overflow-maps"><span aria-hidden="true">↗</span><span>Abrir en Google Maps</span></a>`
+            : ""
+    }<span class="move-control spot-overflow-move-control"><button type="button" class="move-button spot-overflow-item" data-act="move" role="menuitem" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span><span>Mover a otro día</span><span class="spot-overflow-arrow" aria-hidden="true">›</span></button></span><button type="button" class="spot-overflow-item" data-act="duplicate" role="menuitem"><span aria-hidden="true">⧉</span><span>Duplicar</span></button><button type="button" class="spot-overflow-item" data-act="edit" role="menuitem"><span aria-hidden="true">✎</span><span>Editar</span></button><button type="button" class="spot-overflow-item spot-overflow-danger" data-act="delete" role="menuitem"><span aria-hidden="true">×</span><span>Borrar</span></button>`;
+    control.append(menu);
+    control.closest(".day")?.classList.add("menu-open");
+    button.setAttribute("aria-expanded", "true");
+    menu.querySelector('[role="menuitem"]:not(:disabled)')?.focus();
 }
 
 // Targeted status update of the day-head workload text, badge and meter for
@@ -1499,6 +1551,13 @@ daysEl.addEventListener("click", (e) => {
         openDialog(dayId, items[i]);
         return;
     }
+    if (
+        b.closest(".spot-overflow-menu") &&
+        b.dataset.act !== "move"
+    ) {
+        closeMoveMenus();
+        closeOverflowMenus();
+    }
     if (b.dataset.act === "toggle-enabled") {
         items[i].mapEnabled = b.checked;
         save();
@@ -1506,6 +1565,8 @@ daysEl.addEventListener("click", (e) => {
         drawMap();
     } else if (b.dataset.act === "move") {
         openMoveMenu(b, dayId);
+    } else if (b.dataset.act === "overflow") {
+        openOverflowMenu(b, items[i], dayId);
     } else if (b.dataset.act === "move-to") {
         const destination = b.dataset.day,
             target = destination === "backlog" ? store.backlog : dayBy(destination)?.spots;
@@ -1534,12 +1595,27 @@ daysEl.addEventListener("click", (e) => {
 
 document.addEventListener("click", (e) => {
     if (!e.target.closest(".move-control")) closeMoveMenus();
+    if (
+        e.target.closest('[data-act="overflow-maps"]') ||
+        !e.target.closest(".spot-overflow-control")
+    )
+        closeOverflowMenus();
 });
 
 window.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    const openButton = daysEl.querySelector('.move-button[aria-expanded="true"]');
+    const openMoveButton = daysEl.querySelector(
+        '.move-button[aria-expanded="true"]',
+    );
+    if (openMoveButton) {
+        closeMoveMenus();
+        openMoveButton.focus();
+        return;
+    }
+    const openButton = daysEl.querySelector(
+        '.spot-overflow-button[aria-expanded="true"]',
+    );
     if (!openButton) return;
-    closeMoveMenus();
+    closeOverflowMenus();
     openButton.focus();
 });

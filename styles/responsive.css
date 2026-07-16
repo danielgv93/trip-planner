@@ -66,6 +66,21 @@ body.preview-mode .spot {
     padding: 6px 8px;
     cursor: default;
 }
+@media (max-width: 860px), (pointer: coarse) {
+    .spot-actions {
+        opacity: 1;
+    }
+    .spot-actions > .open-in-maps,
+    .spot-actions > .move-control,
+    .spot-actions > button[data-act="duplicate"],
+    .spot-actions > button[data-act="edit"],
+    .spot-actions > button[data-act="delete"] {
+        display: none;
+    }
+    .spot-actions > .spot-overflow-control {
+        display: inline-flex;
+    }
+}
 @media (max-width: 860px) {
     .top {
         height: auto;
@@ -320,6 +335,16 @@ body.preview-mode .spot {
     .spot-hours-rail,
     .spot-hours-segment,
     .spot-hours-detail {
+        transition: none;
+    }
+    .spot-actions {
+        transition: none;
+    }
+    .spot-actions > .open-in-maps,
+    .spot-actions > .move-control,
+    .spot-actions > button[data-act="duplicate"],
+    .spot-actions > button[data-act="edit"],
+    .spot-actions > button[data-act="delete"] {
         transition: none;
     }
     .day-load-track,

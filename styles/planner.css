@@ -973,6 +973,57 @@ body.preview-mode .quick-add {
     gap: 5px;
     align-items: center;
 }
+@media (hover: hover) and (pointer: fine) {
+    .spot-actions > .open-in-maps,
+    .spot-actions > .move-control,
+    .spot-actions > button[data-act="duplicate"],
+    .spot-actions > button[data-act="edit"],
+    .spot-actions > button[data-act="delete"] {
+        opacity: 0;
+        transform: translateX(24px) scale(0.9);
+        transition:
+            opacity 0.14s ease,
+            transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .spot:hover .spot-actions > .open-in-maps,
+    .spot:hover .spot-actions > .move-control,
+    .spot:hover .spot-actions > button[data-act="duplicate"],
+    .spot:hover .spot-actions > button[data-act="edit"],
+    .spot:hover .spot-actions > button[data-act="delete"],
+    .spot:focus-within .spot-actions > .open-in-maps,
+    .spot:focus-within .spot-actions > .move-control,
+    .spot:focus-within .spot-actions > button[data-act="duplicate"],
+    .spot:focus-within .spot-actions > button[data-act="edit"],
+    .spot:focus-within .spot-actions > button[data-act="delete"],
+    .spot-actions:focus-within > .open-in-maps,
+    .spot-actions:focus-within > .move-control,
+    .spot-actions:focus-within > button[data-act="duplicate"],
+    .spot-actions:focus-within > button[data-act="edit"],
+    .spot-actions:focus-within > button[data-act="delete"] {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+    .spot:hover .spot-actions > button[data-act="delete"],
+    .spot:focus-within .spot-actions > button[data-act="delete"] {
+        transition-delay: 0s;
+    }
+    .spot:hover .spot-actions > button[data-act="edit"],
+    .spot:focus-within .spot-actions > button[data-act="edit"] {
+        transition-delay: 0.025s;
+    }
+    .spot:hover .spot-actions > button[data-act="duplicate"],
+    .spot:focus-within .spot-actions > button[data-act="duplicate"] {
+        transition-delay: 0.05s;
+    }
+    .spot:hover .spot-actions > .move-control,
+    .spot:focus-within .spot-actions > .move-control {
+        transition-delay: 0.075s;
+    }
+    .spot:hover .spot-actions > .open-in-maps,
+    .spot:focus-within .spot-actions > .open-in-maps {
+        transition-delay: 0.1s;
+    }
+}
 .spot-toggle {
     display: grid;
     width: 20px;
@@ -1031,6 +1082,93 @@ body.preview-mode .quick-add {
     color: var(--red);
     font-size: 15px;
     font-weight: 700;
+}
+.spot-overflow-control {
+    position: relative;
+    display: none;
+}
+.spot-actions .spot-overflow-button {
+    width: 28px;
+    min-width: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink);
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1;
+}
+.spot-overflow-menu {
+    position: absolute;
+    z-index: 50;
+    top: calc(100% + 8px);
+    right: 0;
+    width: min(230px, calc(100vw - 34px));
+    padding: 7px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 16px 42px #29323724;
+    cursor: default;
+}
+.spot-overflow-menu::before {
+    content: "";
+    position: absolute;
+    top: -5px;
+    right: 9px;
+    width: 9px;
+    height: 9px;
+    background: #fff;
+    border-left: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+    transform: rotate(45deg);
+}
+.spot-overflow-menu > .spot-overflow-item,
+.spot-overflow-menu > .move-control > .spot-overflow-item {
+    width: 100%;
+    height: auto;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 9px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    text-decoration: none;
+}
+.spot-overflow-menu > .spot-overflow-item > :first-child,
+.spot-overflow-menu > .move-control > .spot-overflow-item > :first-child {
+    width: 18px;
+    color: var(--red);
+    font-size: 16px;
+    text-align: center;
+}
+.spot-overflow-menu > .spot-overflow-item:hover,
+.spot-overflow-menu > .spot-overflow-item:focus-visible,
+.spot-overflow-menu > .move-control > .spot-overflow-item:hover,
+.spot-overflow-menu > .move-control > .spot-overflow-item:focus-visible {
+    background: #f7f4ee;
+    outline: none;
+}
+.spot-overflow-move-control {
+    width: 100%;
+}
+.spot-overflow-arrow {
+    margin-left: auto;
+    color: var(--red);
+    font-size: 20px;
+}
+.spot-overflow-menu > .spot-overflow-danger {
+    margin-top: 5px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    border-radius: 0 0 7px 7px;
+    color: var(--red);
 }
 .move-control {
     position: relative;
