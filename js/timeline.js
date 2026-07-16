@@ -242,14 +242,16 @@ export function createTimelineView(
         const travelConflict = item.travelEnd > item.start;
         const classes = `companion-timeline-transfer${interactive ? " is-editable" : ""}${item.travelOverridden ? " is-overridden" : ""}${travelConflict ? " is-conflict" : ""}`;
         const interactionAttrs = interactive
-            ? ` type="button" data-timeline-travel-from="${esc(String(item.fromSpot.id))}" data-timeline-travel-to="${esc(String(item.spot.id))}" data-timeline-travel-minutes="${item.travel}" data-timeline-tooltip="${esc(aria)}" aria-haspopup="dialog"`
+            ? ` type="button" data-timeline-travel-from="${esc(String(item.fromSpot.id))}" data-timeline-travel-to="${esc(String(item.spot.id))}" data-timeline-travel-minutes="${item.travel}" data-timeline-start="${item.travelStart}" data-timeline-tooltip="${esc(aria)}" aria-haspopup="dialog"`
             : "";
         const titleAttr = interactive ? "" : ` title="${esc(aria)}"`;
         return `<${tag} class="${classes}"${interactionAttrs} style="--timeline-start:${percent(item.travelStart)};--timeline-width:${((item.travel / span) * 100).toFixed(3)}%"${titleAttr} aria-label="${esc(aria)}"><span aria-hidden="true">↝</span><strong>${item.travel} min</strong><small>${source}</small></${tag}>`;
     });
 
     const resolvedNext = nextSpot || projection.items.find((item) => !item.visited)?.spot || null;
-    const blocks = projection.items.map((item) => {
+    const blocks = projection.items.map((item, index) => {
+        const nextItem = projection.items[index + 1];
+        const outgoingTravel = nextItem?.fromSpot === item.spot ? nextItem.travel : 0;
         const color = safeColor(categoryMeta(item.spot.category).color, "#6b6b6b");
         const widthMinutes = Math.max(item.duration, interactive ? 30 : 6);
         const hasOverlap = item.overlaps.length > 0;
@@ -271,7 +273,7 @@ export function createTimelineView(
         const aria = `${rawName}: visita prevista ${timing}${hours ? `; horario ${hours}` : ""}${outsideCopy}${hasOverlap ? "; se solapa con otra parada" : ""}`;
         const tag = interactive ? "button" : "div";
         const interactionAttrs = interactive
-            ? ` type="button" data-timeline-spot="${esc(String(item.spot.id))}" data-timeline-start="${item.start}" data-timeline-duration="${item.duration}" data-timeline-opening="${item.opening ?? ""}" data-timeline-closing="${item.closing ?? ""}" data-timeline-tooltip="${esc(aria)}" aria-haspopup="dialog"`
+            ? ` type="button" data-timeline-spot="${esc(String(item.spot.id))}" data-timeline-start="${item.start}" data-timeline-duration="${item.duration}" data-timeline-outgoing-travel="${outgoingTravel}" data-timeline-opening="${item.opening ?? ""}" data-timeline-closing="${item.closing ?? ""}" data-timeline-tooltip="${esc(aria)}" aria-haspopup="dialog"`
             : "";
         const titleAttr = interactive ? "" : ` title="${esc(aria)}"`;
         return `<${tag} class="${classes}"${interactionAttrs} style="--timeline-start:${percent(item.start)};--timeline-width:${((widthMinutes / span) * 100).toFixed(3)}%;--timeline-color:${color};--timeline-lane:${item.lane}"${titleAttr} aria-label="${esc(aria)}">${outside}${overlaps}<span class="companion-timeline-content"><strong>${name}</strong><small data-timeline-timing>${esc(timing)}</small>${hours ? `<small class="companion-timeline-hours"><span aria-hidden="true">◷</span> ${esc(hours)}</small>` : ""}</span></${tag}>`;
@@ -282,7 +284,10 @@ export function createTimelineView(
     const dragHours = interactive
         ? '<span class="companion-timeline-drag-hours" aria-hidden="true"></span><span class="companion-timeline-drag-hours" aria-hidden="true"></span>'
         : "";
-    const html = `<div class="companion-timeline-track${interactive ? " is-interactive" : ""}" data-timeline-bound-start="${start}" data-timeline-bound-end="${end}" style="--timeline-lanes:${projection.lanes}"><div class="companion-timeline-axis">${ticks.join("")}</div>${dragHours}${transfers.join("")}${blocks.join("")}${nowMarker}</div>`;
+    const dragStartGuide = interactive
+        ? '<span class="companion-timeline-position-guide is-start" aria-hidden="true"></span><span class="companion-timeline-position-guide is-end" aria-hidden="true"></span><span class="companion-timeline-position-guide is-travel-end" aria-hidden="true"></span><span class="companion-timeline-selection-box" aria-hidden="true"></span>'
+        : "";
+    const html = `<div class="companion-timeline-track${interactive ? " is-interactive" : ""}" data-timeline-bound-start="${start}" data-timeline-bound-end="${end}" style="--timeline-lanes:${projection.lanes}"><div class="companion-timeline-axis">${ticks.join("")}</div>${dragHours}${dragStartGuide}${transfers.join("")}${blocks.join("")}${nowMarker}</div>`;
 
     const outsideItems = projection.items.filter((item) => item.outside && !item.visited);
     const missingDuration = projection.items.filter((item) => !item.duration).length;

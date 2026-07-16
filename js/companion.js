@@ -12,6 +12,7 @@ import {
     cachedRouteTravelMinutes,
 } from "./map.js";
 import { createTimelineView } from "./timeline.js";
+import { registerBasemapMap } from "./basemap.js?v=5";
 export { buildTimelineProjection } from "./timeline.js";
 
 let companionActive = false;
@@ -68,9 +69,6 @@ const WAKE_LOCK_COPY = {
     error: "No se pudo mantener la pantalla activa.",
 };
 
-const COMPANION_TILE_URL =
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-const COMPANION_TILE_ATTRIBUTION = "© OpenStreetMap";
 const COMPANION_DEFAULT_VIEW = [20, 0];
 const EARTH_RADIUS_METERS = 6371000;
 const CARDINAL_LABELS = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
@@ -408,9 +406,7 @@ function ensureCompanionMap() {
         2,
     );
     L.control.zoom({ position: "bottomright" }).addTo(companionMap);
-    L.tileLayer(COMPANION_TILE_URL, {
-        attribution: COMPANION_TILE_ATTRIBUTION,
-    }).addTo(companionMap);
+    registerBasemapMap(companionMap);
     companionStopLayer = L.layerGroup().addTo(companionMap);
     companionPositionLayer = L.layerGroup().addTo(companionMap);
     return true;

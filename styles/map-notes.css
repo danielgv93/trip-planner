@@ -9,10 +9,22 @@
 }
 .map-bar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     padding: 13px 15px;
     border-bottom: 1px solid var(--line);
     gap: 9px;
+}
+.map-controls {
+    display: flex;
+    flex: 1 0 100%;
+    order: 4;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 9px;
+}
+.map-controls > .route-profile {
+    order: 0;
 }
 .map-bar strong {
     font: 700 17px "Playfair Display";
@@ -39,6 +51,9 @@
     border-radius: 5px;
     padding: 3px 6px;
     cursor: pointer;
+}
+.basemap-select {
+    max-width: 116px;
 }
 .map-preview-btn {
     flex: none;

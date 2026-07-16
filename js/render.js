@@ -37,6 +37,10 @@ import { buildTimelineProjection, createTimelineView } from "./timeline.js";
 // without adding presentation preferences to the persisted trip data.
 const expandedDayTools = new Map();
 
+// View-only rectangular selections in each day timeline. A destructive render
+// restores these classes without persisting presentation state in the plan.
+const selectedTimelineSpots = new Map();
+
 // View-only state for the single inline quick-add editor. The draft lives here
 // too so an unrelated destructive render cannot silently discard typed text.
 // Neither value is part of the persisted store.
@@ -315,7 +319,7 @@ function renderDayTimeTools(day) {
         travelForLeg: timelineTravelForLeg,
     });
     const baseId = `day-time-${esc(String(day.id))}`;
-    return `<section class="day-time-tools" aria-label="Planificación horaria"><div class="day-time-tabs" role="group" aria-label="Vista horaria"><button id="${baseId}-schedule-tab" class="day-time-tab" type="button" data-day-time-tab="schedule" aria-expanded="${scheduleSelected}" aria-controls="${baseId}-schedule-panel" ${scheduled.length ? "" : "disabled"}><span class="day-schedule-summary-icon" aria-hidden="true">◷</span><span>Horarios</span><span class="day-schedule-count">${scheduled.length}</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></button><button id="${baseId}-timeline-tab" class="day-time-tab" type="button" data-day-time-tab="timeline" aria-expanded="${timelineSelected}" aria-controls="${baseId}-timeline-panel"><span aria-hidden="true">↝</span><span>Timeline</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></button></div><div id="${baseId}-schedule-panel" class="day-schedule-body" role="region" aria-label="Horarios del día" ${scheduleSelected ? "" : "hidden"}><span class="day-schedule-guide" aria-hidden="true"></span><div class="day-schedule-axis" aria-hidden="true"><span></span><span class="day-schedule-axis-hours"><i>00</i><i>06</i><i>12</i><i>18</i><i>24</i></span></div>${rows}</div><div id="${baseId}-timeline-panel" class="day-timeline-panel" role="region" aria-label="Timeline del día" ${timelineSelected ? "" : "hidden"}><p class="day-timeline-summary">${esc(timeline.summary)} Pulsa para editar o arrastra una parada para planificarla.</p><div class="companion-timeline-canvas" role="group" aria-label="${esc(timeline.aria)}">${timeline.html}</div>${timeline.empty ? "" : `<div class="companion-timeline-insight${timeline.warning ? " is-warning" : ""}" role="status">${esc(timeline.insight)}</div>`}</div></section>`;
+    return `<section class="day-time-tools" aria-label="Planificación horaria"><div class="day-time-tabs" role="group" aria-label="Vista horaria"><button id="${baseId}-schedule-tab" class="day-time-tab" type="button" data-day-time-tab="schedule" aria-expanded="${scheduleSelected}" aria-controls="${baseId}-schedule-panel" ${scheduled.length ? "" : "disabled"}><span class="day-schedule-summary-icon" aria-hidden="true">◷</span><span>Horarios</span><span class="day-schedule-count">${scheduled.length}</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></button><button id="${baseId}-timeline-tab" class="day-time-tab" type="button" data-day-time-tab="timeline" aria-expanded="${timelineSelected}" aria-controls="${baseId}-timeline-panel"><span aria-hidden="true">↝</span><span>Timeline</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></button></div><div id="${baseId}-schedule-panel" class="day-schedule-body" role="region" aria-label="Horarios del día" ${scheduleSelected ? "" : "hidden"}><span class="day-schedule-guide" aria-hidden="true"></span><div class="day-schedule-axis" aria-hidden="true"><span></span><span class="day-schedule-axis-hours"><i>00</i><i>06</i><i>12</i><i>18</i><i>24</i></span></div>${rows}</div><div id="${baseId}-timeline-panel" class="day-timeline-panel" role="region" aria-label="Timeline del día" ${timelineSelected ? "" : "hidden"}><p class="day-timeline-summary">${esc(timeline.summary)} Pulsa para editar, arrastra para planificar o usa Mayús + arrastre para seleccionar varias paradas.</p><div class="companion-timeline-canvas" role="group" aria-label="${esc(timeline.aria)}">${timeline.html}</div>${timeline.empty ? "" : `<div class="companion-timeline-insight${timeline.warning ? " is-warning" : ""}" role="status">${esc(timeline.insight)}</div>`}</div></section>`;
 }
 
 function openDurationDialog(dayId, spotId) {
@@ -426,16 +430,18 @@ async function openTravelTimeDialog(dayId, button) {
     paintTravelDialogValues();
 }
 
-function commitTimelineStart(dayId, spotId, minute) {
+function commitTimelineStarts(dayId, starts) {
     const day = dayBy(dayId);
-    const spot = day?.spots.find((candidate) => String(candidate.id) === spotId);
-    if (!day || !spot) return;
+    if (!day || !(starts instanceof Map) || !starts.size) return;
     const currentStarts = new Map(
         buildTimelineProjection(day, {
             travelForLeg: timelineTravelForLeg,
         }).items.map((item) => [item.spot.id, item.start]),
     );
-    spot.plannedStart = minutesToTime(minute);
+    day.spots.forEach((spot) => {
+        const minute = starts.get(String(spot.id));
+        if (Number.isFinite(minute)) spot.plannedStart = minutesToTime(minute);
+    });
 
     // The chronological timeline is the source of truth for enabled stops.
     // Replace only enabled slots so disabled stops keep their relative place.
@@ -443,7 +449,7 @@ function commitTimelineStart(dayId, spotId, minute) {
         .filter(spotIsEnabled)
         .map((candidate, index) => ({
             spot: candidate,
-            start: candidate === spot ? minute : currentStarts.get(candidate.id) ?? 1440,
+            start: starts.get(String(candidate.id)) ?? currentStarts.get(candidate.id) ?? 1440,
             index,
         }))
         .sort((a, b) => a.start - b.start || a.index - b.index)
@@ -455,6 +461,10 @@ function commitTimelineStart(dayId, spotId, minute) {
     save();
     render();
     drawMap();
+}
+
+function commitTimelineStart(dayId, spotId, minute) {
+    commitTimelineStarts(dayId, new Map([[String(spotId), minute]]));
 }
 
 function paintLiveTimelineConflicts(tools, active) {
@@ -542,6 +552,178 @@ function paintTimelineDragHours(tools, active, visible) {
     });
 }
 
+function paintTimelinePositionGuides(active, minute, visible) {
+    const track = active.closest(".companion-timeline-track");
+    const guides = [...(track?.querySelectorAll(".companion-timeline-position-guide") || [])];
+    guides.forEach((guide) => {
+        guide.classList.remove("is-visible");
+        guide.removeAttribute("data-guide-label");
+    });
+    if (!visible || !track || !guides.length) return;
+    const start = Number(track.dataset.timelineBoundStart);
+    const end = Number(track.dataset.timelineBoundEnd);
+    const duration = Number(active.dataset.timelineDuration) || 0;
+    const outgoingTravel = Number(active.dataset.timelineOutgoingTravel) || 0;
+    const color = active.style.getPropertyValue("--timeline-color") || "#2f678f";
+    const values = [
+        ["is-start", minute, `Inicio ${minutesToTime(minute)}`, color],
+        ["is-end", minute + duration, `Fin ${minutesToTime(minute + duration)}`, color],
+        [
+            "is-travel-end",
+            minute + duration + outgoingTravel,
+            `Fin caminata ${minutesToTime(minute + duration + outgoingTravel)}`,
+            "#c66a2f",
+        ],
+    ];
+    values.forEach(([className, value, label, guideColor]) => {
+        if (!Number.isFinite(value) || value < start || value > end ||
+            (className === "is-end" && duration <= 0) ||
+            (className === "is-travel-end" && outgoingTravel <= 0)) return;
+        const guide = guides.find((candidate) => candidate.classList.contains(className));
+        if (!guide) return;
+        guide.style.setProperty(
+            "--timeline-guide-position",
+            `${(((value - start) / (end - start)) * 100).toFixed(3)}%`,
+        );
+        guide.style.setProperty("--timeline-guide-color", guideColor);
+        guide.dataset.guideLabel = label;
+        guide.classList.add("is-visible");
+    });
+}
+
+function timelineSelection(dayId, buttons) {
+    const valid = new Set(buttons.map((button) => button.dataset.timelineSpot));
+    const selected = selectedTimelineSpots.get(dayId) || new Set();
+    [...selected].forEach((spotId) => {
+        if (!valid.has(spotId)) selected.delete(spotId);
+    });
+    if (selected.size) selectedTimelineSpots.set(dayId, selected);
+    else selectedTimelineSpots.delete(dayId);
+    buttons.forEach((button) =>
+        button.classList.toggle("is-selected", selected.has(button.dataset.timelineSpot)),
+    );
+    return selected;
+}
+
+function wireTimelineSelection(track, dayId) {
+    if (!track) return;
+    const buttons = [...track.querySelectorAll("[data-timeline-spot]")];
+    timelineSelection(dayId, buttons);
+    const box = track.querySelector(".companion-timeline-selection-box");
+    let pointer = null;
+    let suppressClick = false;
+
+    const paint = (event) => {
+        if (!pointer || event.pointerId !== pointer.id) return;
+        const trackRect = track.getBoundingClientRect();
+        const x = Math.max(0, Math.min(trackRect.width, event.clientX - trackRect.left));
+        const y = Math.max(0, Math.min(trackRect.height, event.clientY - trackRect.top));
+        const left = Math.min(pointer.x, x);
+        const top = Math.min(pointer.y, y);
+        const width = Math.abs(x - pointer.x);
+        const height = Math.abs(y - pointer.y);
+        pointer.dragging ||= Math.hypot(width, height) > 4;
+        if (!pointer.dragging) return;
+        event.preventDefault();
+        box.style.left = `${left}px`;
+        box.style.top = `${top}px`;
+        box.style.width = `${width}px`;
+        box.style.height = `${height}px`;
+        box.classList.add("is-visible");
+        const selectionRect = {
+            left: trackRect.left + left,
+            right: trackRect.left + left + width,
+            top: trackRect.top + top,
+            bottom: trackRect.top + top + height,
+        };
+        const selected = new Set(
+            buttons
+                .filter((button) => {
+                    const rect = button.getBoundingClientRect();
+                    return rect.left <= selectionRect.right &&
+                        rect.right >= selectionRect.left &&
+                        rect.top <= selectionRect.bottom &&
+                        rect.bottom >= selectionRect.top;
+                })
+                .map((button) => button.dataset.timelineSpot),
+        );
+        if (selected.size) selectedTimelineSpots.set(dayId, selected);
+        else selectedTimelineSpots.delete(dayId);
+        timelineSelection(dayId, buttons);
+    };
+
+    const cleanup = () => {
+        window.removeEventListener("pointermove", paint);
+        window.removeEventListener("pointerup", finish);
+        window.removeEventListener("pointercancel", cancel);
+        window.removeEventListener("keydown", escape);
+        box?.classList.remove("is-visible");
+        document.body.style.userSelect = "";
+        document.body.style.webkitUserSelect = "";
+    };
+    const finish = (event) => {
+        if (!pointer || event.pointerId !== pointer.id) return;
+        if (!pointer.dragging) {
+            const target = pointer.target.closest?.("[data-timeline-spot]");
+            const selected = target
+                ? new Set([target.dataset.timelineSpot])
+                : new Set();
+            if (selected.size) selectedTimelineSpots.set(dayId, selected);
+            else selectedTimelineSpots.delete(dayId);
+            timelineSelection(dayId, buttons);
+        }
+        cleanup();
+        pointer = null;
+        setTimeout(() => { suppressClick = false; }, 0);
+    };
+    const cancel = (event) => {
+        if (!pointer || event.pointerId !== pointer.id) return;
+        if (pointer.previous.size)
+            selectedTimelineSpots.set(dayId, new Set(pointer.previous));
+        else selectedTimelineSpots.delete(dayId);
+        timelineSelection(dayId, buttons);
+        cleanup();
+        pointer = null;
+        setTimeout(() => { suppressClick = false; }, 0);
+    };
+    const escape = (event) => {
+        if (event.key !== "Escape" || !pointer) return;
+        event.preventDefault();
+        cancel({ pointerId: pointer.id });
+    };
+
+    track.addEventListener("pointerdown", (event) => {
+        if (store.previewMode || !event.shiftKey || event.pointerType === "touch" ||
+            (event.button !== undefined && event.button !== 0)) return;
+        const rect = track.getBoundingClientRect();
+        pointer = {
+            id: event.pointerId,
+            x: Math.max(0, Math.min(rect.width, event.clientX - rect.left)),
+            y: Math.max(0, Math.min(rect.height, event.clientY - rect.top)),
+            target: event.target,
+            dragging: false,
+            previous: new Set(selectedTimelineSpots.get(dayId) || []),
+        };
+        suppressClick = true;
+        selectedTimelineSpots.delete(dayId);
+        timelineSelection(dayId, buttons);
+        event.preventDefault();
+        document.body.style.userSelect = "none";
+        document.body.style.webkitUserSelect = "none";
+        getSelection()?.removeAllRanges();
+        window.addEventListener("pointermove", paint, { passive: false });
+        window.addEventListener("pointerup", finish);
+        window.addEventListener("pointercancel", cancel);
+        window.addEventListener("keydown", escape);
+    });
+    track.addEventListener("click", (event) => {
+        if (!suppressClick) return;
+        event.preventDefault();
+        event.stopPropagation();
+        suppressClick = false;
+    }, true);
+}
+
 function wireTimelineSpot(button, tools, dayId) {
     let pointer = null;
     let ignoreClick = false;
@@ -553,7 +735,14 @@ function wireTimelineSpot(button, tools, dayId) {
         window.removeEventListener("keydown", escape);
         tools.classList.remove("is-timeline-dragging");
         button.classList.remove("is-dragging");
+        pointer?.members.forEach(({ element }) =>
+            element.classList.remove("is-group-dragging"),
+        );
+        pointer?.members.forEach(({ transfer }) =>
+            transfer?.classList.remove("is-dragging"),
+        );
         paintTimelineDragHours(tools, button, false);
+        paintTimelinePositionGuides(button, pointer?.minute, false);
         tools.querySelectorAll(".is-live-overlap, .is-live-outside").forEach(
             (block) => block.classList.remove("is-live-overlap", "is-live-outside"),
         );
@@ -579,38 +768,65 @@ function wireTimelineSpot(button, tools, dayId) {
             hideTimelineTooltip(button);
             tools.classList.add("is-timeline-dragging");
             button.classList.add("is-dragging");
+            pointer.members.forEach(({ element }) => {
+                if (element !== button) element.classList.add("is-group-dragging");
+            });
+            pointer.members.forEach(({ transfer }) =>
+                transfer?.classList.add("is-dragging"),
+            );
             paintTimelineDragHours(tools, button, true);
+            paintTimelinePositionGuides(button, pointer.minute, true);
             document.body.style.userSelect = "none";
             document.body.style.webkitUserSelect = "none";
             getSelection()?.removeAllRanges();
         }
         event.preventDefault();
-        const minutesDelta = (dx / pointer.trackWidth) * pointer.span;
-        const duration = Number(button.dataset.timelineDuration) || 0;
-        const latest = Math.min(1439, pointer.end - Math.min(duration, pointer.span));
-        const minute = Math.max(
-            pointer.start,
-            Math.min(latest, Math.round((pointer.minute + minutesDelta) / 5) * 5),
+        const rawDelta = Math.round(((dx / pointer.trackWidth) * pointer.span) / 5) * 5;
+        const minimumDelta = Math.max(...pointer.members.map(({ minute }) => pointer.start - minute));
+        const maximumDelta = Math.min(...pointer.members.map(({
+            minute,
+            duration,
+            transfer,
+            travelStart,
+            travelMinutes,
+        }) => Math.min(
+            Math.min(1439, pointer.end - Math.min(duration, pointer.span)) - minute,
+            transfer && Number.isFinite(travelStart)
+                ? pointer.end - travelStart - travelMinutes
+                : Infinity,
+        )));
+        pointer.delta = Math.max(minimumDelta, Math.min(maximumDelta, rawDelta));
+        pointer.members.forEach(({ element, minute: original, duration, transfer, travelStart }) => {
+            const minute = original + pointer.delta;
+            const left = ((minute - pointer.start) / pointer.span) * 100;
+            element.style.setProperty("--timeline-start", `${left.toFixed(3)}%`);
+            element.dataset.timelineStart = String(minute);
+            const timing = element.querySelector("[data-timeline-timing]");
+            if (timing)
+                timing.textContent = duration
+                    ? `${minutesToTime(minute)}–${minutesToTime(minute + duration)}`
+                    : `${minutesToTime(minute)} · sin duración`;
+            if (transfer && Number.isFinite(travelStart)) {
+                const transferLeft = ((travelStart + pointer.delta - pointer.start) / pointer.span) * 100;
+                transfer.style.setProperty("--timeline-start", `${transferLeft.toFixed(3)}%`);
+                transfer.dataset.timelineStart = String(travelStart + pointer.delta);
+            }
+        });
+        paintTimelinePositionGuides(
+            button,
+            Number(button.dataset.timelineStart),
+            true,
         );
-        pointer.current = minute;
-        const left = ((minute - pointer.start) / pointer.span) * 100;
-        button.style.setProperty("--timeline-start", `${left.toFixed(3)}%`);
-        button.dataset.timelineStart = String(minute);
-        const timing = button.querySelector("[data-timeline-timing]");
-        if (timing)
-            timing.textContent = duration
-                ? `${minutesToTime(minute)}–${minutesToTime(minute + duration)}`
-                : `${minutesToTime(minute)} · sin duración`;
         paintLiveTimelineConflicts(tools, button);
     };
 
     const finish = (event) => {
         if (!pointer || event.pointerId !== pointer.id) return;
         const dragged = pointer.dragging;
-        const minute = pointer.current;
+        const starts = new Map(pointer.members.map(({ id, minute }) => [id, minute + pointer.delta]));
         cleanup();
         pointer = null;
-        if (dragged) commitTimelineStart(dayId, button.dataset.timelineSpot, minute);
+        if (dragged) commitTimelineStarts(dayId, starts);
     };
 
     const cancel = (event) => {
@@ -631,22 +847,45 @@ function wireTimelineSpot(button, tools, dayId) {
     };
 
     button.addEventListener("pointerdown", (event) => {
-        if (store.previewMode || (event.button !== undefined && event.button !== 0)) return;
+        if (store.previewMode || event.shiftKey || (event.button !== undefined && event.button !== 0)) return;
         const track = button.closest(".companion-timeline-track");
         if (!track) return;
         const rect = track.getBoundingClientRect();
         const start = Number(track.dataset.timelineBoundStart);
         const end = Number(track.dataset.timelineBoundEnd);
+        const buttons = [...track.querySelectorAll("[data-timeline-spot]")];
+        const selected = timelineSelection(dayId, buttons);
+        if (!selected.has(button.dataset.timelineSpot)) {
+            selectedTimelineSpots.delete(dayId);
+            timelineSelection(dayId, buttons);
+        }
+        const members = (selected.has(button.dataset.timelineSpot) && selected.size > 1
+            ? buttons.filter((candidate) => selected.has(candidate.dataset.timelineSpot))
+            : [button]
+        ).map((element) => ({
+            element,
+            id: element.dataset.timelineSpot,
+            minute: Number(element.dataset.timelineStart),
+            duration: Number(element.dataset.timelineDuration) || 0,
+            transfer: track.querySelector(
+                `[data-timeline-travel-from="${CSS.escape(element.dataset.timelineSpot)}"]`,
+            ),
+        })).map((member) => ({
+            ...member,
+            travelStart: Number(member.transfer?.dataset.timelineStart),
+            travelMinutes: Number(member.transfer?.dataset.timelineTravelMinutes) || 0,
+        }));
         pointer = {
             id: event.pointerId,
             x: event.clientX,
             y: event.clientY,
             minute: Number(button.dataset.timelineStart),
-            current: Number(button.dataset.timelineStart),
             start,
             end,
             span: end - start,
             trackWidth: rect.width,
+            members,
+            delta: 0,
             dragging: false,
         };
         ignoreClick = false;
@@ -696,6 +935,7 @@ function wireDayTimeTools(el, dayId) {
         wireTimelineSpot(button, tools, dayId);
         wireMapSpotHighlight(button, button.dataset.timelineSpot);
     });
+    wireTimelineSelection(tools?.querySelector(".companion-timeline-track"), dayId);
     tools?.querySelectorAll("[data-timeline-travel-from]").forEach((button) => {
         button.addEventListener("click", () =>
             openTravelTimeDialog(dayId, button),

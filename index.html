@@ -16,11 +16,15 @@
             rel="stylesheet"
             href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         />
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css"
+        />
         <link rel="stylesheet" href="styles/base.css?v=28" />
         <link rel="stylesheet" href="styles/search.css?v=21" />
         <link rel="stylesheet" href="styles/planner.css?v=2026071606" />
         <link rel="stylesheet" href="styles/workspace-resize.css?v=1" />
-        <link rel="stylesheet" href="styles/map-notes.css?v=27" />
+        <link rel="stylesheet" href="styles/map-notes.css?v=2026071702" />
         <link rel="stylesheet" href="styles/dialog-finance.css?v=21" />
         <link rel="stylesheet" href="styles/dialogs.css?v=33" />
         <link rel="stylesheet" href="styles/taxonomy.css?v=27" />
@@ -208,6 +212,15 @@
                             type="button"
                             aria-pressed="false"
                         >Vista completa</button
+                        ><div class="map-controls"><select
+                            id="basemapSelect"
+                            class="route-profile basemap-select"
+                            title="Mapa base"
+                            aria-label="Mapa base"
+                        >
+                            <option value="liberty">Mapa internacional</option>
+                            <option value="osm">OpenStreetMap</option>
+                        </select
                         ><select
                             id="routeVisualization"
                             class="route-profile"
@@ -225,7 +238,7 @@
                             <option value="walking">A pie</option>
                             <option value="driving">En coche</option>
                             <option value="cycling">En bici</option>
-                        </select>
+                        </select></div>
                     </div>
                     <div id="map"></div>
                     <div class="map-foot">
@@ -791,7 +804,9 @@
             aria-atomic="false"
         ></div>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script type="module" src="js/main.js?v=2026071701"></script>
+        <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+        <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js"></script>
+        <script type="module" src="js/main.js?v=2026071702"></script>
         <script type="module" src="js/workspace-resize.js?v=2"></script>
     </body>
 </html>

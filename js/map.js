@@ -22,12 +22,11 @@ import { $, esc, safeColor } from "./dom.js";
 import { DAY_COLORS } from "./constants.js";
 import { fetchSpotImage } from "./images.js";
 import { refreshDayLoad } from "./render.js";
+import { registerBasemapMap } from "./basemap.js?v=5";
 
 const map = L.map("map", { zoomControl: false }).setView([20, 0], 2);
 L.control.zoom({ position: "bottomright" }).addTo(map);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "© OpenStreetMap",
-}).addTo(map);
+registerBasemapMap(map);
 let routeLayer = L.layerGroup().addTo(map);
 let legendControl = null;
 // Rebuilt with the map layers. Lets itinerary/timeline UI point at the
@@ -527,11 +526,8 @@ function initPreview(lat = 20, lng = 0, zoom = 2) {
     if (!previewMap) {
         previewMap = L.map("previewMap", {
             zoomControl: false,
-            attributionControl: false,
         }).setView([lat, lng], zoom);
-        L.tileLayer(
-            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        ).addTo(previewMap);
+        registerBasemapMap(previewMap);
         L.control.zoom({ position: "bottomright" }).addTo(previewMap);
         previewMap.on("click", ({ latlng }) => {
             const lat = +latlng.lat.toFixed(6);

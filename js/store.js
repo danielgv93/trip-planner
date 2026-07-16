@@ -56,6 +56,11 @@ export const store = {
     )
         ? saved.routeVisualization
         : "straight",
+    // Local display preference. Liberty is the international-label default;
+    // legacy basemap values migrate to it automatically.
+    basemap: ["liberty", "osm"].includes(saved?.basemap)
+        ? saved.basemap
+        : "liberty",
     routeTimeOverrides:
         saved?.routeTimeOverrides &&
         typeof saved.routeTimeOverrides === "object" &&
@@ -122,7 +127,7 @@ export function save() {
     localStorage.setItem(
         "trip-planner",
         JSON.stringify({
-            version: 21,
+            version: 22,
             tripTitle: store.tripTitle,
             localCurrency: store.localCurrency,
             foreignCurrency: store.foreignCurrency,
@@ -136,6 +141,7 @@ export function save() {
             categories: store.categories,
             routeProfile: store.routeProfile,
             routeVisualization: store.routeVisualization,
+            basemap: store.basemap,
             routeTimeOverrides: store.routeTimeOverrides,
             workspaceSplit: store.workspaceSplit,
         }),
