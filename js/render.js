@@ -1483,14 +1483,22 @@ export function applyTitle() {
     document.title = (store.tripTitle || "Viaje") + " · Planificador de ruta";
 }
 
-// Spot action buttons (move/edit/delete/duplicate), delegated on #days.
+// Clicking a spot opens the same editor as the pencil. Interactive controls keep
+// their own actions, and dnd.js swallows the synthetic click after a real drag.
+// Spot action buttons (move/edit/delete/duplicate) are delegated here too.
 daysEl.addEventListener("click", (e) => {
-    const b = e.target.closest("[data-act]");
-    if (!b) return;
-    const spotEl = b.closest(".spot"),
+    const spotEl = e.target.closest(".spot");
+    if (!spotEl || !daysEl.contains(spotEl)) return;
+    const b = e.target.closest("[data-act]"),
         dayId = spotEl.closest(".day").dataset.day,
         items = dayId === "backlog" ? store.backlog : dayBy(dayId).spots,
         i = items.findIndex((s) => s.id === spotEl.dataset.spot);
+    if (i === -1) return;
+    if (!b) {
+        if (e.target.closest("a, button, input, label, select, textarea")) return;
+        openDialog(dayId, items[i]);
+        return;
+    }
     if (b.dataset.act === "toggle-enabled") {
         items[i].mapEnabled = b.checked;
         save();
