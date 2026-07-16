@@ -12,9 +12,40 @@
     --nav-height: 72px;
     --tag-bar-height: 43px;
     --sticky-gap: 0px;
+    --scrollbar-track: color-mix(in srgb, var(--sand) 58%, transparent);
+    --scrollbar-thumb: color-mix(in srgb, var(--green) 48%, var(--paper));
+    --scrollbar-thumb-hover: color-mix(in srgb, var(--green) 76%, var(--paper));
+    --scrollbar-thumb-active: color-mix(in srgb, var(--red) 82%, var(--paper));
 }
 * {
     box-sizing: border-box;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    scrollbar-width: thin;
+}
+*::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+}
+*::-webkit-scrollbar-track {
+    border-radius: 999px;
+    background: var(--scrollbar-track);
+}
+*::-webkit-scrollbar-thumb {
+    min-width: 36px;
+    min-height: 36px;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: var(--scrollbar-thumb);
+    background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+}
+*::-webkit-scrollbar-thumb:active {
+    background-color: var(--scrollbar-thumb-active);
+}
+*::-webkit-scrollbar-corner {
+    background: transparent;
 }
 body {
     margin: 0;

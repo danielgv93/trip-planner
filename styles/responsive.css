@@ -45,9 +45,7 @@ body.preview-mode .spot-actions,
 body.preview-mode .spot-toggle,
 body.preview-mode .add-place,
 body.preview-mode .add-day,
-body.preview-mode .day-options,
-body.preview-mode .day-duplicate,
-body.preview-mode .title-edit,
+body.preview-mode .day-overflow-control,
 body.preview-mode .manage-tags {
     display: none !important;
 }
@@ -66,22 +64,14 @@ body.preview-mode .spot {
     padding: 6px 8px;
     cursor: default;
 }
-@media (max-width: 860px), (pointer: coarse) {
-    .spot-actions {
-        opacity: 1;
-    }
-    .spot-actions > .open-in-maps,
-    .spot-actions > .move-control,
-    .spot-actions > button[data-act="duplicate"],
-    .spot-actions > button[data-act="edit"],
-    .spot-actions > button[data-act="delete"] {
-        display: none;
-    }
-    .spot-actions > .spot-overflow-control {
-        display: inline-flex;
-    }
-}
 @media (max-width: 860px) {
+    .day-head {
+        gap: 7px;
+        padding-inline: 10px;
+    }
+    .day-actions {
+        gap: 0;
+    }
     .top {
         height: auto;
         min-height: 68px;
@@ -338,13 +328,6 @@ body.preview-mode .spot {
         transition: none;
     }
     .spot-actions {
-        transition: none;
-    }
-    .spot-actions > .open-in-maps,
-    .spot-actions > .move-control,
-    .spot-actions > button[data-act="duplicate"],
-    .spot-actions > button[data-act="edit"],
-    .spot-actions > button[data-act="delete"] {
         transition: none;
     }
     .day-load-track,

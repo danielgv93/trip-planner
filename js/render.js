@@ -973,6 +973,7 @@ export function duplicateDay(dayId) {
     save();
     render();
     drawMap();
+    toast(`“${clone.title}” añadido.`, "info");
 }
 
 export function duplicateSpot(spotId, listId) {
@@ -988,6 +989,7 @@ export function duplicateSpot(spotId, listId) {
     save();
     render();
     drawMap();
+    toast(`“${clone.name || "Parada"}” duplicada.`, "info");
 }
 
 function renderTags() {
@@ -1104,10 +1106,6 @@ function renderList(el, spots, isBacklog = false) {
             spotHours || spotDuration
                 ? `<span class="spot-timing">${spotHours}${spotDuration}</span>`
                 : "";
-        const mapsLink = mapsLinkFor(s);
-        const mapsAction = mapsLink
-            ? `<a class="open-in-maps" href="${mapsLink}" target="_blank" rel="noopener" title="Abrir en Google Maps" aria-label="Abrir ${esc(s.name || "parada")} en Google Maps"><span aria-hidden="true">↗</span></a>`
-            : "";
         if (enabled) mapNumber += 1;
         const number = isBacklog
             ? ""
@@ -1115,7 +1113,7 @@ function renderList(el, spots, isBacklog = false) {
               ? `<span class="number">${mapNumber}</span>`
               : '<span class="number number-placeholder" aria-hidden="true">−</span>';
         spot.classList.toggle("spot-disabled", !enabled);
-        spot.innerHTML = `<span class="handle">⠿</span><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number} ${esc(s.name)}</span>${spotNote}${spotTiming}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions">${mapsAction}<span class="move-control"><button class="move-button" data-act="move" title="Mover a otro día" aria-label="Mover a otro día" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span></button></span><button data-act="duplicate" title="Duplicar">⧉</button><button data-act="edit" title="Editar">✎</button><button data-act="delete" title="Borrar">×</button><span class="spot-overflow-control"><button type="button" class="spot-overflow-button" data-act="overflow" title="Más acciones" aria-label="Más acciones para ${esc(s.name || "parada")}" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">⋯</span></button></span></span>`;
+        spot.innerHTML = `<button class="handle" type="button" title="Reordenar parada" aria-label="Reordenar ${esc(s.name || "parada")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number} ${esc(s.name)}</span>${spotNote}${spotTiming}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="spot-overflow-control"><button type="button" class="spot-overflow-button" data-act="overflow" title="Más acciones" aria-label="Más acciones para ${esc(s.name || "parada")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></span>`;
         wireMapSpotHighlight(spot, s.id);
         list.append(spot);
     });
@@ -1176,12 +1174,63 @@ function closeOverflowMenus(except) {
     syncOpenMenuDays();
 }
 
+function closeDayActionMenus(except) {
+    daysEl.querySelectorAll(".day-action-menu").forEach((menu) => {
+        if (menu === except) return;
+        menu.remove();
+    });
+    daysEl
+        .querySelectorAll('.day-overflow-button[aria-expanded="true"]')
+        .forEach((button) => {
+            if (
+                except &&
+                button.closest(".day-overflow-control")?.contains(except)
+            )
+                return;
+            button.setAttribute("aria-expanded", "false");
+        });
+    syncOpenMenuDays();
+}
+
 function syncOpenMenuDays() {
     daysEl.querySelectorAll(".day").forEach((day) => {
         day.classList.toggle(
             "menu-open",
-            Boolean(day.querySelector(".move-menu, .spot-overflow-menu")),
+            Boolean(
+                day.querySelector(
+                    ".move-menu, .spot-overflow-menu, .day-action-menu",
+                ),
+            ),
         );
+    });
+}
+
+function openDayActionMenu(button, day, { rename, remove }) {
+    const control = button.closest(".day-overflow-control"),
+        alreadyOpen = button.getAttribute("aria-expanded") === "true";
+    closeMoveMenus();
+    closeOverflowMenus();
+    closeDayActionMenus();
+    if (alreadyOpen || !control) return;
+
+    const menu = document.createElement("span");
+    menu.className = "day-action-menu";
+    menu.setAttribute("role", "menu");
+    menu.setAttribute("aria-label", `Acciones para ${day.title || "día"}`);
+    menu.innerHTML = `<button type="button" class="day-action-item" data-day-action="rename" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg><span>Renombrar día</span></button><button type="button" class="day-action-item" data-day-action="duplicate" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Duplicar día</span></button><button type="button" class="day-action-item day-action-danger" data-day-action="delete" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M9 7l1-3h4l1 3M6 7l1 14h10l1-14"/></svg><span>Eliminar día</span></button>`;
+    control.append(menu);
+    control.closest(".day")?.classList.add("menu-open");
+    button.setAttribute("aria-expanded", "true");
+    menu.querySelector('[role="menuitem"]')?.focus();
+
+    menu.addEventListener("click", (event) => {
+        const action = event.target.closest("[data-day-action]")?.dataset
+            .dayAction;
+        if (!action) return;
+        closeDayActionMenus();
+        if (action === "rename") rename();
+        else if (action === "duplicate") duplicateDay(day.id);
+        else if (action === "delete") remove();
     });
 }
 
@@ -1220,6 +1269,7 @@ function openOverflowMenu(button, spot, currentDay) {
     const control = button.closest(".spot-overflow-control"),
         alreadyOpen = button.getAttribute("aria-expanded") === "true";
     closeMoveMenus();
+    closeDayActionMenus();
     closeOverflowMenus();
     if (alreadyOpen || !control) return;
 
@@ -1233,9 +1283,9 @@ function openOverflowMenu(button, spot, currentDay) {
     );
     menu.innerHTML = `${
         mapsLink
-            ? `<a class="spot-overflow-item" href="${mapsLink}" target="_blank" rel="noopener" role="menuitem" data-act="overflow-maps"><span aria-hidden="true">↗</span><span>Abrir en Google Maps</span></a>`
+            ? `<a class="spot-overflow-item" href="${mapsLink}" target="_blank" rel="noopener" role="menuitem" data-act="overflow-maps"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-9 9"/><path d="M19 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h4"/></svg><span>Abrir en Google Maps</span></a>`
             : ""
-    }<span class="move-control spot-overflow-move-control"><button type="button" class="move-button spot-overflow-item" data-act="move" role="menuitem" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">↪</span><span>Mover a otro día</span><span class="spot-overflow-arrow" aria-hidden="true">›</span></button></span><button type="button" class="spot-overflow-item" data-act="duplicate" role="menuitem"><span aria-hidden="true">⧉</span><span>Duplicar</span></button><button type="button" class="spot-overflow-item" data-act="edit" role="menuitem"><span aria-hidden="true">✎</span><span>Editar</span></button><button type="button" class="spot-overflow-item spot-overflow-danger" data-act="delete" role="menuitem"><span aria-hidden="true">×</span><span>Borrar</span></button>`;
+    }<span class="move-control spot-overflow-move-control"><button type="button" class="move-button spot-overflow-item" data-act="move" role="menuitem" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M14 8l4 4-4 4"/><path d="M8 7V5M8 19v-2"/></svg><span>Mover a otro día</span><span class="spot-overflow-arrow" aria-hidden="true">›</span></button></span><button type="button" class="spot-overflow-item" data-act="duplicate" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Duplicar parada</span></button><button type="button" class="spot-overflow-item" data-act="edit" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg><span>Editar parada</span></button><button type="button" class="spot-overflow-item spot-overflow-danger" data-act="delete" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M9 7l1-3h4l1 3M6 7l1 14h10l1-14"/></svg><span>Borrar parada</span></button>`;
     control.append(menu);
     control.closest(".day")?.classList.add("menu-open");
     button.setAttribute("aria-expanded", "true");
@@ -1408,7 +1458,7 @@ export function render({ persist = true } = {}) {
             (day.id === store.active ? "active " : "") +
             (day.collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
-        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar día">⠿</button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span><button class="title-edit" title="Renombrar día" aria-label="Renombrar día">✎</button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><button class="day-collapse" title="${day.collapsed ? "Restaurar día" : "Minimizar día"}" aria-label="Minimizar o restaurar día">${day.collapsed ? "▸" : "▾"}</button><button class="day-duplicate" title="Duplicar día">⧉</button><button class="day-options" title="Eliminar día">×</button></div>${renderDayTimeTools(day)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}`;
+        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><div class="day-actions"><button class="day-collapse" type="button" title="${day.collapsed ? "Desplegar día" : "Plegar día"}" aria-label="${day.collapsed ? "Desplegar" : "Plegar"} ${esc(day.title || "día")}" aria-expanded="${day.collapsed ? "false" : "true"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><span class="day-overflow-control"><button class="day-overflow-button" type="button" title="Más acciones" aria-label="Más acciones para ${esc(day.title || "día")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></div></div>${renderDayTimeTools(day)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}`;
         renderList(el, day.spots);
         wireDayTimeTools(el, day.id);
         applyDayLoad(el, day);
@@ -1459,10 +1509,6 @@ export function render({ persist = true } = {}) {
             if (store.previewMode) return;
             editTitle(day, el);
         };
-        el.querySelector(".title-edit").addEventListener("click", (ev) => {
-            ev.stopPropagation();
-            startEdit();
-        });
         el.querySelector(".day-name").addEventListener("dblclick", startEdit);
         el.querySelector(".day-collapse").onclick = (e) => {
             e.stopPropagation();
@@ -1470,11 +1516,7 @@ export function render({ persist = true } = {}) {
             save();
             render();
         };
-        el.querySelector(".day-duplicate").onclick = (e) => {
-            e.stopPropagation();
-            duplicateDay(day.id);
-        };
-        el.querySelector(".day-options").onclick = () => {
+        const removeDay = () => {
             confirmAction({
                 title: "Eliminar día",
                 message:
@@ -1491,6 +1533,13 @@ export function render({ persist = true } = {}) {
                     "Día eliminado. Sus paradas están en el backlog.",
                     "info",
                 );
+            });
+        };
+        el.querySelector(".day-overflow-button").onclick = (e) => {
+            e.stopPropagation();
+            openDayActionMenu(e.currentTarget, day, {
+                rename: startEdit,
+                remove: removeDay,
             });
         };
         wireQuickAdd(el, day.id);
@@ -1650,6 +1699,7 @@ document.addEventListener("click", (e) => {
         !e.target.closest(".spot-overflow-control")
     )
         closeOverflowMenus();
+    if (!e.target.closest(".day-overflow-control")) closeDayActionMenus();
 });
 
 window.addEventListener("keydown", (e) => {
@@ -1665,7 +1715,15 @@ window.addEventListener("keydown", (e) => {
     const openButton = daysEl.querySelector(
         '.spot-overflow-button[aria-expanded="true"]',
     );
-    if (!openButton) return;
-    closeOverflowMenus();
-    openButton.focus();
+    if (openButton) {
+        closeOverflowMenus();
+        openButton.focus();
+        return;
+    }
+    const openDayButton = daysEl.querySelector(
+        '.day-overflow-button[aria-expanded="true"]',
+    );
+    if (!openDayButton) return;
+    closeDayActionMenus();
+    openDayButton.focus();
 });

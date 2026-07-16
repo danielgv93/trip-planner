@@ -62,7 +62,7 @@ main {
 }
 .day.menu-open {
     position: relative;
-    z-index: 20;
+    z-index: auto;
     overflow: visible;
 }
 .day-head {
@@ -98,8 +98,8 @@ main {
     position: static;
 }
 .day-handle {
-    width: 32px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     flex: none;
     display: grid;
     place-items: center;
@@ -107,14 +107,20 @@ main {
     padding: 0;
     background: transparent;
     color: #b3b7b6;
-    font-size: 19px;
-    letter-spacing: -3px;
     cursor: grab;
     touch-action: none;
+    border-radius: 8px;
+}
+.day-handle svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
 }
 .day-handle:hover,
 .day-handle:focus-visible {
     color: var(--red);
+    background: #d44d430b;
+    outline: none;
 }
 .day.dragging {
     opacity: 0.38;
@@ -226,27 +232,6 @@ main {
 }
 .backlog .day-name {
     cursor: default;
-}
-.title-edit {
-    border: 0;
-    background: transparent;
-    color: var(--red);
-    font-size: 12px;
-    line-height: 1;
-    padding: 2px;
-    opacity: 0;
-    transform: scale(0.8);
-    transition: 0.18s ease;
-    cursor: pointer;
-    flex: none;
-}
-.day:hover .title-edit,
-.title-edit:focus-visible {
-    opacity: 0.6;
-    transform: scale(1);
-}
-.title-edit:hover {
-    opacity: 1;
 }
 .day-title input.editing {
     border: 0;
@@ -384,24 +369,114 @@ main {
     border-top: 1px solid var(--line);
 }
 .day-load-meter.is-over .day-load-detail i { background: #c9822b; }
-.day-options,
-.day-duplicate,
-.day-collapse {
-    border: 0;
+.day-actions {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+.day-collapse,
+.day-overflow-button {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: 8px;
     background: transparent;
     color: #858d90;
-    font-size: 21px;
-    padding: 0 4px;
-}
-.day-duplicate {
-    font-size: 16px;
-}
-.day-collapse {
-    font-size: 14px;
+    padding: 0;
     cursor: pointer;
+    transition: 0.16s ease;
 }
-.day-collapse:hover {
+.day-collapse svg,
+.day-overflow-button svg,
+.day-action-item svg {
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.day-overflow-button svg {
+    fill: currentColor;
+    stroke: none;
+}
+.day-collapse svg {
+    transition: transform 0.18s ease;
+}
+.day.collapsed .day-collapse svg {
+    transform: rotate(-90deg);
+}
+.day-collapse:hover,
+.day-overflow-button:hover,
+.day-collapse:focus-visible,
+.day-overflow-button:focus-visible {
     color: var(--ink);
+    border-color: var(--line);
+    background: #f7f4ee;
+    outline: none;
+}
+.day-overflow-control {
+    position: relative;
+    display: inline-flex;
+}
+.day-action-menu {
+    position: absolute;
+    z-index: 50;
+    top: calc(100% + 8px);
+    right: 0;
+    width: min(220px, calc(100vw - 34px));
+    padding: 7px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 16px 42px #29323724;
+}
+.day-action-menu::before {
+    content: "";
+    position: absolute;
+    top: -5px;
+    right: 14px;
+    width: 9px;
+    height: 9px;
+    background: #fff;
+    border-left: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+    transform: rotate(45deg);
+}
+.day-action-item {
+    width: 100%;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 9px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+}
+.day-action-item svg {
+    flex: none;
+    color: var(--red);
+}
+.day-action-item:hover,
+.day-action-item:focus-visible {
+    background: #f7f4ee;
+    outline: none;
+}
+.day-action-danger {
+    margin-top: 5px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    border-radius: 0 0 7px 7px;
+    color: var(--red);
 }
 .day.collapsed .day-head {
     border-bottom: 0;
@@ -701,9 +776,9 @@ body.preview-mode .quick-add {
 }
 .spot {
     display: grid;
-    grid-template-columns: 26px 20px 1fr auto auto;
+    grid-template-columns: 40px 32px minmax(0, 1fr) auto 40px;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     border: 1px solid transparent;
     padding: 8px;
     border-radius: 5px;
@@ -767,11 +842,28 @@ body.preview-mode .quick-add {
         border-color 0.14s ease;
 }
 .handle {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 8px;
+    padding: 0;
+    background: transparent;
     color: #b3b7b6;
-    font-size: 17px;
-    letter-spacing: -3px;
     touch-action: none;
     cursor: grab;
+}
+.handle svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+}
+.handle:hover,
+.handle:focus-visible {
+    background: #d44d430b;
+    color: var(--red);
+    outline: none;
 }
 .number {
     background: var(--green);
@@ -974,102 +1066,28 @@ body.preview-mode .quick-add {
     white-space: nowrap;
 }
 .spot-actions {
+    grid-column: 5;
     display: flex;
-    gap: 5px;
     align-items: center;
-}
-@media (hover: hover) and (pointer: fine) {
-    .spot-actions > .open-in-maps,
-    .spot-actions > .move-control,
-    .spot-actions > button[data-act="duplicate"],
-    .spot-actions > button[data-act="edit"],
-    .spot-actions > button[data-act="delete"] {
-        opacity: 0;
-        transform: translateX(24px) scale(0.9);
-        transition:
-            opacity 0.14s ease,
-            transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-    .spot:hover .spot-actions > .open-in-maps,
-    .spot:hover .spot-actions > .move-control,
-    .spot:hover .spot-actions > button[data-act="duplicate"],
-    .spot:hover .spot-actions > button[data-act="edit"],
-    .spot:hover .spot-actions > button[data-act="delete"],
-    .spot:focus-within .spot-actions > .open-in-maps,
-    .spot:focus-within .spot-actions > .move-control,
-    .spot:focus-within .spot-actions > button[data-act="duplicate"],
-    .spot:focus-within .spot-actions > button[data-act="edit"],
-    .spot:focus-within .spot-actions > button[data-act="delete"],
-    .spot-actions:focus-within > .open-in-maps,
-    .spot-actions:focus-within > .move-control,
-    .spot-actions:focus-within > button[data-act="duplicate"],
-    .spot-actions:focus-within > button[data-act="edit"],
-    .spot-actions:focus-within > button[data-act="delete"] {
-        opacity: 1;
-        transform: translateX(0) scale(1);
-    }
-    .spot:hover .spot-actions > button[data-act="delete"],
-    .spot:focus-within .spot-actions > button[data-act="delete"] {
-        transition-delay: 0s;
-    }
-    .spot:hover .spot-actions > button[data-act="edit"],
-    .spot:focus-within .spot-actions > button[data-act="edit"] {
-        transition-delay: 0.025s;
-    }
-    .spot:hover .spot-actions > button[data-act="duplicate"],
-    .spot:focus-within .spot-actions > button[data-act="duplicate"] {
-        transition-delay: 0.05s;
-    }
-    .spot:hover .spot-actions > .move-control,
-    .spot:focus-within .spot-actions > .move-control {
-        transition-delay: 0.075s;
-    }
-    .spot:hover .spot-actions > .open-in-maps,
-    .spot:focus-within .spot-actions > .open-in-maps {
-        transition-delay: 0.1s;
-    }
 }
 .spot-toggle {
     display: grid;
-    width: 20px;
-    height: 20px;
+    width: 32px;
+    height: 40px;
     place-items: center;
+    border-radius: 8px;
     cursor: pointer;
 }
 .spot-toggle input {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     margin: 0;
     accent-color: var(--green);
     cursor: pointer;
 }
 .spot-toggle:has(input:focus-visible) {
     outline: 2px solid var(--green);
-    outline-offset: 2px;
-}
-.spot-actions button,
-.spot-actions > a {
-    border: 0;
-    background: #f5f3ee;
-    color: #697277;
-    width: 24px;
-    height: 24px;
-    border-radius: 3px;
-    padding: 0;
-    font-size: 15px;
-}
-.spot-actions > a {
-    display: inline-grid;
-    place-items: center;
-    text-decoration: none;
-}
-.spot-actions button:hover,
-.spot-actions > a:hover {
-    background: #e9e6de;
-}
-.spot-actions > a:focus-visible {
-    outline: 2px solid var(--green);
-    outline-offset: 2px;
+    outline-offset: -2px;
 }
 .day-directions-link {
     display: inline-block;
@@ -1077,31 +1095,35 @@ body.preview-mode .quick-add {
     color: var(--green);
     font-weight: 700;
 }
-.spot-actions .move-button {
-    width: 24px;
-    min-width: 24px;
-    padding: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--red);
-    font-size: 15px;
-    font-weight: 700;
-}
 .spot-overflow-control {
     position: relative;
-    display: none;
+    display: inline-flex;
 }
 .spot-actions .spot-overflow-button {
-    width: 28px;
-    min-width: 28px;
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 0;
+    background: transparent;
     color: var(--ink);
-    font-size: 19px;
-    font-weight: 700;
-    line-height: 1;
+    transition: 0.16s ease;
+}
+.spot-overflow-button svg {
+    width: 19px;
+    height: 19px;
+    fill: currentColor;
+}
+.spot-actions .spot-overflow-button:hover,
+.spot-actions .spot-overflow-button:focus-visible,
+.spot-actions .spot-overflow-button[aria-expanded="true"] {
+    border-color: var(--line);
+    background: #f7f4ee;
+    outline: none;
 }
 .spot-overflow-menu {
     position: absolute;
@@ -1132,7 +1154,7 @@ body.preview-mode .quick-add {
 .spot-overflow-menu > .move-control > .spot-overflow-item {
     width: 100%;
     height: auto;
-    min-height: 40px;
+    min-height: 44px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1149,9 +1171,14 @@ body.preview-mode .quick-add {
 .spot-overflow-menu > .spot-overflow-item > :first-child,
 .spot-overflow-menu > .move-control > .spot-overflow-item > :first-child {
     width: 18px;
+    height: 18px;
+    flex: none;
     color: var(--red);
-    font-size: 16px;
-    text-align: center;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 .spot-overflow-menu > .spot-overflow-item:hover,
 .spot-overflow-menu > .spot-overflow-item:focus-visible,
@@ -1187,6 +1214,7 @@ body.preview-mode .quick-add {
     width: min(260px, calc(100vw - 34px));
     max-height: 300px;
     overflow-y: auto;
+    overscroll-behavior-y: contain;
     padding: 7px;
     background: #fff;
     border: 1px solid var(--line);
@@ -1223,9 +1251,13 @@ body.preview-mode .quick-add {
     display: flex;
     align-items: center;
     gap: 10px;
+    border: 0;
     background: transparent;
     border-radius: 7px;
     text-align: left;
+}
+.spot-actions .move-menu button + button {
+    margin-top: 2px;
 }
 .spot-actions .move-menu button:hover:not(:disabled),
 .spot-actions .move-menu button:focus-visible {
