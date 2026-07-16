@@ -1000,9 +1000,7 @@ function renderTags() {
             "tag" + (store.activeTagFilter.has(tag) ? " selected" : "");
         e.textContent = "#" + tag;
         e.onclick = () => {
-            toggleTagFilter(tag);
-            render();
-            drawMap();
+            updateTagFilter(() => toggleTagFilter(tag));
         };
         bar.insertBefore(e, anchor);
     });
@@ -1012,10 +1010,62 @@ function renderTags() {
     $("#filterActive").hidden = !hasFilter;
     $("#clearFilter").hidden = !hasFilter;
     $("#clearFilter").onclick = () => {
-        clearTagFilter();
-        render();
-        drawMap();
+        updateTagFilter(clearTagFilter);
     };
+}
+
+// Filtering can remove enough cards above the viewport to shrink the document
+// past the current scroll position. It also replaces every day node, so the
+// browser's native scroll anchoring has nothing stable to follow. Keep the day
+// currently underneath the sticky headers at the same visual position and
+// retain the unfiltered list height until the filter is cleared.
+function updateTagFilter(changeFilter) {
+    const tagBarBottom = $("#tagBar").getBoundingClientRect().bottom;
+    const days = [...daysEl.querySelectorAll(".day")];
+    const anchorDay =
+        days.find((day) => {
+            const rect = day.getBoundingClientRect();
+            return rect.top <= tagBarBottom && rect.bottom > tagBarBottom;
+        }) ||
+        days.find((day) => day.getBoundingClientRect().bottom > tagBarBottom);
+    const anchorHead = anchorDay?.querySelector(":scope > .day-head");
+    const anchor = anchorHead
+        ? {
+              id: anchorDay.dataset.day,
+              top: anchorHead.getBoundingClientRect().top,
+          }
+        : null;
+    const previousHeight = daysEl.getBoundingClientRect().height;
+
+    changeFilter();
+    if (store.activeTagFilter.size > 0) {
+        const reservedHeight = Number.parseFloat(daysEl.style.minHeight) || 0;
+        daysEl.style.minHeight = `${Math.max(previousHeight, reservedHeight)}px`;
+    }
+
+    render();
+    if (store.activeTagFilter.size === 0) daysEl.style.minHeight = "";
+
+    const restoreAnchor = () => {
+        if (anchor && window.scrollY > 0) {
+            const nextDay = [...daysEl.querySelectorAll(".day")].find(
+                (day) => day.dataset.day === anchor.id,
+            );
+            const nextHead = nextDay?.querySelector(":scope > .day-head");
+            if (nextHead)
+                window.scrollBy(
+                    0,
+                    nextHead.getBoundingClientRect().top - anchor.top,
+                );
+        }
+    };
+    requestAnimationFrame(() => {
+        restoreAnchor();
+        // Sticky offsets and native focus handling settle after the first
+        // frame; correct once more before the user can interact again.
+        requestAnimationFrame(restoreAnchor);
+    });
+    drawMap();
 }
 
 function renderList(el, spots, isBacklog = false) {

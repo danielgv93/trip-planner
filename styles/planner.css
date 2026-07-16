@@ -41,7 +41,11 @@ main {
 .days {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+    align-content: start;
     gap: 13px;
+    /* render() replaces every card, so native scroll anchoring cannot keep a
+       reliable descendant and fights the explicit tag-filter anchor. */
+    overflow-anchor: none;
 }
 .day {
     background: var(--card);
@@ -404,7 +408,8 @@ main {
 }
 .day.collapsed .spots,
 .day.collapsed .add-place,
-.day.collapsed .quick-add {
+.day.collapsed .quick-add,
+.day.collapsed .day-time-tools {
     display: none;
 }
 body.preview-mode .quick-add {
