@@ -27,6 +27,10 @@ function timeMinutes(value) {
     return hours * 60 + minutes;
 }
 
+function isAllDaySchedule(opening, closing) {
+    return opening === 0 && closing === 0;
+}
+
 function clockLabel(minutes) {
     const normalized = ((Math.round(minutes) % 1440) + 1440) % 1440;
     return `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
@@ -34,6 +38,7 @@ function clockLabel(minutes) {
 
 function invalidScheduleRanges(start, end, opening, closing) {
     if (!(end > start)) return [];
+    if (isAllDaySchedule(opening, closing)) return [];
     // Overnight/equal windows need a date-aware model before they can be
     // compared safely. Preserve the previous permissive behaviour for them.
     if (opening !== null && closing !== null && opening >= closing) return [];
@@ -105,14 +110,22 @@ export function buildTimelineProjection(
 ) {
     const spots = Array.isArray(day?.spots) ? day.spots.filter(spotIsEnabled) : [];
     const isToday = day?.date === localDateKey(now);
-    const openings = spots.map((spot) => timeMinutes(spot.openingTime)).filter(Number.isFinite);
+    const openings = spots
+        .filter((spot) => !isAllDaySchedule(
+            timeMinutes(spot.openingTime),
+            timeMinutes(spot.closingTime),
+        ))
+        .map((spot) => timeMinutes(spot.openingTime))
+        .filter(Number.isFinite);
     let cursor = (isToday ? localMinutes(now) : openings.length ? Math.min(...openings) : 540) + delayMinutes;
     let previous = null;
 
     const items = spots.map((spot) => {
         const duration = Number.isInteger(spot.visitMinutes) && spot.visitMinutes > 0 ? spot.visitMinutes : 0;
         const opening = timeMinutes(spot.openingTime);
-        const closing = timeMinutes(spot.closingTime);
+        const storedClosing = timeMinutes(spot.closingTime);
+        const allDay = isAllDaySchedule(opening, storedClosing);
+        const closing = allDay ? 1440 : storedClosing;
         const plannedStart = timeMinutes(spot.plannedStart);
         const visited = validVisitedAt(spot.visitedAt);
         const resolvedTravel = previous
@@ -165,6 +178,7 @@ export function buildTimelineProjection(
             duration,
             opening,
             closing,
+            allDay,
             plannedStart,
             travel,
             travelOfficial: resolvedTravel?.officialMinutes ?? null,
@@ -267,7 +281,9 @@ export function createTimelineView(
         const rawName = stringValue(item.spot.name, "Parada sin nombre") || "Parada sin nombre";
         const name = esc(rawName);
         const timing = item.duration ? `${clockLabel(item.start)}–${clockLabel(item.end)}` : `${clockLabel(item.start)} · sin duración`;
-        const hours = item.opening !== null && item.closing !== null
+        const hours = item.allDay
+            ? "Todo el día"
+            : item.opening !== null && item.closing !== null
             ? `${clockLabel(item.opening)}–${clockLabel(item.closing)}`
             : item.opening !== null ? `Desde ${clockLabel(item.opening)}` : item.closing !== null ? `Hasta ${clockLabel(item.closing)}` : "";
         const outsideCopy = item.outside ? " · parcialmente fuera del horario" : "";

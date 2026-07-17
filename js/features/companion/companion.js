@@ -1090,6 +1090,8 @@ export function scheduleCue(spot, now = new Date(), useCurrentTime = true) {
     const closingMinutes = timeMinutes(closing);
 
     if (openingMinutes !== null && closingMinutes !== null) {
+        if (openingMinutes === 0 && closingMinutes === 0)
+            return "Abierto todo el día";
         if (!useCurrentTime || openingMinutes >= closingMinutes)
             return `Horario guardado: ${opening}–${closing}`;
         const current = localMinutes(now);

@@ -187,6 +187,7 @@ export function openingHourSegments(openingTime, closingTime) {
 function scheduleIntervals(openingTime, closingTime) {
     const opening = timeToMinutes(openingTime),
         closing = timeToMinutes(closingTime);
+    if (opening === 0 && closing === 0) return [[0, 1440]];
     // Equal endpoints are intentionally ambiguous in this data model. Show
     // their full rail, but do not pretend they overlap with other schedules.
     if (opening === null || closing === null || opening === closing) return [];
@@ -244,13 +245,16 @@ export function renderSpotHours(spot, color, interactive = true) {
         return `<span class="spot-hours" aria-label="Horario: abre a las ${esc(openingTime)}"><span class="spot-hours-icon" aria-hidden="true">◷</span><span class="spot-hours-text">Desde ${esc(openingTime)}</span></span>`;
 
     const segments = openingHourSegments(openingTime, closingTime),
+        allDay = opening === 0 && closing === 0,
         rail = segments
             .map(
                 ({ start, width, equal }) =>
                     `<span class="spot-hours-segment${equal ? " is-equal" : ""}" style="--segment-start:${start.toFixed(4)}%;--segment-width:${width.toFixed(4)}%"></span>`,
             )
             .join("");
-    return `<span class="spot-hours is-complete"${interactive ? ' tabindex="0"' : ""} data-hours-opening="${esc(openingTime)}" data-hours-closing="${esc(closingTime)}" aria-label="Horario: abre a las ${esc(openingTime)} y cierra a las ${esc(closingTime)}" style="--hours-color:${safeColor(color)}"><span class="spot-hours-icon" aria-hidden="true">◷</span><span class="spot-hours-text">${esc(openingTime)}–${esc(closingTime)}</span><span class="spot-hours-rail" aria-hidden="true">${rail}<span class="spot-hours-overlaps"></span></span><span class="spot-hours-detail" aria-hidden="true">Abre ${esc(openingTime)} · Cierra ${esc(closingTime)}</span></span>`;
+    const label = allDay ? "Todo el día" : `${openingTime}–${closingTime}`;
+    const detail = allDay ? "Abierto todo el día" : `Abre ${openingTime} · Cierra ${closingTime}`;
+    return `<span class="spot-hours is-complete"${interactive ? ' tabindex="0"' : ""} data-hours-opening="${esc(openingTime)}" data-hours-closing="${esc(closingTime)}" aria-label="Horario: ${esc(allDay ? "todo el día" : `abre a las ${openingTime} y cierra a las ${closingTime}`)}" style="--hours-color:${safeColor(color)}"><span class="spot-hours-icon" aria-hidden="true">◷</span><span class="spot-hours-text">${esc(label)}</span><span class="spot-hours-rail" aria-hidden="true">${rail}<span class="spot-hours-overlaps"></span></span><span class="spot-hours-detail" aria-hidden="true">${esc(detail)}</span></span>`;
 }
 
 function timelineTravelForLeg(from, to) {
@@ -299,9 +303,12 @@ function renderDayTimeTools(day) {
                 closing = timeToMinutes(spot.closingTime),
                 hasOpening = opening !== null,
                 hasClosing = closing !== null,
+                allDay = opening === 0 && closing === 0,
                 color = categoryMeta(spot.category).color,
                 label = hasOpening && hasClosing
-                    ? `${spot.openingTime}–${spot.closingTime}`
+                    ? allDay
+                        ? "Todo el día"
+                        : `${spot.openingTime}–${spot.closingTime}`
                     : hasOpening
                       ? `Desde ${spot.openingTime}`
                       : `Hasta ${spot.closingTime}`,
@@ -1171,7 +1178,9 @@ function clearHoursComparison(list) {
         row.classList.remove("hours-context-active", "hours-context-overlap", "hours-context-dimmed");
         setHoursDetail(
             row,
-            `Abre ${row.dataset.hoursOpening} · Cierra ${row.dataset.hoursClosing}`,
+            row.dataset.hoursOpening === "00:00" && row.dataset.hoursClosing === "00:00"
+                ? "Abierto todo el día"
+                : `Abre ${row.dataset.hoursOpening} · Cierra ${row.dataset.hoursClosing}`,
         );
         setOverlapSegments(row, []);
     });
