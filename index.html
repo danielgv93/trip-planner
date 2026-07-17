@@ -30,6 +30,7 @@
         <link rel="stylesheet" href="styles/taxonomy.css?v=27" />
         <link rel="stylesheet" href="styles/responsive.css?v=29" />
         <link rel="stylesheet" href="styles/companion.css?v=12" />
+        <link rel="stylesheet" href="styles/llm-chat.css?v=5" />
     </head>
     <body>
         <header class="top">
@@ -804,6 +805,65 @@
                 </form>
             </div>
         </dialog>
+        <aside id="llmChat" class="llm-chat" aria-label="Asistente del viaje" data-open="false">
+            <button
+                id="llmChatLauncher"
+                class="llm-chat-launcher"
+                type="button"
+                aria-label="Abrir asistente del viaje"
+                aria-controls="llmChatPanel"
+                aria-expanded="false"
+            ><span aria-hidden="true">✦</span><span class="llm-launcher-label">Asistente</span></button>
+            <section id="llmChatPanel" class="llm-chat-panel" hidden>
+                <header class="llm-chat-head">
+                    <span class="llm-chat-mark" aria-hidden="true">✦</span>
+                    <span><strong>Asistente del viaje</strong><small id="llmChatConnection">Sin configurar</small></span>
+                    <button id="llmChatReset" type="button" aria-label="Nueva conversación" title="Nueva conversación">↺</button>
+                    <button id="llmChatSettingsBtn" type="button" aria-label="Configurar asistente" title="Configurar">⚙</button>
+                    <button id="llmChatClose" type="button" aria-label="Minimizar asistente">−</button>
+                    <div class="llm-head-model">
+                        <span aria-hidden="true">Modelo</span>
+                        <select id="llmHeaderModel" aria-label="Modelo activo">
+                            <option value="">Modelo automático</option>
+                        </select>
+                        <i aria-hidden="true"></i>
+                    </div>
+                </header>
+                <div id="llmChatSettings" class="llm-chat-settings" hidden>
+                    <label>Proveedor
+                        <select id="llmProvider">
+                            <option value="lmstudio">LM Studio</option>
+                            <option value="openai">OpenAI compatible</option>
+                            <option value="anthropic">Anthropic</option>
+                        </select>
+                    </label>
+                    <label>URL base
+                        <input id="llmBaseUrl" type="url" spellcheck="false" placeholder="http://127.0.0.1:1234/v1" />
+                    </label>
+                    <label>Modelo
+                        <select id="llmModel">
+                            <option value="">Prueba la conexión para cargar los modelos</option>
+                        </select>
+                    </label>
+                    <label>Clave API <small>solo se guarda en esta sesión</small>
+                        <input id="llmApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Opcional para servidores locales" />
+                    </label>
+                    <p class="llm-security-note">El plan se envía al endpoint configurado. Usa un servidor de confianza; para APIs cloud, es más seguro usar un proxy propio que una clave directa.</p>
+                    <div class="llm-settings-actions">
+                        <button id="llmTestBtn" type="button">Probar conexión</button>
+                        <button id="llmSaveBtn" class="primary" type="button">Guardar</button>
+                    </div>
+                    <p id="llmTestStatus" class="llm-test-status" role="status"></p>
+                </div>
+                <div id="llmChatMessages" class="llm-chat-messages" aria-live="polite" aria-label="Conversación"></div>
+                <div id="llmChatTyping" class="llm-chat-typing" hidden role="status"><i></i><i></i><i></i><span>Consultando el plan…</span></div>
+                <form id="llmChatForm" class="llm-chat-form">
+                    <textarea id="llmChatInput" rows="1" maxlength="2000" placeholder="Pregunta o pide un cambio…" aria-label="Mensaje para el asistente"></textarea>
+                    <button id="llmChatSend" type="submit" aria-label="Enviar mensaje">↑</button>
+                </form>
+                <footer>El asistente propondrá los cambios antes de aplicarlos.</footer>
+            </section>
+        </aside>
         <div
             id="toasts"
             class="toasts"
@@ -815,5 +875,6 @@
         <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js"></script>
         <script type="module" src="js/main.js?v=2026071702"></script>
         <script type="module" src="js/workspace-resize.js?v=2"></script>
+        <script type="module" src="js/llm-chat-entry.js?v=9"></script>
     </body>
 </html>

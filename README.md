@@ -26,6 +26,7 @@ The interface is currently available in Spanish.
 - **Preview mode** — switch to a cleaner, read-only presentation of the itinerary.
 - **Import and export** — save the complete plan as JSON and restore it later.
 - **GitHub JSON sync** — import an existing repository file and explicitly publish updates with conflict protection.
+- **LLM trip assistant** — connect LM Studio, OpenAI-compatible, or Anthropic endpoints to discuss the current plan and review natural-language changes before applying them.
 - **Local persistence** — changes are automatically stored in the browser with `localStorage`.
 - **Responsive design** — designed for both desktop and mobile use.
 
@@ -63,6 +64,14 @@ Publishing updates only the connected existing file and is always explicit. It i
 
 The app starts with a sample itinerary, which can be restored at any time from the top navigation.
 
+### LLM trip assistant
+
+Open the floating **Asistente** button and use **⚙** to select LM Studio, an OpenAI-compatible API, or Anthropic. Configure the API base URL and model; LM Studio defaults to `http://127.0.0.1:1234/v1` and can detect the first loaded model. The configured provider receives the current portable planning document with each request, including the real day and stop IDs needed to propose safe changes.
+
+The model can answer questions or propose edits to days, stops, trip notes, route settings, and tags. Responses are rendered progressively from each provider's SSE stream. Proposed mutations are validated only after the complete response arrives and appear as an explicit review card; nothing changes until **Aplicar cambios** is pressed. A proposal expires if the plan has changed since it was generated. **↺ Nueva conversación** clears the transient conversation and pending proposals without changing the trip or provider settings.
+
+Provider, base URL, and model are stored locally. API keys remain only in `sessionStorage` and are never included in plan JSON exports. Browser requests require the endpoint to allow the planner origin through CORS. For cloud providers, prefer a trusted server-side proxy so long-lived API credentials are not exposed to browser code.
+
 ## Project Structure
 
 ```text
@@ -87,6 +96,7 @@ trip-planner/
     ├── actions.js      # Header actions and import/export
     ├── plan-json.js    # Canonical portable JSON codec
     ├── github.js       # Optional GitHub file import and publishing
+    ├── llm-chat.js     # Multi-provider chat and validated plan proposals
     ├── budget.js       # Budget breakdown
     ├── currency.js     # Currency formatting and exchange rates
     ├── notes.js        # Trip notes and Markdown preview
