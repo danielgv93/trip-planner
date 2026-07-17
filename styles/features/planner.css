@@ -483,8 +483,7 @@ main {
 }
 .day.collapsed .spots,
 .day.collapsed .add-place,
-.day.collapsed .quick-add,
-.day.collapsed .day-time-tools {
+.day.collapsed .quick-add {
     display: none;
 }
 body.preview-mode .quick-add {
