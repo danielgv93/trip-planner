@@ -1,4 +1,4 @@
-import("./llm-chat.js?v=11")
+import("./llm-chat.js?v=12")
     .then(({ initLlmChat }) => initLlmChat())
     .catch((error) => {
         console.error("No se pudo iniciar el asistente del viaje", error);

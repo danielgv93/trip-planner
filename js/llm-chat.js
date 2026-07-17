@@ -29,6 +29,7 @@ let history = [];
 let busy = false;
 let initialized = false;
 let activeRequestController = null;
+let closeAnimationTimer = null;
 
 function loadConfig() {
     let saved = {};
@@ -859,6 +860,8 @@ function setBusy(value) {
 function openChat() {
     const root = document.querySelector("#llmChat");
     const panel = document.querySelector("#llmChatPanel");
+    clearTimeout(closeAnimationTimer);
+    panel.classList.remove("is-closing");
     root.dataset.open = "true";
     panel.hidden = false;
     document.querySelector("#llmChatLauncher").setAttribute("aria-expanded", "true");
@@ -866,10 +869,34 @@ function openChat() {
 }
 
 function closeChat() {
-    document.querySelector("#llmChat").dataset.open = "false";
-    document.querySelector("#llmChatPanel").hidden = true;
-    document.querySelector("#llmChatLauncher").setAttribute("aria-expanded", "false");
-    document.querySelector("#llmChatLauncher").focus();
+    const root = document.querySelector("#llmChat");
+    const panel = document.querySelector("#llmChatPanel");
+    const launcher = document.querySelector("#llmChatLauncher");
+    let finished = false;
+    const onAnimationEnd = (event) => {
+        if (event.target === panel) finishClose();
+    };
+    const finishClose = () => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(closeAnimationTimer);
+        closeAnimationTimer = null;
+        panel.removeEventListener("animationend", onAnimationEnd);
+        panel.classList.remove("is-closing");
+        panel.hidden = true;
+        root.dataset.open = "false";
+        launcher.focus();
+    };
+
+    launcher.setAttribute("aria-expanded", "false");
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        finishClose();
+        return;
+    }
+
+    panel.classList.add("is-closing");
+    panel.addEventListener("animationend", onAnimationEnd);
+    closeAnimationTimer = setTimeout(finishClose, 470);
 }
 
 async function sendMessage(message) {
