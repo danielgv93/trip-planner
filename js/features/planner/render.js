@@ -31,6 +31,7 @@ import {
     highlightMapSpot,
 } from "../map/map.js";
 import { openDialog } from "./dialogs.js";
+import { pushUndo } from "./history.js";
 import { foreignAmount, localAmount } from "../finance/currency.js";
 import { DAY_LOAD_WARNING_MINUTES } from "../../core/constants.js";
 import { buildTimelineProjection, createTimelineView } from "../companion/timeline.js";
@@ -390,8 +391,15 @@ function commitTimelineStarts(dayId, starts) {
     const currentStarts = new Map(
         buildTimelineProjection(day, {
             travelForLeg: timelineTravelForLeg,
-        }).items.map((item) => [item.spot.id, item.start]),
+        }).items.map((item) => [String(item.spot.id), item.start]),
     );
+    const changed = [...starts].some(
+        ([spotId, minute]) =>
+            Number.isFinite(minute) &&
+            currentStarts.get(String(spotId)) !== minute,
+    );
+    if (!changed) return;
+    pushUndo();
     day.spots.forEach((spot) => {
         const minute = starts.get(String(spot.id));
         if (Number.isFinite(minute)) spot.plannedStart = minutesToTime(minute);
@@ -944,6 +952,11 @@ durationForm.addEventListener("submit", (event) => {
     if (!durationEditing || !durationInput.reportValidity()) return;
     const minutes = Number(durationInput.value);
     if (!Number.isInteger(minutes) || minutes <= 0) return;
+    if (durationEditing.spot.visitMinutes === minutes) {
+        durationDialog.close();
+        return;
+    }
+    pushUndo();
     durationEditing.spot.visitMinutes = minutes;
     durationDialog.close();
     save();
@@ -960,7 +973,9 @@ durationDialog.querySelectorAll("[data-duration-preset]").forEach((button) => {
 });
 
 removeDurationButton.addEventListener("click", () => {
-    if (!durationEditing) return;
+    if (!durationEditing || durationEditing.spot.visitMinutes === undefined)
+        return;
+    pushUndo();
     delete durationEditing.spot.visitMinutes;
     durationDialog.close();
     save();
@@ -992,13 +1007,27 @@ travelForm.addEventListener("submit", (event) => {
         travelEditing.to.id,
         travelEditing.profile,
     );
-    if (minutes === travelEditing.officialMinutes)
-        delete store.routeTimeOverrides[key];
-    else store.routeTimeOverrides[key] = minutes;
     const profileKey = routeTimeProfileKey(
         travelEditing.from.id,
         travelEditing.to.id,
     );
+    const nextOverride =
+        minutes === travelEditing.officialMinutes ? undefined : minutes;
+    const nextProfile =
+        travelEditing.profile === "walking"
+            ? undefined
+            : travelEditing.profile;
+    if (
+        store.routeTimeOverrides[key] === nextOverride &&
+        store.routeTimeProfiles[profileKey] === nextProfile
+    ) {
+        travelDialog.close();
+        return;
+    }
+    pushUndo();
+    if (minutes === travelEditing.officialMinutes)
+        delete store.routeTimeOverrides[key];
+    else store.routeTimeOverrides[key] = minutes;
     if (travelEditing.profile === "walking")
         delete store.routeTimeProfiles[profileKey];
     else store.routeTimeProfiles[profileKey] = travelEditing.profile;
@@ -1048,13 +1077,14 @@ travelDialog.querySelectorAll("[data-travel-step]").forEach((button) => {
 
 resetTravelTimeButton.addEventListener("click", () => {
     if (!travelEditing) return;
-    delete store.routeTimeOverrides[
-        routeTimeOverrideKey(
-            travelEditing.from.id,
-            travelEditing.to.id,
-            travelEditing.profile,
-        )
-    ];
+    const key = routeTimeOverrideKey(
+        travelEditing.from.id,
+        travelEditing.to.id,
+        travelEditing.profile,
+    );
+    if (store.routeTimeOverrides[key] === undefined) return;
+    pushUndo();
+    delete store.routeTimeOverrides[key];
     travelDialog.close();
     save();
     render();
@@ -1198,6 +1228,7 @@ export function duplicateDay(dayId) {
                 tags: [...(s.tags || [])],
             })),
         };
+    pushUndo();
     store.state.splice(idx + 1, 0, clone);
     save();
     render();
@@ -1214,6 +1245,7 @@ export function duplicateSpot(spotId, listId) {
         id: id(),
         tags: [...(arr[idx].tags || [])],
     };
+    pushUndo();
     arr.splice(idx + 1, 0, clone);
     save();
     render();
@@ -1617,6 +1649,7 @@ function wireQuickAdd(card, dayId) {
             const target =
                 dayId === "backlog" ? store.backlog : dayBy(dayId)?.spots;
             if (!target) return;
+            pushUndo();
             target.push({ id: id(), name, address: "", note: "", tags: [] });
             quickAddDraft = "";
             store.active = dayId;
@@ -1730,7 +1763,8 @@ export function render({ persist = true } = {}) {
             }
         });
         el.querySelector(".date-box input").addEventListener("change", (e) => {
-            if (!e.target.value) return;
+            if (!e.target.value || e.target.value === day.date) return;
+            pushUndo();
             day.date = e.target.value;
             save();
             render();
@@ -1754,6 +1788,7 @@ export function render({ persist = true } = {}) {
                     "¿Eliminar este día? Sus paradas pasarán al backlog.",
             }).then((ok) => {
                 if (!ok) return;
+                pushUndo();
                 store.backlog.push(...day.spots);
                 store.state = store.state.filter((d) => d.id !== day.id);
                 store.active = "backlog";
@@ -1802,7 +1837,9 @@ function editTitle(day, el) {
         if (done) return;
         done = true;
         const v = input.value.trim();
-        day.title = v || day.title;
+        const nextTitle = v || day.title;
+        if (nextTitle !== day.title) pushUndo();
+        day.title = nextTitle;
         save();
         drawMap();
         render();
@@ -1823,23 +1860,24 @@ function editTitle(day, el) {
 
 // Single source of truth for relocating a spot between backlog and any day.
 export function moveSpot(spotId, toDay, at) {
-    let spot;
-    let fromDay = null;
-    const bi = store.backlog.findIndex((s) => s.id === spotId);
-    if (bi > -1) {
-        spot = store.backlog.splice(bi, 1)[0];
+    let source = store.backlog,
+        sourceIndex = store.backlog.findIndex((spot) => spot.id === spotId),
         fromDay = "backlog";
+    if (sourceIndex === -1) {
+        const sourceDay = store.state.find((day) =>
+            day.spots.some((spot) => spot.id === spotId),
+        );
+        if (!sourceDay) return;
+        source = sourceDay.spots;
+        sourceIndex = source.findIndex((spot) => spot.id === spotId);
+        fromDay = sourceDay.id;
     }
-    store.state.forEach((d) => {
-        const i = d.spots.findIndex((s) => s.id === spotId);
-        if (i > -1) {
-            spot = d.spots.splice(i, 1)[0];
-            fromDay = d.id;
-        }
-    });
-    if (!spot) return;
+    const target = toDay === "backlog" ? store.backlog : dayBy(toDay)?.spots;
+    if (!target) return;
+
+    pushUndo();
+    const spot = source.splice(sourceIndex, 1)[0];
     if (fromDay !== toDay) delete spot.plannedStart;
-    const target = toDay === "backlog" ? store.backlog : dayBy(toDay).spots;
     target.splice(at, 0, spot);
     store.active = toDay;
     save();
@@ -1851,6 +1889,9 @@ export function moveSpot(spotId, toDay, at) {
 export function moveDay(dayId, at) {
     const from = store.state.findIndex((day) => day.id === dayId);
     if (from === -1) return;
+    const targetIndex = Math.max(0, Math.min(at, store.state.length - 1));
+    if (from === targetIndex) return;
+    pushUndo();
     const [day] = store.state.splice(from, 1);
     store.state.splice(Math.max(0, Math.min(at, store.state.length)), 0, day);
     save();
@@ -1912,6 +1953,7 @@ daysEl.addEventListener("click", (e) => {
             if (!ok) return;
             const idx = items.findIndex((s) => s.id === spotEl.dataset.spot);
             if (idx === -1) return;
+            pushUndo();
             items.splice(idx, 1);
             save();
             render();

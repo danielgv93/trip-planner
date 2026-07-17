@@ -11,11 +11,23 @@ import { syncTripNotes } from "../notes/notes.js";
 import { CURRENCIES, refreshExchangeRate } from "../finance/currency.js";
 import { serializePlan, parsePlanJson } from "../../core/plan-json.js?v=33";
 import { applyImportedPlan } from "./import-plan.js?v=1";
+import { pushUndo } from "./history.js";
 
+let titleEditCaptured = false;
+$("#tripTitle").addEventListener("focus", () => {
+    titleEditCaptured = false;
+});
 $("#tripTitle").addEventListener("input", (e) => {
+    if (!titleEditCaptured) {
+        pushUndo();
+        titleEditCaptured = true;
+    }
     store.tripTitle = e.target.value;
     document.title = (store.tripTitle || "Viaje") + " · Planificador de ruta";
     save();
+});
+$("#tripTitle").addEventListener("blur", () => {
+    titleEditCaptured = false;
 });
 
 function fillCurrencySelect(select) {
@@ -70,6 +82,7 @@ $("#addDay").onclick = () => {
         title: "Nuevo día",
         spots: [],
     };
+    pushUndo();
     store.state.push(d);
     store.active = d.id;
     save();
@@ -97,6 +110,7 @@ $("#resetBtn").onclick = () => {
         confirmLabel: "Restaurar",
     }).then((ok) => {
         if (!ok) return;
+        pushUndo();
         store.state = structuredClone(sample);
         store.backlog = [];
         store.tags = ["comida", "templo", "reserva", "compras"];

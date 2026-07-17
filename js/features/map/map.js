@@ -19,7 +19,11 @@ import { distanceMeters } from "../../core/geo.js";
 import { fetchSpotImage } from "./images.js";
 import { registerBasemapMap } from "./basemap.js?v=5";
 
-const map = L.map("map", { zoomControl: false }).setView([20, 0], 2);
+const usesCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
+const map = L.map("map", {
+    dragging: !usesCoarsePointer,
+    zoomControl: false,
+}).setView([20, 0], 2);
 L.control.zoom({ position: "bottomright" }).addTo(map);
 registerBasemapMap(map);
 let routeLayer = L.layerGroup().addTo(map);
@@ -507,6 +511,8 @@ export function drawMap() {
 function initPreview(lat = 20, lng = 0, zoom = 2) {
     if (!previewMap) {
         previewMap = L.map("previewMap", {
+            dragging: !usesCoarsePointer,
+            scrollWheelZoom: false,
             zoomControl: false,
         }).setView([lat, lng], zoom);
         registerBasemapMap(previewMap);

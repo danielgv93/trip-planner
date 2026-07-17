@@ -7,6 +7,7 @@ import { store } from "../core/store.js";
 import "../shared/modal-scroll.js?v=1";
 import "../features/planner/dialogs.js";
 import "../features/planner/dnd.js";
+import "../features/planner/undo-controls.js";
 import "../features/planner/actions.js?v=34";
 import "../features/planner/spot-search.js";
 import "../features/planner/sticky-days.js";

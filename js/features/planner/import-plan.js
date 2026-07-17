@@ -6,6 +6,7 @@ import { normalizePlan } from "../../core/plan-json.js?v=33";
 import { applyTitle, render } from "./render.js";
 import { drawMap, syncRouteVisualizationControl } from "../map/map.js";
 import { syncTripNotes } from "../notes/notes.js";
+import { pushUndo } from "./history.js";
 
 function setControlValue(selector, value) {
     const control = document.querySelector(selector);
@@ -13,6 +14,7 @@ function setControlValue(selector, value) {
 }
 
 export function applyImportedPlan(plan) {
+    pushUndo();
     replacePlanState(normalizePlan(plan));
 
     document.body.classList.remove("preview-mode");

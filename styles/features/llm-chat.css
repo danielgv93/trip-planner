@@ -284,10 +284,15 @@
 .llm-chat-form button:disabled { opacity: .45; }
 .llm-chat-panel > footer { padding: 0 12px 9px; background: #fff; color: var(--muted); font-size: 9px; text-align: center; }
 @media (max-width: 600px) {
-    .llm-chat { right: 14px; bottom: 14px; }
+    .llm-chat {
+        right: max(14px, env(safe-area-inset-right));
+        bottom: max(14px, env(safe-area-inset-bottom));
+    }
     .llm-chat-launcher { width: 54px; min-width: 54px; height: 54px; padding: 0; }
-    .llm-chat-launcher:hover { width: 54px; gap: 0; }
-    .llm-chat-launcher:hover .llm-launcher-label { max-width: 0; opacity: 0; }
+    .llm-chat-launcher:hover,
+    .llm-chat-launcher:focus-visible { width: 54px; gap: 0; }
+    .llm-chat-launcher:hover .llm-launcher-label,
+    .llm-chat-launcher:focus-visible .llm-launcher-label { max-width: 0; opacity: 0; }
     .llm-chat-panel {
         position: fixed;
         inset: 10px;

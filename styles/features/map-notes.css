@@ -1,6 +1,7 @@
 .map-panel {
     position: sticky;
     top: calc(var(--nav-height) + 20px);
+    isolation: isolate;
     border: 1px solid var(--line);
     border-radius: 7px;
     overflow: hidden;

@@ -36,6 +36,10 @@ let dayDragEl = null,
     dayCardW = 0,
     daySettled = false;
 
+export function isDragInProgress() {
+    return dragging || dayDragging;
+}
+
 function insertionPoint(list, y) {
     const items = [...list.querySelectorAll(".spot:not(.dragging)")];
     return items.reduce(

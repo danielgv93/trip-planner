@@ -225,6 +225,13 @@ button {
 .top-actions > .hamburger:hover {
     background: #ffffff14;
 }
+.nav-menu-items > button:disabled {
+    cursor: default;
+    opacity: 0.42;
+}
+.nav-menu-items > button:disabled:hover {
+    background: transparent;
+}
 .top .primary {
     background: #d44d43;
     border-color: #d44d43;

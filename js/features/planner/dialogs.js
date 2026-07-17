@@ -5,6 +5,7 @@ import { store, save, dayBy } from "../../core/store.js";
 import { $, esc, slug, id } from "../../shared/dom.js";
 import { toast, confirmAction } from "../../shared/notify.js?v=3";
 import { render } from "./render.js";
+import { pushUndo } from "./history.js";
 import {
     drawMap,
     setPreview,
@@ -317,6 +318,7 @@ $("#placeForm").addEventListener("submit", async (e) => {
     const target =
         editing.dayId === "backlog" ? store.backlog : dayBy(editing.dayId).spots;
     let spot = editing.spot;
+    pushUndo();
     if (spot) {
         Object.assign(spot, {
             name,
@@ -412,6 +414,7 @@ function renderManagerTags() {
             if (nextTag === currentTag) return;
 
             const previousTag = currentTag;
+            pushUndo();
             const index = store.tags.indexOf(previousTag);
             if (index !== -1) store.tags[index] = nextTag;
             [...store.state.flatMap((d) => d.spots), ...store.backlog].forEach(
@@ -460,6 +463,7 @@ function renderManagerTags() {
                 message: `¿Borrar la etiqueta #${currentTag} de todas las paradas?`,
             }).then((ok) => {
                 if (!ok) return;
+                pushUndo();
                 store.tags = store.tags.filter((t) => t !== currentTag);
                 [...store.state.flatMap((d) => d.spots), ...store.backlog].forEach(
                     (s) =>
@@ -488,6 +492,7 @@ tagDialog.querySelector(".close").onclick = () => tagDialog.close();
 $("#addTag").onclick = () => {
     const value = $("#newTag").value.trim().replace(/^#/, "").toLowerCase();
     if (value && !store.tags.includes(value)) {
+        pushUndo();
         store.tags.push(value);
         $("#newTag").value = "";
         save();
