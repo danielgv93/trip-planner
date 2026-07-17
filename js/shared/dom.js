@@ -1,6 +1,6 @@
 // Stateless DOM and formatting helpers shared across modules.
 
-import { UNCATEGORIZED } from "./constants.js";
+import { UNCATEGORIZED } from "../core/constants.js";
 
 export const $ = (s) => document.querySelector(s);
 

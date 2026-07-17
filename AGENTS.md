@@ -4,7 +4,7 @@ This file provides guidance to Codex when working with code in this repository.
 
 ## What this is
 
-A browser-based trip route planner. It uses vanilla JavaScript **ES modules**, with no framework, build step, package manager, backend, or automated tests. UI copy is in **Spanish** (`lang="es"`). The app is split across `index.html` (markup shell and dialogs), `styles/` (CSS by UI responsibility), and `js/` (ES modules, entry point `js/main.js`).
+A browser-based trip route planner. It uses vanilla JavaScript **ES modules**, with no framework, build step, package manager, backend, or automated tests. UI copy is in **Spanish** (`lang="es"`). The app is split across `index.html` (markup shell and dialogs), `styles/` (CSS by layer and feature), and `js/` (ES modules, entry point `js/app/main.js`).
 
 Plans are stored only in the browser and can be imported/exported as JSON. There is no account or server-side synchronization.
 
@@ -22,7 +22,7 @@ There is no lint, build, or test command. Verify changes by serving the app and 
 
 Runtime network dependencies:
 
-- **Leaflet 1.9.4** and Google Fonts load from CDNs. Leaflet is exposed as the global `L` by a classic script loaded before `js/main.js`.
+- **Leaflet 1.9.4** and Google Fonts load from CDNs. Leaflet is exposed as the global `L` by a classic script loaded before `js/app/main.js`.
 - Leaflet map tiles come from OpenStreetMap.
 - Place geocoding uses Nominatim.
 - Street routing uses the public `routing.openstreetmap.de` OSRM instances.
@@ -33,44 +33,38 @@ Map tiles, search, street routes, exchange rates, and thumbnails therefore requi
 
 ## Architecture
 
-The ES modules under `js/` are wired by `js/main.js`. Importing the side-effect modules attaches event listeners; after the module graph is evaluated, `main.js` performs the initial `applyTitle(); render(); drawMap();` and refreshes the exchange rate.
+The ES modules under `js/` are wired by `js/app/main.js`. Importing the side-effect modules attaches event listeners; after the module graph is evaluated, `main.js` performs the initial `applyTitle(); render(); drawMap();` and refreshes the exchange rate.
 
-There is an intentional circular import between `render.js` and `dialogs.js`. It is safe because their cross-module references run from handlers after module initialization, not during top-level evaluation.
+The source tree follows four explicit boundaries:
 
-Module map:
+- **`js/app/`** — composition and startup only. Feature modules never import from this layer.
+- **`js/core/`** — shared state, constants, persistence, and portable plan normalization.
+- **`js/shared/`** — small domain-neutral browser/UI primitives.
+- **`js/features/<domain>/`** — product behavior grouped by owning capability. Cross-feature imports must be explicit; do not add new flat modules directly under `js/`.
 
-- **`constants.js`** — sample itinerary and static design/default data: `sample`, `DEFAULT_CATEGORIES`, `UNCATEGORIZED`, `DEFAULT_TITLE`, and `DAY_COLORS`.
-- **`store.js`** — the single source of truth, persistence, tag filtering, enabled-stop semantics, day/category lookup, and category route-connectivity rules.
-- **`dom.js`** — stateless helpers: `$`, `esc`, `slug`, `safeColor`, `fmt`, `id`, and cached `daysEl`.
-- **`notify.js`** — toast notifications and the styled async `confirmAction()` dialog.
-- **`images.js`** — Wikipedia thumbnail lookup with an in-memory cache. Images are preview-only and are not persisted on spots.
-- **`currency.js`** — supported currencies, money formatting, conversion helpers, and Frankfurter exchange-rate refresh.
-- **`map.js`** — main Leaflet map, dialog preview map, global preview, Google Maps links, straight/street route drawing, OSRM requests/cache, route controls, and legend.
-- **`render.js`** — destructive itinerary rendering, tag filters, hours/schedule visualization, budget totals, day/spot operations, and delegated spot actions.
-- **`dialogs.js`** — add/edit-place dialog, debounced Nominatim search, location preview, time normalization, and tag/category managers.
-- **`dnd.js`** — custom pointer-based reordering for spots and real days, including ghost elements and FLIP animation.
-- **`actions.js`** — trip title, currency dialog, add day, preview, reset, navigation, and JSON import/export.
-- **`budget.js`** — read-only per-group and whole-trip budget dialog derived from shared state.
-- **`notes.js`** — autosaved trip notes and a small, escaped Markdown preview implementation.
-- **`spot-search.js`** — fuzzy in-plan stop search (`Ctrl/Cmd + K`) and navigation to the selected card.
-- **`sticky-days.js`** — responsive sticky offsets and pinned-state classes for the tag bar/day headers.
-- **`modal-scroll.js`** — prevents wheel gestures inside native dialogs from leaking to the page when no inner scroller can consume them.
-- **`main.js`** — imports side-effect modules, paints the initial UI/map, and starts the exchange-rate refresh.
+There is an intentional circular import between `features/planner/render.js` and `features/planner/dialogs.js`. It is safe because their cross-module references run from handlers after module initialization, not during top-level evaluation.
 
-CSS is split by responsibility:
+Module map (paths are relative to `js/`):
 
-- `base.css` — tokens, global styles, and top navigation.
-- `search.css` — quick-search overlay.
-- `planner.css` — day/spot cards, schedules, and drag-and-drop.
-- `map-notes.css` — map panel, Leaflet overrides, and trip notes.
-- `dialog-finance.css` — shared dialog, currency, and budget styling.
-- `dialogs.css` — forms, confirmations, and notifications.
-- `taxonomy.css` — tag/category controls.
-- `responsive.css` — preview mode and responsive overrides.
+- **`core/constants.js`** — sample itinerary and static design/default data.
+- **`core/store.js`** — the single source of truth and local persistence.
+- **`core/plan-json.js`** — portable plan normalization, import, and export.
+- **`shared/dom.js`** / **`shared/notify.js`** — stateless DOM helpers and reusable notifications.
+- **`features/planner/`** — destructive itinerary rendering, dialogs, actions, drag/drop, and search.
+- **`features/map/`** — Leaflet maps, basemaps, routes, and place images.
+- **`features/finance/`** — budget and exchange-rate behavior.
+- **`features/notes/`** — autosaved trip notes and Markdown preview.
+- **`features/companion/`** — focused on-trip experience and timeline projection.
+- **`features/github/`** — optional explicit GitHub JSON synchronization.
+- **`features/assistant/`** — multi-provider LLM chat and validated plan proposals.
+- **`features/workspace/`** — persisted desktop workspace resizing.
+- **`app/main.js`** — imports side-effect modules, paints the initial UI/map, and starts background initialization.
+
+CSS has a single entry point at `styles/app.css`. It imports global rules from `styles/foundation/`, feature-owned rules from `styles/features/`, and workspace/responsive rules from `styles/layout/`. Its explicit import order preserves the established cascade; update it deliberately when adding styles.
 
 ## State and persisted data
 
-All shared mutable state lives as properties of the single exported `store` object in `js/store.js`. Do not introduce parallel global state. ES module consumers all mutate the same object reference.
+All shared mutable state lives as properties of the single exported `store` object in `js/core/store.js`. Do not introduce parallel global state. ES module consumers all mutate the same object reference.
 
 Important `store` fields:
 

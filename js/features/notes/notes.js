@@ -1,5 +1,5 @@
-import { store, save } from "./store.js";
-import { $, esc } from "./dom.js";
+import { store, save } from "../../core/store.js";
+import { $, esc } from "../../shared/dom.js";
 
 const notes = $("#tripNotes");
 const toggle = $("#tripNotesToggle");

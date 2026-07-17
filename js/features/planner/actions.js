@@ -1,15 +1,15 @@
 // Header / top-bar actions: trip title editing, add day, preview toggle, reset,
 // import/export. Side-effect module — importing it wires the top-bar listeners.
 
-import { store, save, clearTagFilter } from "./store.js";
-import { $, slug, id } from "./dom.js";
+import { store, save, clearTagFilter } from "../../core/store.js";
+import { $, slug, id } from "../../shared/dom.js";
 import { render, applyTitle } from "./render.js";
-import { drawMap, syncRouteVisualizationControl } from "./map.js";
-import { toast, confirmAction } from "./notify.js?v=3";
-import { sample, DEFAULT_CATEGORIES, DEFAULT_TITLE } from "./constants.js";
-import { syncTripNotes } from "./notes.js";
-import { CURRENCIES, refreshExchangeRate } from "./currency.js";
-import { serializePlan, parsePlanJson, applyImportedPlan } from "./plan-json.js?v=32";
+import { drawMap, syncRouteVisualizationControl } from "../map/map.js";
+import { toast, confirmAction } from "../../shared/notify.js?v=3";
+import { sample, DEFAULT_CATEGORIES, DEFAULT_TITLE } from "../../core/constants.js";
+import { syncTripNotes } from "../notes/notes.js";
+import { CURRENCIES, refreshExchangeRate } from "../finance/currency.js";
+import { serializePlan, parsePlanJson, applyImportedPlan } from "../../core/plan-json.js?v=32";
 
 $("#tripTitle").addEventListener("input", (e) => {
     store.tripTitle = e.target.value;

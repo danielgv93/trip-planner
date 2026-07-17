@@ -1,0 +1,15 @@
+/*
+ * Single stylesheet entry point. The order preserves the established cascade;
+ * add new imports deliberately instead of relying on directory traversal.
+ */
+@import url("./foundation/base.css");
+@import url("./features/search.css");
+@import url("./features/planner.css");
+@import url("./layout/workspace-resize.css");
+@import url("./features/map-notes.css");
+@import url("./features/dialog-finance.css");
+@import url("./features/dialogs.css");
+@import url("./features/taxonomy.css");
+@import url("./layout/responsive.css");
+@import url("./features/companion.css");
+@import url("./features/llm-chat.css");

@@ -2,10 +2,10 @@
 // GitHub repository file. Credentials never leave sessionStorage except in the
 // Authorization header sent directly to api.github.com.
 
-import { store } from "./store.js";
-import { $ } from "./dom.js";
-import { parsePlanJson, applyImportedPlan, serializePlan } from "./plan-json.js?v=32";
-import { confirmAction, promptAction, toast } from "./notify.js?v=3";
+import { store } from "../../core/store.js";
+import { $ } from "../../shared/dom.js";
+import { parsePlanJson, applyImportedPlan, serializePlan } from "../../core/plan-json.js?v=32";
+import { confirmAction, promptAction, toast } from "../../shared/notify.js?v=3";
 
 export const GITHUB_API_BASE = "https://api.github.com";
 export const GITHUB_ACCEPT = "application/vnd.github+json";

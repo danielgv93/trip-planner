@@ -3,9 +3,9 @@
 
 import { store, save, clearTagFilter } from "./store.js";
 import { DEFAULT_CATEGORIES } from "./constants.js";
-import { applyTitle, render } from "./render.js";
-import { drawMap, syncRouteVisualizationControl } from "./map.js";
-import { syncTripNotes } from "./notes.js";
+import { applyTitle, render } from "../features/planner/render.js";
+import { drawMap, syncRouteVisualizationControl } from "../features/map/map.js";
+import { syncTripNotes } from "../features/notes/notes.js";
 
 export const PLAN_VERSION = 21;
 

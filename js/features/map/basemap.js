@@ -2,8 +2,8 @@
 // uses vector labels with Latin/English names alongside the local name when
 // available, without requiring an API key.
 
-import { store, save } from "./store.js";
-import { $ } from "./dom.js";
+import { store, save } from "../../core/store.js";
+import { $ } from "../../shared/dom.js";
 
 function clearOpenFreeMapAttribution(map) {
     const control = map.attributionControl;

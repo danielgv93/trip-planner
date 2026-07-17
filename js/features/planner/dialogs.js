@@ -1,16 +1,16 @@
 // The add/edit place dialog (with Nominatim search) and the tag / category
 // manager dialogs. Wires its own listeners on module load.
 
-import { store, save, dayBy } from "./store.js";
-import { $, esc, slug, id } from "./dom.js";
-import { toast, confirmAction } from "./notify.js?v=3";
+import { store, save, dayBy } from "../../core/store.js";
+import { $, esc, slug, id } from "../../shared/dom.js";
+import { toast, confirmAction } from "../../shared/notify.js?v=3";
 import { render } from "./render.js";
 import {
     drawMap,
     setPreview,
     openPreview,
     clearPreviewMarker,
-} from "./map.js";
+} from "../map/map.js";
 
 const dialog = $("#placeDialog");
 const tagDialog = $("#tagDialog");

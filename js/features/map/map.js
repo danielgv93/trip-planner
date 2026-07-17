@@ -17,11 +17,11 @@ import {
     spotMatchesFilter,
     spotIsEnabled,
     routeTimeOverride,
-} from "./store.js";
-import { $, esc, safeColor } from "./dom.js";
-import { DAY_COLORS } from "./constants.js";
+} from "../../core/store.js";
+import { $, esc, safeColor } from "../../shared/dom.js";
+import { DAY_COLORS } from "../../core/constants.js";
 import { fetchSpotImage } from "./images.js";
-import { refreshDayLoad } from "./render.js";
+import { refreshDayLoad } from "../planner/render.js";
 import { registerBasemapMap } from "./basemap.js?v=5";
 
 const map = L.map("map", { zoomControl: false }).setView([20, 0], 2);

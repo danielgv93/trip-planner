@@ -2,23 +2,23 @@
 // deliberately does not change planner selection, filters, preview state,
 // URLs, or browser history. Only explicit visit toggles persist trip data.
 
-import { $, esc } from "./dom.js";
+import { $, esc } from "../../shared/dom.js";
 import {
     store,
     save,
     spotIsEnabled,
     routeTimeOverride,
     routeTimeProfile,
-} from "./store.js";
-import { render } from "./render.js";
+} from "../../core/store.js";
+import { render } from "../planner/render.js";
 import {
     drawMap,
     invalidateMainMap,
     mapsLinkFor,
     cachedRouteTravelMinutes,
-} from "./map.js";
+} from "../map/map.js";
 import { createTimelineView } from "./timeline.js";
-import { registerBasemapMap } from "./basemap.js?v=5";
+import { registerBasemapMap } from "../map/basemap.js?v=5";
 export { buildTimelineProjection } from "./timeline.js";
 
 let companionActive = false;

@@ -1,4 +1,4 @@
-import { store, save } from "./store.js";
+import { store, save } from "../../core/store.js";
 
 export const CURRENCIES = [
     ["EUR", "Euro"], ["USD", "Dólar estadounidense"], ["GBP", "Libra esterlina"],

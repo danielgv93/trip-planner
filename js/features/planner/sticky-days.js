@@ -2,7 +2,7 @@
 // subtle elevated state only while a header is pinned. The actual hand-off
 // between days is handled by CSS sticky positioning and each article's bounds.
 
-import { daysEl } from "./dom.js";
+import { daysEl } from "../../shared/dom.js";
 
 const navbar = document.querySelector(".top"),
     tagBar = document.querySelector("#tagBar"),

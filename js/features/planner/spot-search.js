@@ -1,7 +1,7 @@
-import { store, clearTagFilter, dayBy } from "./store.js";
-import { $, esc } from "./dom.js";
+import { store, clearTagFilter, dayBy } from "../../core/store.js";
+import { $, esc } from "../../shared/dom.js";
 import { render } from "./render.js";
-import { drawMap } from "./map.js";
+import { drawMap } from "../map/map.js";
 
 const root = $("#spotSearch"),
     input = $("#spotSearchInput"),

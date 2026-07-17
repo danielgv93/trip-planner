@@ -76,36 +76,36 @@ Provider, base URL, and model are stored locally. API keys remain only in `sessi
 
 ```text
 trip-planner/
-├── index.html          # Application shell and dialogs
-├── styles/             # Styles split by UI responsibility
-│   ├── base.css        # Tokens, global defaults, and top navigation
-│   ├── search.css      # Global stop search
-│   ├── planner.css     # Days, stops, schedules, and drag and drop
-│   ├── map-notes.css   # Map panel, Leaflet elements, and trip notes
-│   ├── dialog-finance.css # Dialog base, currency, and budget
-│   ├── dialogs.css     # Forms, confirmations, and notifications
-│   ├── taxonomy.css    # Tags and categories
-│   └── responsive.css  # Preview state and responsive overrides
-└── js/
-    ├── main.js         # Application entry point
-    ├── store.js        # Shared state and local persistence
-    ├── render.js       # Itinerary rendering and mutations
-    ├── dialogs.js      # Place, tag, and category dialogs
-    ├── dnd.js          # Pointer-based drag and drop
-    ├── map.js          # Leaflet maps and route rendering
-    ├── actions.js      # Header actions and import/export
-    ├── plan-json.js    # Canonical portable JSON codec
-    ├── github.js       # Optional GitHub file import and publishing
-    ├── llm-chat.js     # Multi-provider chat and validated plan proposals
-    ├── budget.js       # Budget breakdown
-    ├── currency.js     # Currency formatting and exchange rates
-    ├── notes.js        # Trip notes and Markdown preview
-    ├── spot-search.js  # In-plan quick search
-    ├── images.js       # Wikipedia image lookup
-    └── ...             # Constants, DOM helpers, and notifications
+├── index.html               # Application shell and dialogs
+├── js/
+│   ├── app/main.js          # The single JavaScript entry point
+│   ├── core/                # State, constants, and portable plan data
+│   ├── shared/              # Domain-neutral DOM and UI primitives
+│   └── features/            # Product capabilities grouped by domain
+│       ├── planner/         # Itinerary UI, dialogs, actions, and drag/drop
+│       ├── map/             # Maps, routing, basemaps, and place images
+│       ├── finance/         # Currency conversion and trip budget
+│       ├── notes/           # Trip notes
+│       ├── companion/       # On-trip view and timeline
+│       ├── github/          # Optional JSON synchronization
+│       ├── assistant/       # LLM chat and reviewed plan proposals
+│       └── workspace/       # Desktop workspace resizing
+└── styles/
+    ├── app.css              # The single stylesheet entry point
+    ├── foundation/          # Tokens and global defaults
+    ├── features/            # Styles owned by product capabilities
+    └── layout/              # Workspace and responsive overrides
 ```
 
 The project uses native ES modules and intentionally has no framework, bundler, package manager, or build pipeline.
+
+### Architectural boundaries
+
+- `app` composes and starts the application; feature modules do not import it.
+- `core` owns shared data and persistence. It must not depend on browser UI helpers.
+- `shared` contains small domain-neutral browser primitives.
+- `features` may depend on `core`, `shared`, and explicit exports from other features. New product behavior should live with the feature that owns it instead of returning to a flat `js/` directory.
+- `styles/app.css` defines cascade order. New feature styles belong under `styles/features/` and must be imported there explicitly.
 
 ## External Services
 

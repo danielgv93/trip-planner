@@ -1,6 +1,6 @@
-import { esc, id } from "./dom.js";
-import { serializePlan, normalizePlan, applyImportedPlan } from "./plan-json.js?v=32";
-import { toast } from "./notify.js?v=3";
+import { esc, id } from "../../shared/dom.js";
+import { serializePlan, normalizePlan, applyImportedPlan } from "../../core/plan-json.js?v=32";
+import { toast } from "../../shared/notify.js?v=3";
 
 const CONFIG_KEY = "trip-planner-llm-config";
 const API_KEY = "trip-planner-llm-api-key";

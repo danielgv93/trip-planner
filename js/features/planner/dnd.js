@@ -5,10 +5,10 @@
 //
 // This is a side-effect module: importing it wires the drag listeners on #days.
 
-import { daysEl } from "./dom.js";
-import { store } from "./store.js";
+import { daysEl } from "../../shared/dom.js";
+import { store } from "../../core/store.js";
 import { moveDay, moveSpot, render } from "./render.js";
-import { toast } from "./notify.js?v=3";
+import { toast } from "../../shared/notify.js?v=3";
 
 let dragEl = null,
     ghost = null,

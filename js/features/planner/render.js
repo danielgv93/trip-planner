@@ -19,9 +19,9 @@ import {
     routeTimeOverrideKey,
     routeTimeProfile,
     routeTimeProfileKey,
-} from "./store.js";
-import { $, esc, safeColor, fmt, daysEl, id } from "./dom.js";
-import { toast, confirmAction } from "./notify.js?v=3";
+} from "../../core/store.js";
+import { $, esc, safeColor, fmt, daysEl, id } from "../../shared/dom.js";
+import { toast, confirmAction } from "../../shared/notify.js?v=3";
 import {
     drawMap,
     mapsLinkFor,
@@ -29,11 +29,11 @@ import {
     cachedRouteTravelMinutes,
     ensureRouteTravelTimes,
     highlightMapSpot,
-} from "./map.js";
+} from "../map/map.js";
 import { openDialog } from "./dialogs.js";
-import { foreignAmount, localAmount } from "./currency.js";
-import { DAY_LOAD_WARNING_MINUTES } from "./constants.js";
-import { buildTimelineProjection, createTimelineView } from "./timeline.js";
+import { foreignAmount, localAmount } from "../finance/currency.js";
+import { DAY_LOAD_WARNING_MINUTES } from "../../core/constants.js";
+import { buildTimelineProjection, createTimelineView } from "../companion/timeline.js";
 
 // View-only state: keep the selected time panel open across destructive renders
 // without adding presentation preferences to the persisted trip data.

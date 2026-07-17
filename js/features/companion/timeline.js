@@ -1,8 +1,8 @@
 // Shared day timeline used by the planner cards and the on-trip companion.
 // It derives a route forecast from persisted stop data without mutating it.
 
-import { esc, safeColor } from "./dom.js";
-import { categoryMeta, spotIsEnabled } from "./store.js";
+import { esc, safeColor } from "../../shared/dom.js";
+import { categoryMeta, spotIsEnabled } from "../../core/store.js";
 
 const EARTH_RADIUS_METERS = 6371000;
 
