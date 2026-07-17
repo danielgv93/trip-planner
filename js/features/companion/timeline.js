@@ -3,8 +3,8 @@
 
 import { esc, safeColor } from "../../shared/dom.js";
 import { categoryMeta, spotIsEnabled } from "../../core/store.js";
-
-const EARTH_RADIUS_METERS = 6371000;
+import { distanceMeters } from "../../core/geo.js";
+import { timeToMinutes, minutesToTime } from "../../core/time.js";
 
 function stringValue(value, fallback = "") {
     return typeof value === "string" ? value : fallback;
@@ -21,19 +21,12 @@ function localMinutes(now = new Date()) {
     return now.getHours() * 60 + now.getMinutes();
 }
 
-function timeMinutes(value) {
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value || "")) return null;
-    const [hours, minutes] = value.split(":").map(Number);
-    return hours * 60 + minutes;
-}
-
 function isAllDaySchedule(opening, closing) {
     return opening === 0 && closing === 0;
 }
 
 function clockLabel(minutes) {
-    const normalized = ((Math.round(minutes) % 1440) + 1440) % 1440;
-    return `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
+    return minutesToTime(minutes, { wrap: true });
 }
 
 function invalidScheduleRanges(start, end, opening, closing) {
@@ -75,25 +68,8 @@ function validVisitedAt(value) {
     return typeof value === "string" && Number.isFinite(Date.parse(value));
 }
 
-function locatedSpot(spot) {
-    return Number.isFinite(spot?.lat) && Number.isFinite(spot?.lng);
-}
-
-function haversineMeters(from, to) {
-    if (!locatedSpot(from) || !locatedSpot(to)) return null;
-    const radians = Math.PI / 180;
-    const lat1 = from.lat * radians;
-    const lat2 = to.lat * radians;
-    const deltaLat = (to.lat - from.lat) * radians;
-    const deltaLng = (to.lng - from.lng) * radians;
-    const sinLat = Math.sin(deltaLat / 2);
-    const sinLng = Math.sin(deltaLng / 2);
-    const a = Math.min(1, Math.max(0, sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLng * sinLng));
-    return 2 * EARTH_RADIUS_METERS * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 function estimatedTravelMinutes(from, to, profile = "walking") {
-    const meters = haversineMeters(from, to);
+    const meters = distanceMeters(from, to);
     if (!Number.isFinite(meters)) return 0;
     const metersPerMinute = profile === "walking" ? 75 : profile === "cycling" ? 250 : 500;
     return Math.max(1, Math.round((meters * 1.25) / metersPerMinute));
@@ -112,21 +88,21 @@ export function buildTimelineProjection(
     const isToday = day?.date === localDateKey(now);
     const openings = spots
         .filter((spot) => !isAllDaySchedule(
-            timeMinutes(spot.openingTime),
-            timeMinutes(spot.closingTime),
+            timeToMinutes(spot.openingTime),
+            timeToMinutes(spot.closingTime),
         ))
-        .map((spot) => timeMinutes(spot.openingTime))
+        .map((spot) => timeToMinutes(spot.openingTime))
         .filter(Number.isFinite);
     let cursor = (isToday ? localMinutes(now) : openings.length ? Math.min(...openings) : 540) + delayMinutes;
     let previous = null;
 
     const items = spots.map((spot) => {
         const duration = Number.isInteger(spot.visitMinutes) && spot.visitMinutes > 0 ? spot.visitMinutes : 0;
-        const opening = timeMinutes(spot.openingTime);
-        const storedClosing = timeMinutes(spot.closingTime);
+        const opening = timeToMinutes(spot.openingTime);
+        const storedClosing = timeToMinutes(spot.closingTime);
         const allDay = isAllDaySchedule(opening, storedClosing);
         const closing = allDay ? 1440 : storedClosing;
-        const plannedStart = timeMinutes(spot.plannedStart);
+        const plannedStart = timeToMinutes(spot.plannedStart);
         const visited = validVisitedAt(spot.visitedAt);
         const resolvedTravel = previous
             ? travelForLeg?.(previous, spot, profile) || null

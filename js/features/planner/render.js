@@ -34,6 +34,15 @@ import { openDialog } from "./dialogs.js";
 import { foreignAmount, localAmount } from "../finance/currency.js";
 import { DAY_LOAD_WARNING_MINUTES } from "../../core/constants.js";
 import { buildTimelineProjection, createTimelineView } from "../companion/timeline.js";
+import { timeToMinutes, minutesToTime } from "../../core/time.js";
+import {
+    openingHourSegments,
+    schedulesOverlap,
+    scheduleOverlapSegments,
+} from "./schedule.js?v=1";
+
+export { timeToMinutes } from "../../core/time.js";
+export { openingHourSegments, schedulesOverlap, scheduleOverlapSegments };
 
 // View-only state: keep the selected time panel open across destructive renders
 // without adding presentation preferences to the persisted trip data.
@@ -142,92 +151,6 @@ function dayLoadPercents(activity, travel) {
         totalPct = activityPct + travelPct,
         scale = totalPct > 100 ? 100 / totalPct : 1;
     return { activityPct: activityPct * scale, travelPct: travelPct * scale };
-}
-
-export function timeToMinutes(value) {
-    if (
-        typeof value !== "string" ||
-        !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)
-    )
-        return null;
-    const [hours, minutes] = value.split(":").map(Number);
-    return hours * 60 + minutes;
-}
-
-function minutesToTime(value) {
-    const minutes = Math.max(0, Math.min(1439, Math.round(value)));
-    return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
-}
-
-export function openingHourSegments(openingTime, closingTime) {
-    const opening = timeToMinutes(openingTime),
-        closing = timeToMinutes(closingTime);
-    if (opening === null || closing === null) return [];
-    if (opening === closing)
-        return [{ start: 0, width: 100, equal: true }];
-
-    const percentage = (minutes) =>
-        Math.min(100, Math.max(0, (minutes / 1440) * 100));
-    if (opening < closing)
-        return [
-            {
-                start: percentage(opening),
-                width: percentage(closing - opening),
-            },
-        ];
-    return [
-        {
-            start: percentage(opening),
-            width: percentage(1440 - opening),
-        },
-        { start: 0, width: percentage(closing) },
-    ];
-}
-
-function scheduleIntervals(openingTime, closingTime) {
-    const opening = timeToMinutes(openingTime),
-        closing = timeToMinutes(closingTime);
-    if (opening === 0 && closing === 0) return [[0, 1440]];
-    // Equal endpoints are intentionally ambiguous in this data model. Show
-    // their full rail, but do not pretend they overlap with other schedules.
-    if (opening === null || closing === null || opening === closing) return [];
-    return opening < closing
-        ? [[opening, closing]]
-        : [[opening, 1440], [0, closing]];
-}
-
-export function schedulesOverlap(firstOpening, firstClosing, secondOpening, secondClosing) {
-    const first = scheduleIntervals(firstOpening, firstClosing),
-        second = scheduleIntervals(secondOpening, secondClosing);
-    return first.some(([start, end]) =>
-        second.some(([otherStart, otherEnd]) => start < otherEnd && otherStart < end),
-    );
-}
-
-export function scheduleOverlapSegments(
-    firstOpening,
-    firstClosing,
-    secondOpening,
-    secondClosing,
-) {
-    const first = scheduleIntervals(firstOpening, firstClosing),
-        second = scheduleIntervals(secondOpening, secondClosing),
-        percentage = (minutes) =>
-            Math.min(100, Math.max(0, (minutes / 1440) * 100));
-    return first.flatMap(([start, end]) =>
-        second.flatMap(([otherStart, otherEnd]) => {
-            const overlapStart = Math.max(start, otherStart),
-                overlapEnd = Math.min(end, otherEnd);
-            return overlapStart < overlapEnd
-                ? [
-                      {
-                          start: percentage(overlapStart),
-                          width: percentage(overlapEnd - overlapStart),
-                      },
-                  ]
-                : [];
-        }),
-    );
 }
 
 export function renderSpotHours(spot, color, interactive = true) {
@@ -1651,6 +1574,8 @@ export function refreshDayLoad() {
         if (day) applyDayLoad(dayEl, day);
     });
 }
+
+document.addEventListener("trip:route-times-updated", refreshDayLoad);
 
 function quickAddMarkup(dayId, buttonLabel) {
     if (quickAddOpenFor !== dayId)

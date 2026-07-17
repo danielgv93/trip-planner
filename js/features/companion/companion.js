@@ -19,6 +19,28 @@ import {
 } from "../map/map.js";
 import { createTimelineView } from "./timeline.js";
 import { registerBasemapMap } from "../map/basemap.js?v=5";
+import { timeToMinutes } from "../../core/time.js";
+import {
+    localDateKey,
+    normalizeDegrees,
+    haversineMeters,
+    initialBearingDegrees,
+    cardinalLabel,
+    formatApproxDistance,
+    orientationHeadingFromEvent,
+    preferredHeading,
+} from "./navigation.js?v=1";
+
+export {
+    localDateKey,
+    normalizeDegrees,
+    haversineMeters,
+    initialBearingDegrees,
+    cardinalLabel,
+    formatApproxDistance,
+    orientationHeadingFromEvent,
+    preferredHeading,
+};
 export { buildTimelineProjection } from "./timeline.js";
 
 let companionActive = false;
@@ -76,8 +98,6 @@ const WAKE_LOCK_COPY = {
 };
 
 const COMPANION_DEFAULT_VIEW = [20, 0];
-const EARTH_RADIUS_METERS = 6371000;
-const CARDINAL_LABELS = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
 
 const plannerView = $("#plannerView");
 const companionView = $("#companionView");
@@ -238,110 +258,6 @@ function setLocationStatus(status) {
 
 function stringValue(value, fallback = "") {
     return typeof value === "string" ? value : fallback;
-}
-
-export function localDateKey(now = new Date()) {
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-}
-
-export function normalizeDegrees(value) {
-    if (!Number.isFinite(value)) return null;
-    return ((value % 360) + 360) % 360;
-}
-
-function validCoordinatePair(lat, lng) {
-    return (
-        Number.isFinite(lat) &&
-        Number.isFinite(lng) &&
-        lat >= -90 &&
-        lat <= 90 &&
-        lng >= -180 &&
-        lng <= 180
-    );
-}
-
-export function haversineMeters(fromLat, fromLng, toLat, toLng) {
-    if (
-        !validCoordinatePair(fromLat, fromLng) ||
-        !validCoordinatePair(toLat, toLng)
-    )
-        return null;
-    const radians = Math.PI / 180;
-    const lat1 = fromLat * radians;
-    const lat2 = toLat * radians;
-    const deltaLat = (toLat - fromLat) * radians;
-    const deltaLng = (toLng - fromLng) * radians;
-    const sinLat = Math.sin(deltaLat / 2);
-    const sinLng = Math.sin(deltaLng / 2);
-    const a = Math.min(
-        1,
-        Math.max(
-            0,
-            sinLat * sinLat +
-                Math.cos(lat1) * Math.cos(lat2) * sinLng * sinLng,
-        ),
-    );
-    return 2 * EARTH_RADIUS_METERS * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-export function initialBearingDegrees(fromLat, fromLng, toLat, toLng) {
-    if (
-        !validCoordinatePair(fromLat, fromLng) ||
-        !validCoordinatePair(toLat, toLng)
-    )
-        return null;
-    if (fromLat === toLat && fromLng === toLng) return 0;
-    const radians = Math.PI / 180;
-    const lat1 = fromLat * radians;
-    const lat2 = toLat * radians;
-    const deltaLng = (toLng - fromLng) * radians;
-    const y = Math.sin(deltaLng) * Math.cos(lat2);
-    const x =
-        Math.cos(lat1) * Math.sin(lat2) -
-        Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLng);
-    return normalizeDegrees(Math.atan2(y, x) / radians);
-}
-
-export function cardinalLabel(bearing) {
-    const normalized = normalizeDegrees(bearing);
-    return normalized === null
-        ? ""
-        : CARDINAL_LABELS[Math.round(normalized / 45) % CARDINAL_LABELS.length];
-}
-
-export function formatApproxDistance(meters) {
-    if (!Number.isFinite(meters) || meters < 0) return "";
-    if (meters < 1000) return `${Math.round(meters)} m`;
-    const kilometers = meters / 1000;
-    return `${kilometers < 10 ? kilometers.toFixed(1) : Math.round(kilometers)} km`;
-}
-
-export function orientationHeadingFromEvent(event) {
-    const webkitHeading = event?.webkitCompassHeading;
-    const webkitAccuracy = event?.webkitCompassAccuracy;
-    if (
-        Number.isFinite(webkitHeading) &&
-        (!Number.isFinite(webkitAccuracy) || webkitAccuracy >= 0)
-    )
-        return normalizeDegrees(webkitHeading);
-    if (event?.absolute === true && Number.isFinite(event.alpha))
-        return normalizeDegrees(360 - event.alpha);
-    return null;
-}
-
-export function preferredHeading(position, deviceHeading) {
-    const rawGpsHeading = position?.heading;
-    const gpsHeading =
-        Number.isFinite(rawGpsHeading) && rawGpsHeading >= 0
-            ? normalizeDegrees(rawGpsHeading)
-            : null;
-    const speed = position?.speed;
-    if (gpsHeading !== null && (!Number.isFinite(speed) || speed > 0.5))
-        return gpsHeading;
-    return normalizeDegrees(deviceHeading);
 }
 
 export function validVisitedAt(value) {
@@ -1048,12 +964,6 @@ function localMinutes(now = new Date()) {
     return now.getHours() * 60 + now.getMinutes();
 }
 
-function timeMinutes(value) {
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value || "")) return null;
-    const [hours, minutes] = value.split(":").map(Number);
-    return hours * 60 + minutes;
-}
-
 function renderTimeline(day, next) {
     const canvas = $("#companionTimelineCanvas");
     const summary = $("#companionTimelineSummary");
@@ -1086,8 +996,8 @@ function renderTimeline(day, next) {
 export function scheduleCue(spot, now = new Date(), useCurrentTime = true) {
     const opening = stringValue(spot?.openingTime);
     const closing = stringValue(spot?.closingTime);
-    const openingMinutes = timeMinutes(opening);
-    const closingMinutes = timeMinutes(closing);
+    const openingMinutes = timeToMinutes(opening);
+    const closingMinutes = timeToMinutes(closing);
 
     if (openingMinutes !== null && closingMinutes !== null) {
         if (openingMinutes === 0 && closingMinutes === 0)

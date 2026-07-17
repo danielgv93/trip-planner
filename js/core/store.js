@@ -13,11 +13,22 @@ import {
     UNCATEGORIZED,
 } from "./constants.js";
 
-const saved = JSON.parse(
-    localStorage.getItem("trip-planner") ||
-        localStorage.getItem("japan-planner") ||
-        "null",
-);
+export const STORAGE_VERSION = 23;
+
+function loadSavedState() {
+    const raw =
+        localStorage.getItem("trip-planner") ||
+        localStorage.getItem("japan-planner");
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw);
+    } catch (error) {
+        console.warn("No se pudo leer el plan guardado; se cargará el ejemplo.", error);
+        return null;
+    }
+}
+
+const saved = loadSavedState();
 
 export const store = {
     tripTitle:
@@ -139,7 +150,7 @@ export function save() {
     localStorage.setItem(
         "trip-planner",
         JSON.stringify({
-            version: 23,
+            version: STORAGE_VERSION,
             tripTitle: store.tripTitle,
             localCurrency: store.localCurrency,
             foreignCurrency: store.foreignCurrency,
@@ -159,6 +170,28 @@ export function save() {
             workspaceSplit: store.workspaceSplit,
         }),
     );
+}
+
+export function replacePlanState(plan) {
+    store.state = plan.days;
+    store.backlog = plan.backlog;
+    store.backlogCollapsed = plan.backlogCollapsed;
+    store.tags = plan.tags;
+    store.categories = plan.categories;
+    store.tripTitle = plan.tripTitle;
+    store.localCurrency = plan.localCurrency;
+    store.foreignCurrency = plan.foreignCurrency;
+    store.exchangeRate = plan.exchangeRate;
+    store.exchangeRateDate = plan.exchangeRateDate;
+    store.tripNotes = plan.tripNotes;
+    store.routeProfile = plan.routeProfile;
+    store.routeVisualization = plan.routeVisualization;
+    store.routeTimeOverrides = plan.routeTimeOverrides;
+    store.routeTimeProfiles = plan.routeTimeProfiles;
+    store.previewMode = false;
+    store.selectedLocation = null;
+    store.active = store.state[0]?.id || "backlog";
+    clearTagFilter();
 }
 
 export function routeTimeOverrideKey(fromId, toId, profile = "walking") {

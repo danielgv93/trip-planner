@@ -1,11 +1,9 @@
 // Canonical codec for the portable trip document. Local file import/
 // export and GitHub transport all use the same field selection.
 
-import { store, save, clearTagFilter } from "./store.js";
+import { store } from "./store.js";
 import { DEFAULT_CATEGORIES } from "./constants.js";
-import { applyTitle, render } from "../features/planner/render.js";
-import { drawMap, syncRouteVisualizationControl } from "../features/map/map.js";
-import { syncTripNotes } from "../features/notes/notes.js";
+import { isTime } from "./time.js";
 
 export const PLAN_VERSION = 21;
 
@@ -53,9 +51,9 @@ function normalizeSpot(spot) {
     if (!Number.isFinite(spot.cost) || spot.cost < 0) delete normalized.cost;
     if (!Number.isInteger(spot.visitMinutes) || spot.visitMinutes <= 0)
         delete normalized.visitMinutes;
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(spot.openingTime || "")) delete normalized.openingTime;
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(spot.closingTime || "")) delete normalized.closingTime;
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(spot.plannedStart || "")) delete normalized.plannedStart;
+    if (!isTime(spot.openingTime)) delete normalized.openingTime;
+    if (!isTime(spot.closingTime)) delete normalized.closingTime;
+    if (!isTime(spot.plannedStart)) delete normalized.plannedStart;
     if (typeof spot.visitedAt === "string" && Number.isFinite(Date.parse(spot.visitedAt))) {
         normalized.visitedAt = new Date(spot.visitedAt).toISOString();
     } else {
@@ -163,63 +161,4 @@ export function parsePlanJson(text) {
         throw new Error("INVALID_JSON");
     }
     return normalizePlan(value);
-}
-
-export function applyImportedPlan(plan) {
-    const normalized = normalizePlan(plan);
-    store.state = normalized.days;
-    store.backlog = normalized.backlog;
-    store.backlogCollapsed = normalized.backlogCollapsed;
-    store.tags = normalized.tags;
-    store.categories = normalized.categories;
-    store.tripTitle = normalized.tripTitle;
-    store.localCurrency = normalized.localCurrency;
-    store.foreignCurrency = normalized.foreignCurrency;
-    store.exchangeRate = normalized.exchangeRate;
-    store.exchangeRateDate = normalized.exchangeRateDate;
-    store.tripNotes = normalized.tripNotes;
-    store.routeProfile = normalized.routeProfile;
-    store.routeVisualization = normalized.routeVisualization;
-    store.routeTimeOverrides = normalized.routeTimeOverrides;
-    store.routeTimeProfiles = normalized.routeTimeProfiles;
-    store.previewMode = false;
-    store.selectedLocation = null;
-    store.active = store.state[0]?.id || "backlog";
-    clearTagFilter();
-
-    document.body.classList.remove("preview-mode");
-    const previewBtn = document.querySelector("#previewBtn");
-    if (previewBtn) {
-        previewBtn.textContent = "Vista completa";
-        previewBtn.classList.remove("active");
-        previewBtn.setAttribute("aria-pressed", "false");
-    }
-    const routeProfile = document.querySelector("#routeProfile");
-    const routeVisualization = document.querySelector("#routeVisualization");
-    const localCurrency = document.querySelector("#localCurrency");
-    const foreignCurrency = document.querySelector("#foreignCurrency");
-    if (routeProfile) routeProfile.value = store.routeProfile;
-    if (routeVisualization) routeVisualization.value = store.routeVisualization;
-    if (localCurrency) localCurrency.value = store.localCurrency;
-    if (foreignCurrency) foreignCurrency.value = store.foreignCurrency;
-    const currencyLabel = document.querySelector("#currencyConfigLabel");
-    const exchangeRateValue = document.querySelector("#exchangeRateValue");
-    const exchangeRateStatus = document.querySelector("#exchangeRateStatus");
-    if (currencyLabel) currencyLabel.textContent = `${store.foreignCurrency} → ${store.localCurrency}`;
-    if (exchangeRateValue) {
-        exchangeRateValue.textContent = store.exchangeRate
-            ? `1 ${store.foreignCurrency} = ${store.exchangeRate.toLocaleString("es-ES", { maximumFractionDigits: 6 })} ${store.localCurrency}`
-            : "Conversión no disponible";
-    }
-    if (exchangeRateStatus) {
-        exchangeRateStatus.textContent = store.exchangeRateDate
-            ? `Último cambio: ${store.exchangeRateDate}`
-            : "Conversión no disponible";
-    }
-    syncRouteVisualizationControl();
-    applyTitle();
-    syncTripNotes();
-    save();
-    render();
-    drawMap();
 }

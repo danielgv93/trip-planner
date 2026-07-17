@@ -3,11 +3,6 @@
 // (OSRM) with an in-memory cache. Depends on the Leaflet global `L` (loaded via a
 // classic <script> before this deferred module runs).
 //
-// NOTE the circular import with render.js (refreshDayLoad): it's safe because
-// the reference only fires at runtime inside the ensureRoutes() debounced
-// callback, never during module top-level evaluation — the same pattern
-// already used for the render.js/dialogs.js circular import.
-
 import {
     store,
     save,
@@ -20,8 +15,8 @@ import {
 } from "../../core/store.js";
 import { $, esc, safeColor } from "../../shared/dom.js";
 import { DAY_COLORS } from "../../core/constants.js";
+import { distanceMeters } from "../../core/geo.js";
 import { fetchSpotImage } from "./images.js";
-import { refreshDayLoad } from "../planner/render.js";
 import { registerBasemapMap } from "./basemap.js?v=5";
 
 const map = L.map("map", { zoomControl: false }).setView([20, 0], 2);
@@ -210,19 +205,6 @@ function drawGlobalMap() {
 // ---- Routing (real distance/time between consecutive stops) ----
 // Great-circle distance in km. Used as the offline/error fallback so a leg
 // always has *some* number even when OSRM is unreachable.
-function haversine(a, b) {
-    const R = 6371,
-        toRad = (d) => (d * Math.PI) / 180,
-        dLat = toRad(b.lat - a.lat),
-        dLng = toRad(b.lng - a.lng),
-        lat1 = toRad(a.lat),
-        lat2 = toRad(b.lat),
-        h =
-            Math.sin(dLat / 2) ** 2 +
-            Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(h));
-}
-
 function keyFor(from, to, profile) {
     return `${from.lat},${from.lng}|${to.lat},${to.lng}|${profile}`;
 }
@@ -256,7 +238,7 @@ async function fetchLeg(from, to, profile) {
         };
     } catch {
         return {
-            km: haversine(from, to),
+            km: distanceMeters(from, to) / 1000,
             min: null,
             approx: true,
         };
@@ -412,7 +394,7 @@ function ensureRoutes() {
             routeCache.set(keyFor(from, to, profile), results[i]),
         );
         drawMap();
-        refreshDayLoad();
+        document.dispatchEvent(new CustomEvent("trip:route-times-updated"));
     }, 450);
 }
 

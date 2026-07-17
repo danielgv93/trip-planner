@@ -7,15 +7,15 @@ import { store } from "../core/store.js";
 import "../shared/modal-scroll.js?v=1";
 import "../features/planner/dialogs.js";
 import "../features/planner/dnd.js";
-import "../features/planner/actions.js?v=33";
+import "../features/planner/actions.js?v=34";
 import "../features/planner/spot-search.js";
 import "../features/planner/sticky-days.js";
-import "../features/github/github.js?v=31";
+import "../features/github/github.js?v=32";
 import "../features/finance/budget.js?v=29";
 import "../features/workspace/workspace-resize.js?v=2";
 import { render, applyTitle } from "../features/planner/render.js";
 import { drawMap } from "../features/map/map.js";
-import { initCompanion } from "../features/companion/companion.js?v=7";
+import { initCompanion } from "../features/companion/companion.js?v=8";
 import { refreshExchangeRate } from "../features/finance/currency.js";
 
 applyTitle();
@@ -32,7 +32,7 @@ refreshExchangeRate().then((ok) => {
     render({ persist: false });
 });
 
-import("../features/assistant/llm-chat.js?v=12")
+import("../features/assistant/llm-chat.js?v=13")
     .then(({ initLlmChat }) => initLlmChat())
     .catch((error) => {
         console.error("No se pudo iniciar el asistente del viaje", error);

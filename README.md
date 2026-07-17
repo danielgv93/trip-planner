@@ -98,6 +98,7 @@ trip-planner/
 ```
 
 The project uses native ES modules and intentionally has no framework, bundler, package manager, or build pipeline.
+Pure domain logic is covered with the built-in Node.js test runner; run it with `node --test`.
 
 ### Architectural boundaries
 
@@ -133,6 +134,6 @@ Trip Planner targets current versions of Chrome, Edge, Firefox, and Safari. It r
 
 ## Development
 
-Edit the HTML, CSS, or JavaScript files and refresh the browser. Since there is no automated test suite, changes should be checked manually by serving the project and exercising the relevant desktop and mobile flows.
+Edit the HTML, CSS, or JavaScript files and refresh the browser. Run `node --test` for the pure-logic suite, then check UI changes manually by serving the project and exercising the relevant desktop and mobile flows.
 
 Contributions are welcome. When changing the UI, keep user-facing copy in Spanish, escape user-provided values before inserting them into HTML, and preserve the central render cycle used throughout the application.
