@@ -166,15 +166,7 @@ export function openDialog(dayId, spot, prefill = {}) {
         Number.isInteger(spot?.visitMinutes) && spot.visitMinutes > 0
             ? spot.visitMinutes
             : "";
-    const hasDetails = !!(
-        spot?.category ||
-        spot?.tags?.length ||
-        (typeof spot?.note === "string" && spot.note.trim()) ||
-        Number.isFinite(spot?.cost) ||
-        normalizeTime(spot?.openingTime) ||
-        normalizeTime(spot?.closingTime)
-    );
-    $("#placeDetails").open = !!spot && hasDetails;
+    $("#placeDetails").open = !!spot;
     $("#resetCost").hidden = !spot;
     renderTagOptions(spot?.tags || []);
     renderCategoryOptions(spot?.category ? [spot.category] : []);
