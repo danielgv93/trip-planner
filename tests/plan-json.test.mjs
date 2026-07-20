@@ -35,6 +35,23 @@ test("normalizePlan rechaza identificadores repetidos", () => {
     assert.throws(() => normalizePlan(value), /INVALID_PLAN/);
 });
 
+test("normalizePlan conserva grupos válidos y limpia referencias huérfanas", () => {
+    const value = plan();
+    value.backlogGroups = [
+        { id: "g1", title: "Kyoto", collapsed: true },
+    ];
+    value.backlog = [
+        { id: "s2", name: "Arashiyama", backlogGroupId: "g1" },
+        { id: "s3", name: "Osaka", backlogGroupId: "grupo-inexistente" },
+    ];
+    const normalized = normalizePlan(value);
+    assert.deepEqual(normalized.backlogGroups, [
+        { id: "g1", title: "Kyoto", collapsed: true },
+    ]);
+    assert.equal(normalized.backlog[0].backlogGroupId, "g1");
+    assert.equal(normalized.backlog[1].backlogGroupId, undefined);
+});
+
 test("parsePlanJson distingue JSON roto de un plan inválido", () => {
     assert.throws(() => parsePlanJson("{"), /INVALID_JSON/);
     assert.throws(() => parsePlanJson("{}"), /INVALID_PLAN/);

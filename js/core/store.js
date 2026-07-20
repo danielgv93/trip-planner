@@ -13,7 +13,7 @@ import {
     UNCATEGORIZED,
 } from "./constants.js";
 
-export const STORAGE_VERSION = 23;
+export const STORAGE_VERSION = 24;
 
 function loadSavedState() {
     const raw =
@@ -49,6 +49,14 @@ export const store = {
         : saved?.days || structuredClone(sample),
     backlog: Array.isArray(saved?.backlog) ? saved.backlog : [],
     backlogCollapsed: saved?.backlogCollapsed === true,
+    backlogGroups: Array.isArray(saved?.backlogGroups)
+        ? saved.backlogGroups.filter(
+              (group) =>
+                  group &&
+                  typeof group.id === "string" &&
+                  typeof group.title === "string",
+          )
+        : [],
     tags: Array.isArray(saved?.tags)
         ? saved.tags
         : ["comida", "templo", "reserva", "compras"],
@@ -160,6 +168,7 @@ export function save() {
             days: store.state,
             backlog: store.backlog,
             backlogCollapsed: store.backlogCollapsed,
+            backlogGroups: store.backlogGroups,
             tags: store.tags,
             categories: store.categories,
             routeProfile: store.routeProfile,
@@ -176,6 +185,7 @@ export function replacePlanState(plan) {
     store.state = plan.days;
     store.backlog = plan.backlog;
     store.backlogCollapsed = plan.backlogCollapsed;
+    store.backlogGroups = plan.backlogGroups;
     store.tags = plan.tags;
     store.categories = plan.categories;
     store.tripTitle = plan.tripTitle;

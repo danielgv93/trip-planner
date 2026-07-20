@@ -2,7 +2,7 @@
 // GitHub repository file. This module owns UI and browser persistence; HTTP
 // transport and target validation live in github-api.js.
 
-import { store } from "../../core/store.js";
+import { store } from "../../core/store.js?v=24";
 import { $ } from "../../shared/dom.js";
 import { parsePlanJson, serializePlan } from "../../core/plan-json.js?v=33";
 import { applyImportedPlan } from "../planner/import-plan.js?v=1";
@@ -114,6 +114,7 @@ const PLAN_SNAPSHOT_KEYS = [
     "tripNotes",
     "days",
     "backlog",
+    "backlogGroups",
     "tags",
     "categories",
     "routeProfile",
@@ -253,6 +254,25 @@ function buildChangesPreview() {
         ));
     }
 
+    const backlogGroupChanges = collectionChanges(
+        remote.backlogGroups || [],
+        local.backlogGroups || [],
+        (group) => group.title || "Grupo sin nombre",
+    );
+    addGroups("Grupos del backlog", backlogGroupChanges);
+    const backlogGroupFields = [
+        { label: "Nombre", read: (group) => group.title },
+        { label: "Plegado", read: (group) => group.collapsed === true },
+    ];
+    for (const { before, after } of backlogGroupChanges.modified) {
+        totals.modify += 1;
+        groups.push(modifiedGroup(
+            "Grupo del backlog modificado",
+            after.title || "Sin nombre",
+            fieldChanges(before, after, backlogGroupFields),
+        ));
+    }
+
     const dayNames = new Map([
         ["backlog", "Ideas"],
         ...[...(remote.days || []), ...(local.days || [])]
@@ -275,6 +295,7 @@ function buildChangesPreview() {
     const spotFields = [
         { label: "Nombre", read: (spot) => spot.name },
         { label: "Día", read: (spot) => spot.dayId, format: (id) => dayNames.get(id) || "Día eliminado" },
+        { label: "Grupo del backlog", read: (spot) => spot.backlogGroupId },
         { label: "Posición", read: (spot) => spot.position },
         { label: "Dirección", read: (spot) => spot.address },
         { label: "Nota", read: (spot) => spot.note },

@@ -1,7 +1,7 @@
 // Header / top-bar actions: trip title editing, add day, preview toggle, reset,
 // import/export. Side-effect module — importing it wires the top-bar listeners.
 
-import { store, save, clearTagFilter } from "../../core/store.js";
+import { store, save, clearTagFilter } from "../../core/store.js?v=24";
 import { $, slug, id } from "../../shared/dom.js";
 import { render, applyTitle } from "./render.js";
 import { drawMap, syncRouteVisualizationControl } from "../map/map.js";
@@ -113,6 +113,7 @@ $("#resetBtn").onclick = () => {
         pushUndo();
         store.state = structuredClone(sample);
         store.backlog = [];
+        store.backlogGroups = [];
         store.tags = ["comida", "templo", "reserva", "compras"];
         store.categories = structuredClone(DEFAULT_CATEGORIES);
         store.tripTitle = DEFAULT_TITLE;

@@ -235,6 +235,7 @@ export function buildProposedPlan(currentPlan, actions) {
                 const dayId = resolveDayId(plan, action.dayId, tempIds);
                 const [spot] = match.list.splice(match.index, 1);
                 if (match.listId !== dayId) delete spot.plannedStart;
+                if (dayId !== "backlog") delete spot.backlogGroupId;
                 const list = targetList(plan, dayId);
                 list.splice(clampIndex(action.at, list.length), 0, spot);
                 summaries.push(`Mover “${spot.name}”`);
@@ -264,4 +265,3 @@ export function buildProposedPlan(currentPlan, actions) {
     pruneRouteSettings(plan);
     return { plan: normalizePlan(plan), summaries };
 }
-

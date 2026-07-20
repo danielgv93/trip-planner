@@ -1,7 +1,7 @@
 // The add/edit place dialog (with Nominatim search) and the tag / category
 // manager dialogs. Wires its own listeners on module load.
 
-import { store, save, dayBy } from "../../core/store.js";
+import { store, save, dayBy } from "../../core/store.js?v=24";
 import { $, esc, slug, id } from "../../shared/dom.js";
 import { toast, confirmAction } from "../../shared/notify.js?v=3";
 import { render } from "./render.js";
@@ -141,7 +141,7 @@ function selectedCategory() {
 
 export function openDialog(dayId, spot, prefill = {}) {
     cancelPendingSearch();
-    editing = { dayId, spot };
+    editing = { dayId, spot, backlogGroupId: prefill.backlogGroupId };
     store.selectedLocation =
         Number.isFinite(spot?.lat) && Number.isFinite(spot?.lng)
             ? {
@@ -328,6 +328,8 @@ $("#placeForm").addEventListener("submit", async (e) => {
         else delete spot.category;
     } else {
         spot = { id: id(), name, address, note, tags: spotTags };
+        if (editing.dayId === "backlog" && editing.backlogGroupId)
+            spot.backlogGroupId = editing.backlogGroupId;
         if (coordinates)
             Object.assign(spot, {
                 lat: coordinates.lat,

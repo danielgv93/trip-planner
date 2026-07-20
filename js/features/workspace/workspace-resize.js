@@ -2,7 +2,7 @@
 // local presentation state, expressed as a ratio so it survives viewport
 // changes without becoming an awkward fixed pixel width.
 
-import { store, save } from "../../core/store.js";
+import { store, save } from "../../core/store.js?v=24";
 import { invalidateMainMap } from "../map/map.js";
 
 const workspace = document.querySelector(".workspace");

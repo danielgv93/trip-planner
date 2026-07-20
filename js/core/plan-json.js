@@ -1,11 +1,11 @@
 // Canonical codec for the portable trip document. Local file import/
 // export and GitHub transport all use the same field selection.
 
-import { store } from "./store.js";
+import { store } from "./store.js?v=24";
 import { DEFAULT_CATEGORIES } from "./constants.js";
 import { isTime } from "./time.js";
 
-export const PLAN_VERSION = 21;
+export const PLAN_VERSION = 22;
 
 export function serializePlan({ exportedAt = true } = {}) {
     const plan = {
@@ -18,6 +18,7 @@ export function serializePlan({ exportedAt = true } = {}) {
         tripNotes: store.tripNotes,
         days: store.state,
         backlog: store.backlog,
+        backlogGroups: store.backlogGroups,
         tags: store.tags,
         categories: store.categories,
         routeProfile: store.routeProfile,
@@ -67,11 +68,13 @@ function normalizeDay(day) {
     if (!isRecord(day) || typeof day.id !== "string" || !Array.isArray(day.spots)) {
         throw new Error("INVALID_PLAN");
     }
+    const spots = day.spots.map(normalizeSpot);
+    spots.forEach((spot) => delete spot.backlogGroupId);
     return {
         ...day,
         date: typeof day.date === "string" ? day.date : "",
         title: typeof day.title === "string" ? day.title : "",
-        spots: day.spots.map(normalizeSpot),
+        spots,
     };
 }
 
@@ -84,14 +87,39 @@ export function normalizePlan(value) {
     const backlog = Array.isArray(value.backlog)
         ? value.backlog.map(normalizeSpot)
         : [];
+    const backlogGroups = Array.isArray(value.backlogGroups)
+        ? value.backlogGroups.map((group) => {
+              if (
+                  !isRecord(group) ||
+                  typeof group.id !== "string" ||
+                  typeof group.title !== "string"
+              )
+                  throw new Error("INVALID_PLAN");
+              return {
+                  id: group.id,
+                  title: group.title.trim() || "Grupo",
+                  collapsed: group.collapsed === true,
+              };
+          })
+        : [];
     const dayIds = days.map((day) => day.id);
     const spotIds = [
         ...days.flatMap((day) => day.spots.map((spot) => spot.id)),
         ...backlog.map((spot) => spot.id),
     ];
-    if (new Set(dayIds).size !== dayIds.length || new Set(spotIds).size !== spotIds.length) {
+    const backlogGroupIds = backlogGroups.map((group) => group.id);
+    if (
+        new Set(dayIds).size !== dayIds.length ||
+        new Set(spotIds).size !== spotIds.length ||
+        new Set(backlogGroupIds).size !== backlogGroupIds.length
+    ) {
         throw new Error("INVALID_PLAN");
     }
+    const validBacklogGroups = new Set(backlogGroupIds);
+    backlog.forEach((spot) => {
+        if (!validBacklogGroups.has(spot.backlogGroupId))
+            delete spot.backlogGroupId;
+    });
     const categories = Array.isArray(value.categories)
         ? value.categories.map((category) => {
             if (!isRecord(category) || typeof category.id !== "string" || typeof category.label !== "string") {
@@ -137,6 +165,7 @@ export function normalizePlan(value) {
         tripNotes: typeof value.tripNotes === "string" ? value.tripNotes : "",
         days,
         backlog,
+        backlogGroups,
         backlogCollapsed: store.backlogCollapsed === true,
         tags: Array.isArray(value.tags)
             ? value.tags.filter((tag) => typeof tag === "string")

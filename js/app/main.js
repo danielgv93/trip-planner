@@ -3,7 +3,7 @@
 // graph has evaluated — so no cross-module call fires against a half-initialised
 // binding.
 
-import { store } from "../core/store.js";
+import { store } from "../core/store.js?v=24";
 import "../shared/modal-scroll.js?v=1";
 import "../features/planner/dialogs.js";
 import "../features/planner/dnd.js";

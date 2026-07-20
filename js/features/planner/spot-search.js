@@ -1,4 +1,4 @@
-import { store, clearTagFilter, dayBy } from "../../core/store.js";
+import { store, clearTagFilter, dayBy } from "../../core/store.js?v=24";
 import { $, esc } from "../../shared/dom.js";
 import { render } from "./render.js";
 import { drawMap } from "../map/map.js";
@@ -102,7 +102,13 @@ function choose(index) {
     if (!match) return;
     closeSearch({ restoreFocus: false });
     clearTagFilter();
-    if (match.dayId === "backlog") store.backlogCollapsed = false;
+    if (match.dayId === "backlog") {
+        store.backlogCollapsed = false;
+        const group = store.backlogGroups.find(
+            (candidate) => candidate.id === match.spot.backlogGroupId,
+        );
+        if (group) group.collapsed = false;
+    }
     else {
         const day = dayBy(match.dayId);
         if (day) day.collapsed = false;

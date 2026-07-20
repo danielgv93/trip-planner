@@ -521,7 +521,9 @@ main {
 }
 .day.collapsed .spots,
 .day.collapsed .add-place,
-.day.collapsed .quick-add {
+.day.collapsed .quick-add,
+.day.collapsed .backlog-groups,
+.day.collapsed .backlog-footer {
     display: none;
 }
 body.preview-mode .quick-add {
@@ -1249,9 +1251,7 @@ body.preview-mode .quick-add {
     top: calc(100% + 8px);
     right: 0;
     width: min(260px, calc(100vw - 34px));
-    max-height: 300px;
-    overflow-y: auto;
-    overscroll-behavior-y: contain;
+    overflow: visible;
     padding: 7px;
     background: #fff;
     border: 1px solid var(--line);
@@ -1279,6 +1279,60 @@ body.preview-mode .quick-add {
     font-weight: 700;
     letter-spacing: 0.09em;
     text-transform: uppercase;
+}
+.move-menu-page {
+    display: block;
+}
+.move-menu-page[hidden] {
+    display: none;
+}
+.move-menu-main {
+    overflow: visible;
+}
+.move-menu-days {
+    display: block;
+    max-height: 220px;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+}
+.backlog-submenu-trigger .move-arrow {
+    margin-left: auto;
+}
+.backlog-move-submenu {
+    position: fixed;
+    z-index: 72;
+    width: min(230px, calc(100vw - 34px));
+    max-height: 300px;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    padding: 7px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 16px 42px #29323724;
+}
+.backlog-move-submenu[hidden] {
+    display: none;
+}
+@media (max-width: 620px) {
+    .backlog-move-submenu {
+        position: static;
+        width: auto;
+        max-height: 190px;
+        margin: 2px 5px 5px 13px;
+        padding: 4px 0 4px 8px;
+        background: #fbf8f2;
+        border: 0;
+        border-left: 2px solid #d9ccaf;
+        border-radius: 0 7px 7px 0;
+        box-shadow: none;
+    }
+    .backlog-move-submenu .move-menu-title {
+        padding-left: 9px;
+    }
+    .backlog-submenu-trigger[aria-expanded="true"] {
+        background: #f7f4ee;
+    }
 }
 .day-move-position-icon {
     width: 18px;
@@ -1450,6 +1504,107 @@ body.preview-mode .quick-add {
 .backlog .quick-add-details:hover,
 .backlog .quick-add-details:focus-visible {
     background: #d5e7e2;
+}
+.backlog-groups {
+    display: grid;
+    gap: 10px;
+    padding: 10px;
+}
+.backlog-group {
+    overflow: visible;
+    border: 1px solid #ded5c1;
+    border-radius: 8px;
+    background: #fffdf8;
+}
+.backlog-group-head {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-bottom: 1px solid #e8dfcd;
+    background: #f8f0df;
+    border-radius: 7px 7px 0 0;
+}
+.backlog-group-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink);
+    font-weight: 700;
+}
+.backlog-group-head small {
+    margin-right: auto;
+    color: var(--muted);
+    font-size: 11px;
+    white-space: nowrap;
+}
+.backlog-group-collapse,
+.backlog-group-edit,
+.backlog-group-delete {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+}
+.backlog-group-collapse:hover,
+.backlog-group-edit:hover {
+    background: #eee3cc;
+    color: var(--green);
+}
+.backlog-group-delete:hover {
+    background: #f6e5e1;
+    color: var(--red);
+}
+.backlog-group-title-input {
+    min-width: 0;
+    flex: 1;
+    border: 0;
+    border-bottom: 1.5px solid var(--green);
+    padding: 3px 1px;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-weight: 700;
+    outline: none;
+}
+.backlog-group .spots {
+    padding: 4px 8px;
+}
+.backlog-group.collapsed .spots,
+.backlog-group.collapsed .add-place,
+.backlog-group.collapsed .quick-add {
+    display: none;
+}
+.backlog-group.collapsed .backlog-group-head {
+    border-bottom: 0;
+    border-radius: 7px;
+}
+.backlog-ungrouped-head {
+    padding-left: 14px;
+}
+.backlog-footer {
+    display: flex;
+    justify-content: flex-start;
+    padding: 0 10px 12px;
+}
+.add-backlog-group {
+    border: 1px dashed #b8ab91;
+    border-radius: 7px;
+    padding: 8px 12px;
+    background: transparent;
+    color: var(--green);
+    font-weight: 700;
+    cursor: pointer;
+}
+.add-backlog-group:hover {
+    background: #edf5f3;
+    border-color: var(--green);
 }
 .add-day {
     color: var(--green);

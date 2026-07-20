@@ -1,7 +1,7 @@
 // Application-level import workflow. The portable codec stays in core while
 // this module owns the browser/UI synchronization required after replacing a plan.
 
-import { store, replacePlanState, save } from "../../core/store.js";
+import { store, replacePlanState, save } from "../../core/store.js?v=24";
 import { normalizePlan } from "../../core/plan-json.js?v=33";
 import { applyTitle, render } from "./render.js";
 import { drawMap, syncRouteVisualizationControl } from "../map/map.js";

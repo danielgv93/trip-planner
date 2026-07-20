@@ -19,7 +19,7 @@ import {
     routeTimeOverrideKey,
     routeTimeProfile,
     routeTimeProfileKey,
-} from "../../core/store.js";
+} from "../../core/store.js?v=24";
 import { $, esc, safeColor, fmt, daysEl, id } from "../../shared/dom.js";
 import { toast, confirmAction } from "../../shared/notify.js?v=3";
 import {
@@ -1331,8 +1331,7 @@ function updateTagFilter(changeFilter) {
     drawMap();
 }
 
-function renderList(el, spots, isBacklog = false) {
-    const list = el.querySelector(".spots");
+function renderList(list, spots, isBacklog = false) {
     const visible = spots.filter(spotMatchesFilter);
     let mapNumber = 0;
     if (!visible.length)
@@ -1547,28 +1546,160 @@ function openMoveMenu(button, currentDay) {
     closeMoveMenus();
     if (alreadyOpen) return;
 
-    const destinations = [
-        { id: "backlog", title: "Backlog", detail: `${enabledSpotCount(store.backlog)} activas sin asignar` },
-        ...store.state.map((day) => ({
+    const spotId = button.closest(".spot")?.dataset.spot,
+        currentSpot =
+            currentDay === "backlog"
+                ? store.backlog.find((spot) => spot.id === spotId)
+                : null,
+        currentBacklogGroup = store.backlogGroups.some(
+            (group) => group.id === currentSpot?.backlogGroupId,
+        )
+            ? currentSpot.backlogGroupId
+            : "",
+        ungrouped = store.backlog.filter(
+            (spot) =>
+                !store.backlogGroups.some(
+                    (group) => group.id === spot.backlogGroupId,
+                ),
+        ),
+        backlogDestinations = [
+            {
+                groupId: "",
+                title: "Sin grupo",
+                detail: `${enabledSpotCount(ungrouped)} activas`,
+            },
+            ...store.backlogGroups.map((group) => {
+            const spots = store.backlog.filter(
+                (spot) => spot.backlogGroupId === group.id,
+            );
+            return {
+                groupId: group.id,
+                title: group.title,
+                detail: `${enabledSpotCount(spots)} activas`,
+            };
+        }),
+        ],
+        destinations = store.state.map((day) => ({
             id: day.id,
             title: day.title,
             detail: `${fmt(day.date).day} ${fmt(day.date).month} · ${enabledSpotCount(day.spots)} activas`,
-        })),
-    ];
+        }));
     const menu = document.createElement("span");
     menu.className = "move-menu";
     menu.setAttribute("role", "menu");
     menu.setAttribute("aria-label", "Mover parada a");
-    menu.innerHTML = `<span class="move-menu-title">Mover parada a</span>${destinations
+    const currentBacklogTitle =
+        currentDay === "backlog"
+            ? backlogDestinations.find(
+                  (destination) =>
+                      destination.groupId === currentBacklogGroup,
+              )?.title || "Sin grupo"
+            : "";
+    const backlogMenuMarkup = backlogDestinations
+        .map((destination) => {
+            const current =
+                currentDay === "backlog" &&
+                destination.groupId === currentBacklogGroup;
+            return `<button type="button" role="menuitem" data-act="move-to" data-day="backlog" data-backlog-group="${esc(destination.groupId)}" ${current ? "disabled" : ""}><span class="move-destination"><strong>${esc(destination.title)}</strong><small>${esc(destination.detail)}</small></span>${current ? '<span class="move-current">Actual</span>' : '<span class="move-arrow">›</span>'}</button>`;
+        })
+        .join(""),
+        dayMenuMarkup = destinations
         .map((destination) => {
             const current = destination.id === currentDay;
             return `<button type="button" role="menuitem" data-act="move-to" data-day="${esc(destination.id)}" ${current ? "disabled" : ""}><span class="move-destination"><strong>${esc(destination.title)}</strong><small>${esc(destination.detail)}</small></span>${current ? '<span class="move-current">Actual</span>' : '<span class="move-arrow">›</span>'}</button>`;
         })
-        .join("")}`;
+        .join("");
+    menu.innerHTML = `<span class="move-menu-page move-menu-main"><span class="move-menu-title">Mover parada a</span><span class="move-menu-days"><button type="button" role="menuitem" class="backlog-submenu-trigger" aria-haspopup="menu" aria-expanded="false"><span class="move-destination"><strong>Backlog</strong><small>${currentDay === "backlog" ? `Actual: ${esc(currentBacklogTitle)}` : `${enabledSpotCount(store.backlog)} activas sin asignar`}</small></span><span class="move-arrow" aria-hidden="true">›</span></button><span class="backlog-move-submenu" role="menu" aria-label="Grupos del backlog" hidden><span class="move-menu-title">Grupos del backlog</span>${backlogMenuMarkup}</span>${dayMenuMarkup}</span></span>`;
     control.append(menu);
     control.closest(".day").classList.add("menu-open");
     button.setAttribute("aria-expanded", "true");
     menu.querySelector("button:not(:disabled)")?.focus();
+
+    const submenu = menu.querySelector(".backlog-move-submenu"),
+        submenuTrigger = menu.querySelector(".backlog-submenu-trigger"),
+        destinationsList = menu.querySelector(".move-menu-days"),
+        compactMenu = () => matchMedia("(max-width: 620px)").matches;
+    let submenuCloseTimer = null;
+    const positionBacklogSubmenu = () => {
+        if (compactMenu()) {
+            submenu.style.removeProperty("left");
+            submenu.style.removeProperty("top");
+            return;
+        }
+        const gap = 8,
+            margin = 8,
+            triggerRect = submenuTrigger.getBoundingClientRect(),
+            submenuRect = submenu.getBoundingClientRect(),
+            fitsLeft = triggerRect.left - submenuRect.width - gap >= margin,
+            left = fitsLeft
+                ? triggerRect.left - submenuRect.width - gap
+                : Math.min(
+                      window.innerWidth - submenuRect.width - margin,
+                      triggerRect.right + gap,
+                  ),
+            top = Math.max(
+                margin,
+                Math.min(
+                    triggerRect.top,
+                    window.innerHeight - submenuRect.height - margin,
+                ),
+            );
+        submenu.style.left = `${Math.max(margin, left)}px`;
+        submenu.style.top = `${top}px`;
+    };
+    const showBacklogSubmenu = ({ focus = false } = {}) => {
+        clearTimeout(submenuCloseTimer);
+        submenu.hidden = false;
+        submenuTrigger.setAttribute("aria-expanded", "true");
+        positionBacklogSubmenu();
+        if (focus) submenu.querySelector("button:not(:disabled)")?.focus();
+    };
+    const hideBacklogSubmenu = ({ focus = false } = {}) => {
+        clearTimeout(submenuCloseTimer);
+        submenu.hidden = true;
+        submenuTrigger.setAttribute("aria-expanded", "false");
+        if (focus) submenuTrigger.focus();
+    };
+    submenuTrigger.addEventListener("click", () => {
+        if (!compactMenu()) return;
+        if (submenu.hidden) showBacklogSubmenu({ focus: true });
+        else hideBacklogSubmenu({ focus: true });
+    });
+    const scheduleHoverClose = () => {
+        clearTimeout(submenuCloseTimer);
+        submenuCloseTimer = setTimeout(() => {
+            if (
+                compactMenu() ||
+                submenuTrigger.matches(":hover") ||
+                submenu.matches(":hover") ||
+                submenu.contains(document.activeElement)
+            )
+                return;
+            hideBacklogSubmenu();
+        }, 140);
+    };
+    submenuTrigger.addEventListener("mouseenter", () => {
+        if (!compactMenu()) showBacklogSubmenu();
+    });
+    submenuTrigger.addEventListener("mouseleave", scheduleHoverClose);
+    submenu.addEventListener("mouseenter", () =>
+        clearTimeout(submenuCloseTimer),
+    );
+    submenu.addEventListener("mouseleave", scheduleHoverClose);
+    destinationsList.addEventListener("scroll", () => {
+        if (!submenu.hidden) positionBacklogSubmenu();
+    });
+    submenuTrigger.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowRight" && event.key !== "Enter") return;
+        event.preventDefault();
+        showBacklogSubmenu({ focus: true });
+    });
+    submenu.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "Escape") return;
+        event.preventDefault();
+        event.stopPropagation();
+        hideBacklogSubmenu({ focus: true });
+    });
 }
 
 function openOverflowMenu(button, spot, currentDay) {
@@ -1654,8 +1785,15 @@ export function refreshDayLoad() {
 
 document.addEventListener("trip:route-times-updated", refreshDayLoad);
 
-function quickAddMarkup(dayId, buttonLabel) {
-    if (quickAddOpenFor !== dayId)
+function quickAddKey(dayId, backlogGroupId) {
+    return dayId === "backlog"
+        ? `backlog:${backlogGroupId || "ungrouped"}`
+        : dayId;
+}
+
+function quickAddMarkup(dayId, buttonLabel, backlogGroupId) {
+    const key = quickAddKey(dayId, backlogGroupId);
+    if (quickAddOpenFor !== key)
         return `<button class="add-place">${buttonLabel}</button>`;
     return `<div class="quick-add"><input class="quick-add-input" type="text" aria-label="Nombre de la nueva parada" placeholder="Nombre de la parada…" autocomplete="off"><button class="quick-add-details" type="button">Detalles…</button></div>`;
 }
@@ -1666,11 +1804,12 @@ function closeQuickAdd() {
     render({ persist: false });
 }
 
-function wireQuickAdd(card, dayId) {
+function wireQuickAdd(card, dayId, backlogGroupId) {
+    const key = quickAddKey(dayId, backlogGroupId);
     const addButton = card.querySelector(".add-place");
     if (addButton) {
         addButton.addEventListener("click", () => {
-            quickAddOpenFor = dayId;
+            quickAddOpenFor = key;
             quickAddDraft = "";
             render({ persist: false });
         });
@@ -1695,7 +1834,10 @@ function wireQuickAdd(card, dayId) {
                 dayId === "backlog" ? store.backlog : dayBy(dayId)?.spots;
             if (!target) return;
             pushUndo();
-            target.push({ id: id(), name, address: "", note: "", tags: [] });
+            const spot = { id: id(), name, address: "", note: "", tags: [] };
+            if (dayId === "backlog" && backlogGroupId)
+                spot.backlogGroupId = backlogGroupId;
+            target.push(spot);
             quickAddDraft = "";
             store.active = dayId;
             save();
@@ -1711,7 +1853,7 @@ function wireQuickAdd(card, dayId) {
         // Let focus settle first: clicking Detalles… blurs the input before
         // its click handler runs and must not tear down the editor early.
         setTimeout(() => {
-            if (quickAddOpenFor !== dayId || input.value.trim()) return;
+            if (quickAddOpenFor !== key || input.value.trim()) return;
             if (editor.contains(document.activeElement)) return;
             closeQuickAdd();
         }, 0);
@@ -1721,17 +1863,91 @@ function wireQuickAdd(card, dayId) {
         quickAddOpenFor = null;
         quickAddDraft = "";
         render({ persist: false });
-        openDialog(dayId, undefined, { name });
+        openDialog(dayId, undefined, { name, backlogGroupId });
     });
 
     requestAnimationFrame(() => {
-        if (!input.isConnected || quickAddOpenFor !== dayId) return;
+        if (!input.isConnected || quickAddOpenFor !== key) return;
         input.focus();
         input.setSelectionRange(input.value.length, input.value.length);
     });
 }
 
+function editBacklogGroupTitle(section, group) {
+    const title = section.querySelector(".backlog-group-title");
+    if (!title) return;
+    const input = document.createElement("input");
+    input.className = "backlog-group-title-input";
+    input.value = group.title;
+    input.setAttribute("aria-label", "Nombre del grupo");
+    title.replaceWith(input);
+    input.focus();
+    input.select();
+    let done = false;
+    const commit = () => {
+        if (done) return;
+        done = true;
+        const next = input.value.trim() || group.title;
+        if (next !== group.title) pushUndo();
+        group.title = next;
+        save();
+        render();
+    };
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            input.blur();
+        } else if (event.key === "Escape") {
+            event.preventDefault();
+            done = true;
+            render({ persist: false });
+        }
+    });
+}
+
+function wireBacklogGroup(section, group) {
+    section
+        .querySelector(".backlog-group-collapse")
+        .addEventListener("click", () => {
+            group.collapsed = !group.collapsed;
+            save();
+            render();
+        });
+    const edit = () => editBacklogGroupTitle(section, group);
+    section.querySelector(".backlog-group-title").addEventListener("dblclick", edit);
+    section.querySelector(".backlog-group-edit").addEventListener("click", edit);
+    section.querySelector(".backlog-group-delete").addEventListener("click", () => {
+        const count = store.backlog.filter(
+            (spot) => spot.backlogGroupId === group.id,
+        ).length;
+        confirmAction({
+            title: "Eliminar grupo",
+            message: count
+                ? `¿Eliminar “${group.title}”? Sus ${count} ideas quedarán en “Sin grupo”.`
+                : `¿Eliminar el grupo vacío “${group.title}”?`,
+            confirmLabel: "Eliminar",
+        }).then((ok) => {
+            if (!ok) return;
+            pushUndo();
+            store.backlog.forEach((spot) => {
+                if (spot.backlogGroupId === group.id)
+                    delete spot.backlogGroupId;
+            });
+            store.backlogGroups = store.backlogGroups.filter(
+                (candidate) => candidate.id !== group.id,
+            );
+            save();
+            render();
+            drawMap();
+        });
+    });
+}
+
 export function render({ persist = true } = {}) {
+    // Also protects long-lived tabs that reload a newer renderer while an
+    // older store module remains in the browser cache.
+    if (!Array.isArray(store.backlogGroups)) store.backlogGroups = [];
     timelineTooltip.hidden = true;
     renderTags();
     daysEl.innerHTML = "";
@@ -1742,8 +1958,40 @@ export function render({ persist = true } = {}) {
         (store.backlogCollapsed ? "collapsed" : "");
     b.dataset.day = "backlog";
     const activeBacklogCount = enabledSpotCount(store.backlog);
-    b.innerHTML = `<div class="day-head"><div class="date-box"><span>ideas</span><strong>+</strong></div><div class="day-title"><div class="title-line"><span class="day-name">Backlog de paradas</span></div><small>${activeBacklogCount} sin asignar · ${esc(formatCost(sumCosts(store.backlog)))} · arrástralas a un día cuando decidáis</small></div><button class="day-collapse" title="${store.backlogCollapsed ? "Restaurar backlog" : "Minimizar backlog"}" aria-label="Minimizar o restaurar backlog">${store.backlogCollapsed ? "▸" : "▾"}</button></div><div class="spots"></div>${quickAddMarkup("backlog", "＋ Añadir al backlog")}`;
-    renderList(b, store.backlog, true);
+    b.innerHTML = `<div class="day-head"><div class="date-box"><span>ideas</span><strong>+</strong></div><div class="day-title"><div class="title-line"><span class="day-name">Backlog de paradas</span></div><small>${activeBacklogCount} sin asignar · ${esc(formatCost(sumCosts(store.backlog)))} · arrástralas a un día cuando decidáis</small></div><button class="day-collapse" title="${store.backlogCollapsed ? "Restaurar backlog" : "Minimizar backlog"}" aria-label="Minimizar o restaurar backlog">${store.backlogCollapsed ? "▸" : "▾"}</button></div><div class="backlog-groups"></div><div class="backlog-footer"><button class="add-backlog-group" type="button">＋ Crear grupo</button></div>`;
+    const groupsContainer = b.querySelector(".backlog-groups");
+    const renderBacklogSection = (group) => {
+        const groupId = group?.id,
+            spots = store.backlog.filter((spot) =>
+                groupId
+                    ? spot.backlogGroupId === groupId
+                    : !store.backlogGroups.some(
+                          (known) => known.id === spot.backlogGroupId,
+                      ),
+            ),
+            section = document.createElement("section");
+        section.className =
+            "backlog-group" + (group?.collapsed ? " collapsed" : "");
+        if (groupId) section.dataset.backlogGroup = groupId;
+        section.innerHTML = group
+            ? `<div class="backlog-group-head"><button class="backlog-group-collapse" type="button" aria-expanded="${group.collapsed ? "false" : "true"}" aria-label="${group.collapsed ? "Desplegar" : "Plegar"} ${esc(group.title)}">${group.collapsed ? "▸" : "▾"}</button><span class="backlog-group-title">${esc(group.title)}</span><small>${spots.length} ${spots.length === 1 ? "idea" : "ideas"}</small><button class="backlog-group-edit" type="button" aria-label="Renombrar ${esc(group.title)}" title="Renombrar grupo">✎</button><button class="backlog-group-delete" type="button" aria-label="Eliminar grupo ${esc(group.title)}" title="Eliminar grupo">×</button></div><div class="spots" data-backlog-group="${esc(groupId)}"></div>${quickAddMarkup("backlog", "＋ Añadir una idea", groupId)}`
+            : `<div class="backlog-group-head backlog-ungrouped-head"><span class="backlog-group-title">Sin grupo</span><small>${spots.length} ${spots.length === 1 ? "idea" : "ideas"}</small></div><div class="spots"></div>${quickAddMarkup("backlog", "＋ Añadir al backlog")}`;
+        renderList(section.querySelector(".spots"), spots, true);
+        wireQuickAdd(section, "backlog", groupId);
+        if (group) wireBacklogGroup(section, group);
+        groupsContainer.append(section);
+    };
+    if (
+        !store.backlogGroups.length ||
+        store.backlog.some(
+            (spot) =>
+                !store.backlogGroups.some(
+                    (group) => group.id === spot.backlogGroupId,
+                ),
+        )
+    )
+        renderBacklogSection(null);
+    store.backlogGroups.forEach(renderBacklogSection);
     b.querySelector(".day-head").addEventListener("click", (e) => {
         if (e.target.closest("button")) return;
         store.active = "backlog";
@@ -1756,7 +2004,19 @@ export function render({ persist = true } = {}) {
         save();
         render();
     };
-    wireQuickAdd(b, "backlog");
+    b.querySelector(".add-backlog-group").addEventListener("click", () => {
+        pushUndo();
+        const group = { id: id(), title: "Nuevo grupo", collapsed: false };
+        store.backlogGroups.push(group);
+        save();
+        render();
+        requestAnimationFrame(() => {
+            const section = daysEl.querySelector(
+                `.backlog-group[data-backlog-group="${CSS.escape(group.id)}"]`,
+            );
+            if (section) editBacklogGroupTitle(section, group);
+        });
+    });
     daysEl.append(b);
     store.state.forEach((day) => {
         const f = fmt(day.date),
@@ -1768,7 +2028,7 @@ export function render({ persist = true } = {}) {
             (day.collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
         el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta">${esc(day.title)}</span><button class="day-title-edit" type="button" title="Editar nombre del día" aria-label="Editar nombre de ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><div class="day-actions"><button class="day-collapse" type="button" title="${day.collapsed ? "Desplegar día" : "Plegar día"}" aria-label="${day.collapsed ? "Desplegar" : "Plegar"} ${esc(day.title || "día")}" aria-expanded="${day.collapsed ? "false" : "true"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><span class="day-overflow-control"><button class="day-overflow-button" type="button" title="Más acciones" aria-label="Más acciones para ${esc(day.title || "día")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></div></div>${renderDayTimeTools(day)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}`;
-        renderList(el, day.spots);
+        renderList(el.querySelector(".spots"), day.spots);
         wireDayTimeTools(el, day.id);
         applyDayLoad(el, day);
         const loadMeter = el.querySelector(".day-load-meter");
@@ -1904,7 +2164,7 @@ function editTitle(day, el) {
 }
 
 // Single source of truth for relocating a spot between backlog and any day.
-export function moveSpot(spotId, toDay, at) {
+export function moveSpot(spotId, toDay, at, backlogGroupId) {
     let source = store.backlog,
         sourceIndex = store.backlog.findIndex((spot) => spot.id === spotId),
         fromDay = "backlog";
@@ -1923,7 +2183,32 @@ export function moveSpot(spotId, toDay, at) {
     pushUndo();
     const spot = source.splice(sourceIndex, 1)[0];
     if (fromDay !== toDay) delete spot.plannedStart;
-    target.splice(at, 0, spot);
+    if (toDay === "backlog") {
+        if (
+            backlogGroupId &&
+            store.backlogGroups.some((group) => group.id === backlogGroupId)
+        )
+            spot.backlogGroupId = backlogGroupId;
+        else delete spot.backlogGroupId;
+    } else delete spot.backlogGroupId;
+    if (toDay === "backlog") {
+        const groupIndexes = target
+            .map((candidate, index) => ({ candidate, index }))
+            .filter(({ candidate }) =>
+                backlogGroupId
+                    ? candidate.backlogGroupId === backlogGroupId
+                    : !store.backlogGroups.some(
+                          (group) => group.id === candidate.backlogGroupId,
+                      ),
+            );
+        const targetIndex =
+            at < groupIndexes.length
+                ? groupIndexes[Math.max(0, at)].index
+                : groupIndexes.length
+                  ? groupIndexes.at(-1).index + 1
+                  : target.length;
+        target.splice(targetIndex, 0, spot);
+    } else target.splice(at, 0, spot);
     store.active = toDay;
     save();
     render();
@@ -1985,9 +2270,21 @@ daysEl.addEventListener("click", (e) => {
         openOverflowMenu(b, items[i], dayId);
     } else if (b.dataset.act === "move-to") {
         const destination = b.dataset.day,
-            target = destination === "backlog" ? store.backlog : dayBy(destination)?.spots;
-        if (!target || destination === dayId) return;
-        moveSpot(spotEl.dataset.spot, destination, target.length);
+            backlogGroupId = b.dataset.backlogGroup || undefined,
+            target = destination === "backlog" ? store.backlog : dayBy(destination)?.spots,
+            targetLength =
+                destination === "backlog"
+                    ? store.backlog.filter((spot) =>
+                          backlogGroupId
+                              ? spot.backlogGroupId === backlogGroupId
+                              : !store.backlogGroups.some(
+                                    (group) =>
+                                        group.id === spot.backlogGroupId,
+                                ),
+                      ).length
+                    : target?.length;
+        if (!target) return;
+        moveSpot(spotEl.dataset.spot, destination, targetLength, backlogGroupId);
     } else if (b.dataset.act === "edit") openDialog(dayId, items[i]);
     else if (b.dataset.act === "delete") {
         const name = items[i].name;

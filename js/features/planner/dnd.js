@@ -6,7 +6,7 @@
 // This is a side-effect module: importing it wires the drag listeners on #days.
 
 import { daysEl } from "../../shared/dom.js";
-import { store } from "../../core/store.js";
+import { store } from "../../core/store.js?v=24";
 import { moveDay, moveSpot, render } from "./render.js";
 import { toast } from "../../shared/notify.js?v=3";
 
@@ -154,6 +154,8 @@ function onUp(e) {
     suppressClick = true;
     const list = dragEl.parentElement,
         dayId = dragEl.closest(".day").dataset.day,
+        backlogGroupId =
+            dayId === "backlog" ? list.dataset.backlogGroup : undefined,
         index = [...list.querySelectorAll(".spot")].indexOf(dragEl),
         spotId = dragSpotId;
     settled = false;
@@ -161,7 +163,7 @@ function onUp(e) {
         if (settled) return;
         settled = true;
         endCleanup();
-        moveSpot(spotId, dayId, index);
+        moveSpot(spotId, dayId, index, backlogGroupId);
     };
     const r = dragEl.getBoundingClientRect();
     ghost.style.transition = "transform .18s cubic-bezier(.2,.8,.2,1)";

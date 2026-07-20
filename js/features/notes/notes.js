@@ -1,4 +1,4 @@
-import { store, save } from "../../core/store.js";
+import { store, save } from "../../core/store.js?v=24";
 import { $, esc } from "../../shared/dom.js";
 
 const notes = $("#tripNotes");
