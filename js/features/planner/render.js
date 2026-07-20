@@ -1466,7 +1466,7 @@ function syncOpenMenuDays() {
     });
 }
 
-function openDayActionMenu(button, day, { rename, remove }) {
+function openDayActionMenu(button, day, { remove }) {
     const control = button.closest(".day-overflow-control"),
         alreadyOpen = button.getAttribute("aria-expanded") === "true";
     closeMoveMenus();
@@ -1478,21 +1478,66 @@ function openDayActionMenu(button, day, { rename, remove }) {
     menu.className = "day-action-menu";
     menu.setAttribute("role", "menu");
     menu.setAttribute("aria-label", `Acciones para ${day.title || "día"}`);
-    menu.innerHTML = `<button type="button" class="day-action-item" data-day-action="rename" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg><span>Renombrar día</span></button><button type="button" class="day-action-item" data-day-action="duplicate" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Duplicar día</span></button><button type="button" class="day-action-item day-action-danger" data-day-action="delete" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M9 7l1-3h4l1 3M6 7l1 14h10l1-14"/></svg><span>Eliminar día</span></button>`;
+    menu.innerHTML = `<span class="move-control day-action-move-control"><button type="button" class="move-button day-action-item" data-day-action="move" role="menuitem" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M14 8l4 4-4 4"/><path d="M8 7V5M8 19v-2"/></svg><span>Mover día</span><span class="day-action-arrow" aria-hidden="true">›</span></button></span><button type="button" class="day-action-item" data-day-action="duplicate" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Duplicar día</span></button><button type="button" class="day-action-item day-action-danger" data-day-action="delete" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M9 7l1-3h4l1 3M6 7l1 14h10l1-14"/></svg><span>Eliminar día</span></button>`;
     control.append(menu);
     control.closest(".day")?.classList.add("menu-open");
     button.setAttribute("aria-expanded", "true");
     menu.querySelector('[role="menuitem"]')?.focus();
 
     menu.addEventListener("click", (event) => {
+        const moveIndex = event.target.closest("[data-day-move-index]")
+            ?.dataset.dayMoveIndex;
+        if (moveIndex !== undefined) {
+            closeDayActionMenus();
+            moveDay(day.id, Number(moveIndex));
+            return;
+        }
         const action = event.target.closest("[data-day-action]")?.dataset
             .dayAction;
         if (!action) return;
+        if (action === "move") {
+            openDayMoveMenu(
+                event.target.closest("[data-day-action]"),
+                day.id,
+            );
+            return;
+        }
         closeDayActionMenus();
-        if (action === "rename") rename();
-        else if (action === "duplicate") duplicateDay(day.id);
+        if (action === "duplicate") duplicateDay(day.id);
         else if (action === "delete") remove();
     });
+}
+
+function openDayMoveMenu(button, dayId) {
+    const control = button.closest(".move-control"),
+        alreadyOpen = button.getAttribute("aria-expanded") === "true";
+    closeMoveMenus();
+    if (alreadyOpen || !control) return;
+
+    const currentIndex = store.state.findIndex((day) => day.id === dayId),
+        otherDays = store.state.filter((day) => day.id !== dayId),
+        positions = store.state.map((_, index) => ({
+            index,
+            title: index === 0
+                ? "Al principio"
+                : otherDays[index - 1].title || "Día sin nombre",
+            detail: `Posición ${index + 1} de ${store.state.length}`,
+        }));
+    const menu = document.createElement("span");
+    menu.className = "move-menu day-move-menu";
+    menu.setAttribute("role", "menu");
+    menu.setAttribute("aria-label", "Mover día debajo de");
+    menu.innerHTML = `<span class="move-menu-title">Mover debajo de…</span>${positions
+        .map((position) => {
+            const current = position.index === currentIndex;
+            const icon = position.index === 0 ? "↑" : "↳";
+            return `<button type="button" role="menuitem" data-day-move-index="${position.index}" ${current ? "disabled" : ""}><span class="day-move-position-icon${position.index === 0 ? " is-first" : ""}" aria-hidden="true">${icon}</span><span class="move-destination"><strong>${esc(position.title)}</strong><small>${esc(position.detail)}</small></span>${current ? '<span class="move-current">Actual</span>' : '<span class="move-arrow">›</span>'}</button>`;
+        })
+        .join("")}`;
+    control.append(menu);
+    control.closest(".day")?.classList.add("menu-open");
+    button.setAttribute("aria-expanded", "true");
+    menu.querySelector("button:not(:disabled)")?.focus();
 }
 
 function openMoveMenu(button, currentDay) {
@@ -1722,7 +1767,7 @@ export function render({ persist = true } = {}) {
             (day.id === store.active ? "active " : "") +
             (day.collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
-        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta · doble clic para renombrar">${esc(day.title)}</span></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><div class="day-actions"><button class="day-collapse" type="button" title="${day.collapsed ? "Desplegar día" : "Plegar día"}" aria-label="${day.collapsed ? "Desplegar" : "Plegar"} ${esc(day.title || "día")}" aria-expanded="${day.collapsed ? "false" : "true"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><span class="day-overflow-control"><button class="day-overflow-button" type="button" title="Más acciones" aria-label="Más acciones para ${esc(day.title || "día")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></div></div>${renderDayTimeTools(day)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}`;
+        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta">${esc(day.title)}</span><button class="day-title-edit" type="button" title="Editar nombre del día" aria-label="Editar nombre de ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><div class="day-actions"><button class="day-collapse" type="button" title="${day.collapsed ? "Desplegar día" : "Plegar día"}" aria-label="${day.collapsed ? "Desplegar" : "Plegar"} ${esc(day.title || "día")}" aria-expanded="${day.collapsed ? "false" : "true"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><span class="day-overflow-control"><button class="day-overflow-button" type="button" title="Más acciones" aria-label="Más acciones para ${esc(day.title || "día")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></div></div>${renderDayTimeTools(day)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}`;
         renderList(el, day.spots);
         wireDayTimeTools(el, day.id);
         applyDayLoad(el, day);
@@ -1775,6 +1820,7 @@ export function render({ persist = true } = {}) {
             editTitle(day, el);
         };
         el.querySelector(".day-name").addEventListener("dblclick", startEdit);
+        el.querySelector(".day-title-edit").addEventListener("click", startEdit);
         el.querySelector(".day-collapse").onclick = (e) => {
             e.stopPropagation();
             day.collapsed = !day.collapsed;
@@ -1804,7 +1850,6 @@ export function render({ persist = true } = {}) {
         el.querySelector(".day-overflow-button").onclick = (e) => {
             e.stopPropagation();
             openDayActionMenu(e.currentTarget, day, {
-                rename: startEdit,
                 remove: removeDay,
             });
         };

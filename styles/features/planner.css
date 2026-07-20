@@ -62,7 +62,7 @@ main {
 }
 .day.menu-open {
     position: relative;
-    z-index: auto;
+    z-index: 20;
     overflow: visible;
 }
 .day-head {
@@ -232,6 +232,36 @@ main {
 }
 .backlog .day-name {
     cursor: default;
+}
+.day-title-edit {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 0;
+    background: transparent;
+    color: #858d90;
+    cursor: pointer;
+    transition: 0.16s ease;
+}
+.day-title-edit svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.day-title-edit:hover,
+.day-title-edit:focus-visible {
+    color: var(--red);
+    border-color: var(--line);
+    background: #f7f4ee;
+    outline: none;
 }
 .day-title input.editing {
     border: 0;
@@ -465,6 +495,14 @@ main {
 .day-action-item svg {
     flex: none;
     color: var(--red);
+}
+.day-action-move-control {
+    width: 100%;
+}
+.day-action-arrow {
+    margin-left: auto;
+    color: var(--red);
+    font-size: 20px;
 }
 .day-action-item:hover,
 .day-action-item:focus-visible {
@@ -1242,7 +1280,20 @@ body.preview-mode .quick-add {
     letter-spacing: 0.09em;
     text-transform: uppercase;
 }
-.spot-actions .move-menu button {
+.day-move-position-icon {
+    width: 18px;
+    flex: none;
+    color: var(--red);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+}
+.day-move-position-icon.is-first {
+    font-size: 16px;
+}
+.spot-actions .move-menu button,
+.day-action-menu .move-menu button {
     width: 100%;
     height: auto;
     min-height: 46px;
@@ -1255,15 +1306,19 @@ body.preview-mode .quick-add {
     border-radius: 7px;
     text-align: left;
 }
-.spot-actions .move-menu button + button {
+.spot-actions .move-menu button + button,
+.day-action-menu .move-menu button + button {
     margin-top: 2px;
 }
 .spot-actions .move-menu button:hover:not(:disabled),
-.spot-actions .move-menu button:focus-visible {
+.spot-actions .move-menu button:focus-visible,
+.day-action-menu .move-menu button:hover:not(:disabled),
+.day-action-menu .move-menu button:focus-visible {
     background: #f7f4ee;
     outline: none;
 }
-.spot-actions .move-menu button:disabled {
+.spot-actions .move-menu button:disabled,
+.day-action-menu .move-menu button:disabled {
     color: var(--ink);
     background: #fbf1ef;
     opacity: 1;
