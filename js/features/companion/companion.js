@@ -18,7 +18,7 @@ import {
     cachedRouteTravelMinutes,
 } from "../map/map.js";
 import { createTimelineView } from "./timeline.js";
-import { registerBasemapMap } from "../map/basemap.js?v=5";
+import { registerBasemapMap } from "../map/basemap.js?v=6";
 import { timeToMinutes } from "../../core/time.js";
 import {
     localDateKey,
