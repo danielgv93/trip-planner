@@ -701,6 +701,28 @@
     font-size: 11px;
     line-height: 1.5;
 }
+.github-token-context {
+    display: inline-block;
+    justify-self: start;
+    margin-left: 5px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #f4eee4;
+    color: #75572a;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    vertical-align: 1px;
+}
+.github-token-required .github-token-context {
+    background: #f8dfae;
+    color: #704800;
+}
+.github-token-required #githubToken {
+    border-color: #c88718;
+    box-shadow: 0 0 0 3px #d99a2b24;
+}
 .github-actions {
     display: flex;
     justify-content: flex-end;

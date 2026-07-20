@@ -538,10 +538,16 @@ function renderGithubStatus() {
     githubMenu.querySelector('[data-github-action="pull"]').disabled = store.githubBusy || !store.githubVerified || !connection?.sha;
     const publishButton = githubMenu.querySelector('[data-github-action="publish"]');
     const hasChanges = localPlanHasChanges();
-    publishButton.disabled = store.githubBusy || !store.githubVerified || !connection?.sha || !tokenAvailable || !hasChanges;
-    publishButton.querySelector("small").textContent = store.githubVerified && !hasChanges
-        ? "No hay cambios relevantes que publicar"
-        : "Actualizar el archivo en GitHub";
+    const tokenNeeded = !store.githubBusy && store.githubVerified && Boolean(connection?.sha) && hasChanges && !tokenAvailable;
+    publishButton.disabled = store.githubBusy || !store.githubVerified || !connection?.sha || !hasChanges;
+    publishButton.classList.toggle("github-needs-token", tokenNeeded);
+    publishButton.dataset.needsToken = String(tokenNeeded);
+    publishButton.querySelector(".github-menu-icon").textContent = tokenNeeded ? "!" : "↑";
+    publishButton.querySelector("small").textContent = tokenNeeded
+        ? "Falta un token con permiso de escritura"
+        : store.githubVerified && !hasChanges
+          ? "No hay cambios relevantes que publicar"
+          : "Actualizar el archivo en GitHub";
     githubOpenBtn.disabled = store.githubBusy;
     githubOpenBtn.classList.toggle("github-configured", Boolean(connection));
     githubOpenBtn.classList.toggle("github-connected", store.githubVerified);
@@ -613,11 +619,13 @@ function closeGithubMenu({ restoreFocus = false } = {}) {
     if (restoreFocus) githubOpenBtn.focus();
 }
 
-function openGithubDialog() {
+function openGithubDialog({ focusToken = false } = {}) {
     fillTarget(store.githubConnection);
     tokenInput.value = "";
     tokenInput.placeholder = getGithubToken() ? "Token guardado en esta sesión" : "github_pat_…";
+    tokenInput.closest("label")?.classList.toggle("github-token-required", focusToken);
     githubDialog.showModal();
+    if (focusToken) requestAnimationFrame(() => tokenInput.focus());
 }
 
 githubOpenBtn.onclick = (event) => {
@@ -636,6 +644,7 @@ githubDialog.addEventListener("close", () => {
     repoAutocomplete.hide();
     refAutocomplete.hide();
     pathAutocomplete.hide();
+    tokenInput.closest("label")?.classList.remove("github-token-required");
 });
 githubDialog.addEventListener("click", (event) => {
     if (event.target === githubDialog) githubDialog.close();
@@ -743,6 +752,7 @@ githubMenu.addEventListener("click", (event) => {
     if (action === "configure") openGithubDialog();
     else if (action === "connect") connectGithub();
     else if (action === "pull" && store.githubConnection) runRead(store.githubConnection, getGithubToken());
+    else if (action === "publish" && button.dataset.needsToken === "true") openGithubDialog({ focusToken: true });
     else if (action === "publish") publishGithub();
 });
 
