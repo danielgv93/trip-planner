@@ -19,7 +19,7 @@ import {
     routeTimeOverrideKey,
     routeTimeProfile,
     routeTimeProfileKey,
-} from "../../core/store.js?v=24";
+} from "../../core/store.js?v=26";
 import { $, esc, safeColor, fmt, daysEl, id } from "../../shared/dom.js";
 import { toast, confirmAction } from "../../shared/notify.js?v=3";
 import {
@@ -30,10 +30,13 @@ import {
     ensureRouteTravelTimes,
     highlightMapSpot,
 } from "../map/map.js";
-import { openDialog } from "./dialogs.js";
+import { openDialog } from "./dialogs.js?v=1";
 import { pushUndo } from "./history.js";
 import { foreignAmount, localAmount } from "../finance/currency.js";
 import { DAY_LOAD_WARNING_MINUTES } from "../../core/constants.js";
+import { dayWorkload as calculateDayWorkload } from "./workload.js";
+import { healthBadgeMarkup } from "../health/session.js";
+import { relocateSpot } from "./move-spot.js";
 import { buildTimelineProjection, createTimelineView } from "../companion/timeline.js";
 import { timeToMinutes, minutesToTime } from "../../core/time.js";
 import {
@@ -119,17 +122,7 @@ export function formatDurationMinutes(minutes) {
 // travel minutes (null when not every leg is cached) for one day. Only
 // enabled spots count, matching every other day summary.
 function dayWorkload(day) {
-    const activity = day.spots
-        .filter(spotIsEnabled)
-        .reduce(
-            (total, spot) =>
-                total +
-                (Number.isInteger(spot.visitMinutes) && spot.visitMinutes > 0
-                    ? spot.visitMinutes
-                    : 0),
-            0,
-        );
-    return { activity, travel: cachedDayTravelMinutes(day) };
+    return calculateDayWorkload(day, cachedDayTravelMinutes(day));
 }
 
 // Spanish workload segment for the day-head <small> line, e.g.
@@ -2028,6 +2021,7 @@ export function render({ persist = true } = {}) {
             (day.collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
         el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta">${esc(day.title)}</span><button class="day-title-edit" type="button" title="Editar nombre del día" aria-label="Editar nombre de ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><div class="day-actions"><button class="day-collapse" type="button" title="${day.collapsed ? "Desplegar día" : "Plegar día"}" aria-label="${day.collapsed ? "Desplegar" : "Plegar"} ${esc(day.title || "día")}" aria-expanded="${day.collapsed ? "false" : "true"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><span class="day-overflow-control"><button class="day-overflow-button" type="button" title="Más acciones" aria-label="Más acciones para ${esc(day.title || "día")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></div></div>${renderDayTimeTools(day)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}`;
+        el.querySelector(".day-actions").insertAdjacentHTML("afterbegin", healthBadgeMarkup(day));
         renderList(el.querySelector(".spots"), day.spots);
         wireDayTimeTools(el, day.id);
         applyDayLoad(el, day);
@@ -2165,50 +2159,8 @@ function editTitle(day, el) {
 
 // Single source of truth for relocating a spot between backlog and any day.
 export function moveSpot(spotId, toDay, at, backlogGroupId) {
-    let source = store.backlog,
-        sourceIndex = store.backlog.findIndex((spot) => spot.id === spotId),
-        fromDay = "backlog";
-    if (sourceIndex === -1) {
-        const sourceDay = store.state.find((day) =>
-            day.spots.some((spot) => spot.id === spotId),
-        );
-        if (!sourceDay) return;
-        source = sourceDay.spots;
-        sourceIndex = source.findIndex((spot) => spot.id === spotId);
-        fromDay = sourceDay.id;
-    }
-    const target = toDay === "backlog" ? store.backlog : dayBy(toDay)?.spots;
-    if (!target) return;
-
     pushUndo();
-    const spot = source.splice(sourceIndex, 1)[0];
-    if (fromDay !== toDay) delete spot.plannedStart;
-    if (toDay === "backlog") {
-        if (
-            backlogGroupId &&
-            store.backlogGroups.some((group) => group.id === backlogGroupId)
-        )
-            spot.backlogGroupId = backlogGroupId;
-        else delete spot.backlogGroupId;
-    } else delete spot.backlogGroupId;
-    if (toDay === "backlog") {
-        const groupIndexes = target
-            .map((candidate, index) => ({ candidate, index }))
-            .filter(({ candidate }) =>
-                backlogGroupId
-                    ? candidate.backlogGroupId === backlogGroupId
-                    : !store.backlogGroups.some(
-                          (group) => group.id === candidate.backlogGroupId,
-                      ),
-            );
-        const targetIndex =
-            at < groupIndexes.length
-                ? groupIndexes[Math.max(0, at)].index
-                : groupIndexes.length
-                  ? groupIndexes.at(-1).index + 1
-                  : target.length;
-        target.splice(targetIndex, 0, spot);
-    } else target.splice(at, 0, spot);
+    if (!relocateSpot(store, spotId, toDay, at, backlogGroupId)) return;
     store.active = toDay;
     save();
     render();

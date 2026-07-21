@@ -9,7 +9,7 @@ import {
     spotIsEnabled,
     routeTimeOverride,
     routeTimeProfile,
-} from "../../core/store.js?v=24";
+} from "../../core/store.js?v=26";
 import { render } from "../planner/render.js";
 import {
     drawMap,

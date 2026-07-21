@@ -1,11 +1,12 @@
 // Canonical codec for the portable trip document. Local file import/
 // export and GitHub transport all use the same field selection.
 
-import { store } from "./store.js?v=24";
+import { store } from "./store.js?v=26";
 import { DEFAULT_CATEGORIES } from "./constants.js";
 import { isTime } from "./time.js";
+import { normalizeHealthDay, normalizeHealthSpot } from "./plan-metadata.js";
 
-export const PLAN_VERSION = 22;
+export const PLAN_VERSION = 24;
 
 export function serializePlan({ exportedAt = true } = {}) {
     const plan = {
@@ -34,18 +35,18 @@ function isRecord(value) {
     return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function normalizeSpot(spot) {
+export function normalizeSpot(spot) {
     if (!isRecord(spot) || typeof spot.id !== "string" || typeof spot.name !== "string") {
         throw new Error("INVALID_PLAN");
     }
-    const normalized = {
+    const normalized = normalizeHealthSpot({
         ...spot,
         address: typeof spot.address === "string" ? spot.address : "",
         note: typeof spot.note === "string" ? spot.note : "",
         tags: Array.isArray(spot.tags)
             ? spot.tags.filter((tag) => typeof tag === "string")
             : [],
-    };
+    });
     if (typeof spot.category !== "string") delete normalized.category;
     if (!Number.isFinite(spot.lat)) delete normalized.lat;
     if (!Number.isFinite(spot.lng)) delete normalized.lng;
@@ -64,18 +65,19 @@ function normalizeSpot(spot) {
     return normalized;
 }
 
-function normalizeDay(day) {
+export function normalizeDay(day) {
     if (!isRecord(day) || typeof day.id !== "string" || !Array.isArray(day.spots)) {
         throw new Error("INVALID_PLAN");
     }
     const spots = day.spots.map(normalizeSpot);
     spots.forEach((spot) => delete spot.backlogGroupId);
-    return {
+    const normalized = normalizeHealthDay({
         ...day,
         date: typeof day.date === "string" ? day.date : "",
         title: typeof day.title === "string" ? day.title : "",
         spots,
-    };
+    });
+    return normalized;
 }
 
 export function normalizePlan(value) {

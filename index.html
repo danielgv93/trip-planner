@@ -20,7 +20,7 @@
             rel="stylesheet"
             href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css"
         />
-        <link rel="stylesheet" href="styles/app.css?v=2026071802" />
+        <link rel="stylesheet" href="styles/app.css?v=2026072103" />
     </head>
     <body>
         <header class="top">
@@ -76,8 +76,12 @@
                     <span></span><span></span><span></span>
                 </button>
                 <div id="navMenuItems" class="nav-menu-items">
-                    <button id="undoBtn" type="button" disabled>Deshacer</button>
-                    <button id="redoBtn" type="button" disabled>Rehacer</button>
+                    <button id="undoBtn" class="history-button" type="button" aria-label="Deshacer" title="Deshacer (Ctrl/Cmd + Z)" disabled>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7-5 5 5 5"/><path d="M4 12h9a7 7 0 0 1 7 7"/></svg>
+                    </button>
+                    <button id="redoBtn" class="history-button" type="button" aria-label="Rehacer" title="Rehacer (Ctrl/Cmd + Mayús + Z)" disabled>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5"/><path d="M20 12h-9a7 7 0 0 0-7 7"/></svg>
+                    </button>
                     <button id="importBtn">Importar</button>
                     <div class="github-control">
                         <button id="githubOpenBtn" type="button" aria-haspopup="menu" aria-controls="githubMenu" aria-expanded="false">
@@ -111,6 +115,7 @@
                         </summary>
                         <div class="manage-menu-items">
                             <span class="manage-menu-title">Herramientas</span>
+                            <button id="healthCheckBtn" type="button" aria-haspopup="dialog" aria-controls="healthDialog"><span aria-hidden="true">✓</span> Comprobar plan</button>
                             <button id="companionEnterBtn" type="button" aria-controls="companionView"><span aria-hidden="true">➜</span> En ruta</button>
                             <button id="manageTags"><span aria-hidden="true">#</span> Gestionar etiquetas</button>
                             <button id="manageCategories"><span aria-hidden="true">◈</span> Gestionar categorías</button>
@@ -528,6 +533,19 @@
                 </div>
             </form>
         </dialog>
+        <dialog id="healthDialog" class="health-dialog" aria-labelledby="healthDialogTitle">
+            <div class="modal-head">
+                <div class="health-dialog-title"><span class="modal-eyebrow">Viabilidad y confianza</span><h3 id="healthDialogTitle">Centro de confianza</h3><p>Detecta lo que no encaja antes de salir.</p></div>
+                <button class="close" type="button" aria-label="Cerrar">×</button>
+            </div>
+            <div class="health-toolbar">
+                <div><span class="health-toolbar-label">Estado general</span><p id="healthSummary">Comprueba el plan para revisar horarios, carga y trayectos.</p></div>
+                <button id="healthRunBtn" class="health-run" type="button"><span aria-hidden="true">↻</span> Comprobar ahora</button>
+            </div>
+            <div id="healthProgress" class="health-progress" role="status" aria-live="polite"></div>
+            <div id="healthOverview" class="health-overview" aria-label="Resumen de estados"></div>
+            <div id="healthResults" class="health-results"></div>
+        </dialog>
         <dialog id="placeDialog">
             <div class="modal-head">
                 <h3 id="dialogTitle">Añadir una parada</h3>
@@ -623,6 +641,15 @@
                                         inputmode="numeric"
                                     />
                                 </label>
+                            </div>
+                            <label class="health-check-field"><input id="placeScheduleNotApplicable" type="checkbox" /> Sin horario aplicable</label>
+                        </fieldset>
+                        <fieldset class="hours-field">
+                            <legend>Planificación</legend>
+                            <div class="hours-input-row">
+                                <label>Inicio planificado<input id="placePlannedStart" type="time" /></label>
+                                <label class="health-check-field"><input id="placeFixedStart" type="checkbox" /> Reserva con hora fija</label>
+                                <label class="health-check-field"><input id="placeOptional" type="checkbox" /> Parada opcional</label>
                             </div>
                         </fieldset>
                     </div>
@@ -865,6 +892,6 @@
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
         <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js"></script>
-        <script type="module" src="js/app/main.js?v=2026072101"></script>
+        <script type="module" src="js/app/main.js?v=2026072104"></script>
     </body>
 </html>

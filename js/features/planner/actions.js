@@ -1,7 +1,7 @@
 // Header / top-bar actions: trip title editing, add day, preview toggle, reset,
 // import/export. Side-effect module — importing it wires the top-bar listeners.
 
-import { store, save, clearTagFilter } from "../../core/store.js?v=24";
+import { store, save, clearTagFilter } from "../../core/store.js?v=26";
 import { $, slug, id } from "../../shared/dom.js";
 import { render, applyTitle } from "./render.js";
 import { drawMap, syncRouteVisualizationControl } from "../map/map.js";
@@ -9,7 +9,7 @@ import { toast, confirmAction } from "../../shared/notify.js?v=3";
 import { sample, DEFAULT_CATEGORIES, DEFAULT_TITLE } from "../../core/constants.js";
 import { syncTripNotes } from "../notes/notes.js";
 import { CURRENCIES, refreshExchangeRate } from "../finance/currency.js";
-import { serializePlan, parsePlanJson } from "../../core/plan-json.js?v=33";
+import { serializePlan, parsePlanJson } from "../../core/plan-json.js?v=35";
 import { applyImportedPlan } from "./import-plan.js?v=1";
 import { pushUndo } from "./history.js";
 

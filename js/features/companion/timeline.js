@@ -2,7 +2,7 @@
 // It derives a route forecast from persisted stop data without mutating it.
 
 import { esc, safeColor } from "../../shared/dom.js";
-import { categoryMeta, spotIsEnabled } from "../../core/store.js?v=24";
+import { categoryMeta, spotIsEnabled } from "../../core/store.js?v=26";
 import { distanceMeters } from "../../core/geo.js";
 import { timeToMinutes, minutesToTime } from "../../core/time.js";
 
@@ -93,7 +93,10 @@ export function buildTimelineProjection(
         ))
         .map((spot) => timeToMinutes(spot.openingTime))
         .filter(Number.isFinite);
-    let cursor = (isToday ? localMinutes(now) : openings.length ? Math.min(...openings) : 540) + delayMinutes;
+    const explicitStart = timeToMinutes(day?.startTime);
+    const dayStart = explicitStart ??
+        (isToday ? localMinutes(now) : openings.length ? Math.min(...openings) : 540);
+    let cursor = dayStart + delayMinutes;
     let previous = null;
 
     const items = spots.map((spot) => {
@@ -117,6 +120,7 @@ export function buildTimelineProjection(
             : 0;
         let travelStart = cursor;
         let travelEnd = cursor;
+        let arrival = cursor;
         let start;
         let actual = false;
 
@@ -133,12 +137,14 @@ export function buildTimelineProjection(
         if (!actual && plannedStart !== null) {
             travelStart = cursor;
             travelEnd = cursor + travel;
+            arrival = travelEnd;
             start = plannedStart;
-            cursor = Math.max(cursor, start + duration);
+            cursor = Math.max(travelEnd, start + duration);
         } else if (!actual) {
             travelStart = cursor;
             cursor += travel;
             travelEnd = cursor;
+            arrival = travelEnd;
             start = opening !== null && opening < (closing ?? 1440) ? Math.max(cursor, opening) : cursor;
             cursor = start + duration;
         }
@@ -156,6 +162,9 @@ export function buildTimelineProjection(
             closing,
             allDay,
             plannedStart,
+            fixedStart: spot.fixedStart === true && plannedStart !== null,
+            arrival,
+            wait: Math.max(0, start - arrival),
             travel,
             travelOfficial: resolvedTravel?.officialMinutes ?? null,
             travelOverridden: resolvedTravel?.overridden === true,
@@ -163,6 +172,13 @@ export function buildTimelineProjection(
             travelApproximate:
                 previous !== null &&
                 !Number.isFinite(resolvedTravel?.minutes),
+            travelSource: previous === null
+                ? null
+                : resolvedTravel?.overridden === true
+                  ? "override"
+                  : Number.isFinite(resolvedTravel?.officialMinutes)
+                    ? "official"
+                    : "estimated",
             travelStart,
             travelEnd,
             fromSpot: previous,
@@ -172,12 +188,22 @@ export function buildTimelineProjection(
             outsideRanges,
             margin: closing === null ? null : closing - end,
         };
+        item.conflicts = [];
+        if (outside) item.conflicts.push({ type: "outside-hours", ranges: outsideRanges });
+        if (item.fixedStart && arrival > start)
+            item.conflicts.push({ type: "late-reservation", minutes: arrival - start });
+        if (previous && travelEnd > start)
+            item.conflicts.push({ type: "travel-overlap", minutes: travelEnd - start });
         previous = spot;
         return item;
     });
 
     const lanes = assignOverlapMetadata(items);
-    return { items, lanes, isToday, current: localMinutes(now), delayMinutes };
+    items.forEach((item) => {
+        if (item.overlaps.length)
+            item.conflicts.push({ type: "visit-overlap", ranges: item.overlaps });
+    });
+    return { items, lanes, isToday, current: localMinutes(now), delayMinutes, start: dayStart };
 }
 
 function timelineBounds(projection, interactive = false) {

@@ -12,7 +12,7 @@ import {
     spotMatchesFilter,
     spotIsEnabled,
     routeTimeOverride,
-} from "../../core/store.js?v=24";
+} from "../../core/store.js?v=26";
 import { $, esc, safeColor } from "../../shared/dom.js";
 import { DAY_COLORS } from "../../core/constants.js";
 import { distanceMeters } from "../../core/geo.js";
@@ -62,6 +62,9 @@ export function invalidateMainMap() {
 // In-memory only, keyed by `fromCoord|toCoord|profile`. Derived data: never
 // persisted, rebuilt on load, survives the destructive render.
 const routeCache = new Map();
+let routeCacheRevision = 0;
+
+export function routeTravelRevision() { return routeCacheRevision; }
 let routeTimer = null;
 // Bumped on every ensureRoutes() call; async legs resolving with a stale token
 // are discarded so a late response can't paint the wrong day.
@@ -321,6 +324,7 @@ export async function ensureRouteTravelTimes(spots, profile = "walking") {
         pending.map(({ from, to }) => fetchLeg(from, to, profile)),
     );
     pending.forEach(({ key }, index) => routeCache.set(key, results[index]));
+    if (pending.length) routeCacheRevision += 1;
 }
 
 function fmtKm(km) {

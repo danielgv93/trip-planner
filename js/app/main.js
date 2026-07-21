@@ -3,20 +3,21 @@
 // graph has evaluated — so no cross-module call fires against a half-initialised
 // binding.
 
-import { store } from "../core/store.js?v=24";
+import { store } from "../core/store.js?v=26";
 import "../shared/modal-scroll.js?v=1";
-import "../features/planner/dialogs.js";
+import "../features/planner/dialogs.js?v=1";
 import "../features/planner/dnd.js";
 import "../features/planner/undo-controls.js";
-import "../features/planner/actions.js?v=34";
+import "../features/planner/actions.js?v=35";
 import "../features/planner/spot-search.js";
 import "../features/planner/sticky-days.js";
-import "../features/github/github.js?v=32";
-import "../features/finance/budget.js?v=29";
-import "../features/workspace/workspace-resize.js?v=2";
+import "../features/health/health.js?v=2";
+import "../features/github/github.js?v=34";
+import "../features/finance/budget.js?v=30";
+import "../features/workspace/workspace-resize.js?v=3";
 import { render, applyTitle } from "../features/planner/render.js";
 import { drawMap } from "../features/map/map.js";
-import { initCompanion } from "../features/companion/companion.js?v=8";
+import { initCompanion } from "../features/companion/companion.js?v=9";
 import { refreshExchangeRate } from "../features/finance/currency.js";
 
 applyTitle();
@@ -33,7 +34,7 @@ refreshExchangeRate().then((ok) => {
     render({ persist: false });
 });
 
-import("../features/assistant/llm-chat.js?v=13")
+import("../features/assistant/llm-chat.js?v=15")
     .then(({ initLlmChat }) => initLlmChat())
     .catch((error) => {
         console.error("No se pudo iniciar el asistente del viaje", error);

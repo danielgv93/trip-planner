@@ -2,9 +2,9 @@
 // GitHub repository file. This module owns UI and browser persistence; HTTP
 // transport and target validation live in github-api.js.
 
-import { store } from "../../core/store.js?v=24";
+import { store } from "../../core/store.js?v=26";
 import { $ } from "../../shared/dom.js";
-import { parsePlanJson, serializePlan } from "../../core/plan-json.js?v=33";
+import { parsePlanJson, serializePlan } from "../../core/plan-json.js?v=35";
 import { applyImportedPlan } from "../planner/import-plan.js?v=1";
 import { confirmAction, promptAction, toast } from "../../shared/notify.js?v=3";
 import {
@@ -305,6 +305,10 @@ function buildChangesPreview() {
         { label: "Duración", read: (spot) => spot.visitMinutes, format: (value) => value == null ? "Sin estimación" : `${value} min` },
         { label: "Inicio planificado", read: (spot) => spot.plannedStart },
         { label: "Apertura", read: (spot) => spot.openingTime },
+        { label: "Cierre", read: (spot) => spot.closingTime },
+        { label: "Opcional", read: (spot) => spot.optional, format: (value) => value ? "Sí" : "No" },
+        { label: "Reserva fija", read: (spot) => spot.fixedStart, format: (value) => value ? "Sí" : "No" },
+        { label: "Horario", read: (spot) => spot.scheduleNotApplicable, format: (value) => value ? "No aplicable" : "Aplicable" },
         { label: "Cierre", read: (spot) => spot.closingTime },
         { label: "Ubicación", read: (spot) => Number.isFinite(spot.lat) && Number.isFinite(spot.lng) ? `${spot.lat.toFixed(5)}, ${spot.lng.toFixed(5)}` : "", },
         { label: "Visible en el mapa", read: (spot) => spot.mapEnabled !== false },

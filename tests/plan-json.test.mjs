@@ -63,3 +63,31 @@ test("serializePlan genera el documento portable actual", () => {
     assert.equal(Object.hasOwn(serialized, "exportedAt"), false);
     assert.ok(Array.isArray(serialized.days));
 });
+
+test("normalizePlan conserva metadatos de salud seguros", () => {
+    const value = plan();
+    value.days[0].startTime = "08:15";
+    Object.assign(value.days[0].spots[0], {
+        plannedStart: "10:00",
+        fixedStart: true,
+        optional: true,
+        scheduleNotApplicable: true,
+    });
+    const normalized = normalizePlan(value);
+    assert.equal(normalized.days[0].startTime, "08:15");
+    assert.equal(normalized.days[0].spots[0].fixedStart, true);
+    assert.equal(normalized.days[0].spots[0].optional, true);
+});
+
+test("normalizePlan descarta metadatos retirados y reservas incoherentes", () => {
+    const value = plan();
+    Object.assign(value.days[0].spots[0], {
+        fixedStart: true,
+        scheduleUrl: "javascript:alert(1)",
+        scheduleVerifiedAt: "ayer",
+    });
+    const spot = normalizePlan(value).days[0].spots[0];
+    assert.equal(spot.fixedStart, undefined);
+    assert.equal(spot.scheduleUrl, undefined);
+    assert.equal(spot.scheduleVerifiedAt, undefined);
+});

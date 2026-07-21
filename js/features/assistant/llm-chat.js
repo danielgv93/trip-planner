@@ -1,8 +1,8 @@
 import { esc } from "../../shared/dom.js";
-import { serializePlan } from "../../core/plan-json.js?v=33";
+import { serializePlan } from "../../core/plan-json.js?v=35";
 import { applyImportedPlan } from "../planner/import-plan.js?v=1";
 import { toast } from "../../shared/notify.js?v=3";
-import { buildProposedPlan } from "./proposal.js?v=1";
+import { buildProposedPlan } from "./proposal.js?v=3";
 
 export { buildProposedPlan };
 
@@ -195,7 +195,7 @@ Las acciones admitidas son:
 - {"type":"update_day","dayId":string,"date?":"YYYY-MM-DD","title?":string}
 - {"type":"delete_day","dayId":string} (sus paradas pasan a ideas pendientes)
 - {"type":"reorder_days","dayIds":string[]} (debe contener todos los días una vez)
-- {"type":"add_spot","tempId":string,"dayId":string|"backlog","at?":number,"spot":{"name":string,"address?":string,"note?":string,"tags?":string[],"category?":string,"lat?":number,"lng?":number,"cost?":number,"openingTime?":"HH:MM","closingTime?":"HH:MM","plannedStart?":"HH:MM","visitMinutes?":number,"mapEnabled?":boolean}}
+- {"type":"add_spot","tempId":string,"dayId":string|"backlog","at?":number,"spot":{"name":string,"address?":string,"note?":string,"tags?":string[],"category?":string,"lat?":number,"lng?":number,"cost?":number,"openingTime?":"HH:MM","closingTime?":"HH:MM","plannedStart?":"HH:MM","visitMinutes?":number,"mapEnabled?":boolean,"optional?":boolean,"fixedStart?":boolean,"scheduleNotApplicable?":boolean}}
 - {"type":"update_spot","spotId":string,"patch":{los mismos campos editables de spot}}
 - {"type":"move_spot","spotId":string,"dayId":string|"backlog","at?":number}
 - {"type":"delete_spot","spotId":string}

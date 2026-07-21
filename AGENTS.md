@@ -81,6 +81,7 @@ day = {
   date: "YYYY-MM-DD",
   title,
   spots: [],
+  startTime?, // canonical 24-hour HH:MM used by itinerary health simulation
   collapsed? // UI state, persisted as part of the day object
 }
 
@@ -98,6 +99,9 @@ spot = {
   openingTime?, // canonical 24-hour HH:MM
   closingTime?, // canonical 24-hour HH:MM
   plannedStart?,// canonical 24-hour HH:MM
+  optional?,    // true allows health suggestions to move it to the backlog
+  fixedStart?,  // true makes plannedStart an immovable reservation
+  scheduleNotApplicable?, // true declares that opening/closing hours do not apply
   visitedAt?,   // ISO timestamp from companion mode
   mapEnabled?   // false disables the stop everywhere; missing means enabled
 }
@@ -110,7 +114,7 @@ category = {
 }
 ```
 
-`save()` writes `localStorage["trip-planner"]` with schema **version 23** (`STORAGE_VERSION` in `core/store.js`). Portable JSON uses its own independently versioned `PLAN_VERSION` in `core/plan-json.js`. Loading still accepts the legacy `japan-planner` key and old saves whose root is directly an array of days. If the persisted shape changes, bump the relevant version and preserve these read fallbacks/migrations.
+`save()` writes `localStorage["trip-planner"]` with schema **version 26** (`STORAGE_VERSION` in `core/store.js`). Portable JSON uses its own independently versioned `PLAN_VERSION` in `core/plan-json.js`. Loading still accepts the legacy `japan-planner` key and old saves whose root is directly an array of days. If the persisted shape changes, bump the relevant version and preserve these read fallbacks/migrations.
 
 JSON export includes the plan data needed for restoration (`days`, `backlog`, title, tags/categories, currencies/rate, notes, and route settings) plus `version` and `exportedAt`. Import requires `days` to be an array and supplies fallbacks for optional/older fields. Keep import and export in sync when adding a portable persisted field. Browser-only presentation state such as active filters is intentionally excluded.
 

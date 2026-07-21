@@ -1,7 +1,7 @@
 // Validation and immutable application of assistant-proposed plan actions.
 // Kept separate from provider transport and chat rendering.
 
-import { normalizePlan } from "../../core/plan-json.js?v=33";
+import { normalizePlan } from "../../core/plan-json.js?v=35";
 import { isTime } from "../../core/time.js";
 
 const MAX_ACTIONS = 30;
@@ -99,6 +99,11 @@ function cleanSpotPatch(patch, plan, { requireName = false } = {}) {
         assert(typeof patch.mapEnabled === "boolean", "mapEnabled debe ser verdadero o falso.");
         result.mapEnabled = patch.mapEnabled;
     }
+    for (const field of ["optional", "fixedStart", "scheduleNotApplicable"]) {
+        if (!Object.hasOwn(patch, field)) continue;
+        assert(typeof patch[field] === "boolean", `${field} debe ser verdadero o falso.`);
+        result[field] = patch[field];
+    }
     return result;
 }
 
@@ -184,6 +189,10 @@ export function buildProposedPlan(currentPlan, actions) {
                     day.date = date;
                 }
                 if (Object.hasOwn(action, "title")) day.title = cleanString(action.title, "Título del día", 120);
+                if (Object.hasOwn(action, "startTime")) {
+                    const startTime = optionalTime(action.startTime, "startTime");
+                    if (startTime === null) delete day.startTime; else day.startTime = startTime;
+                }
                 summaries.push(`Actualizar el día “${day.title || day.date}”`);
                 break;
             }
@@ -213,6 +222,7 @@ export function buildProposedPlan(currentPlan, actions) {
                 assert(tempId && !tempIds.has(tempId), "El tempId de la parada no es válido o está repetido.");
                 const dayId = resolveDayId(plan, action.dayId, tempIds);
                 const spot = { id: crypto.randomUUID(), ...cleanSpotPatch(action.spot, plan, { requireName: true }) };
+                assert(!spot.fixedStart || spot.plannedStart, "Una reserva fija necesita una hora planificada.");
                 tempIds.set(tempId, spot.id);
                 const list = targetList(plan, dayId);
                 list.splice(clampIndex(action.at, list.length), 0, spot);
@@ -225,6 +235,7 @@ export function buildProposedPlan(currentPlan, actions) {
                 const patch = cleanSpotPatch(action.patch, plan);
                 assert(Object.keys(patch).length, "La actualización de la parada está vacía.");
                 applyPatch(match.list[match.index], patch);
+                assert(!match.list[match.index].fixedStart || match.list[match.index].plannedStart, "Una reserva fija necesita una hora planificada.");
                 assert(match.list[match.index].name, "La parada no puede quedarse sin nombre.");
                 summaries.push(`Actualizar “${match.list[match.index].name}”`);
                 break;

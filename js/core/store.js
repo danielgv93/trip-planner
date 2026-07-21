@@ -12,8 +12,9 @@ import {
     DEFAULT_TITLE,
     UNCATEGORIZED,
 } from "./constants.js";
+import { normalizeHealthDay, normalizeHealthSpot } from "./plan-metadata.js";
 
-export const STORAGE_VERSION = 24;
+export const STORAGE_VERSION = 26;
 
 function loadSavedState() {
     const raw =
@@ -30,6 +31,14 @@ function loadSavedState() {
 
 const saved = loadSavedState();
 
+function normalizeSavedDay(day) {
+    const normalized = normalizeHealthDay(day);
+    normalized.spots = Array.isArray(day?.spots)
+        ? day.spots.map(normalizeHealthSpot)
+        : [];
+    return normalized;
+}
+
 export const store = {
     tripTitle:
         typeof saved?.tripTitle === "string" ? saved.tripTitle : DEFAULT_TITLE,
@@ -44,10 +53,12 @@ export const store = {
     exchangeRateDate:
         typeof saved?.exchangeRateDate === "string" ? saved.exchangeRateDate : "",
     tripNotes: typeof saved?.tripNotes === "string" ? saved.tripNotes : "",
-    state: Array.isArray(saved)
+    state: (Array.isArray(saved)
         ? saved
-        : saved?.days || structuredClone(sample),
-    backlog: Array.isArray(saved?.backlog) ? saved.backlog : [],
+        : saved?.days || structuredClone(sample)).map(normalizeSavedDay),
+    backlog: Array.isArray(saved?.backlog)
+        ? saved.backlog.map(normalizeHealthSpot)
+        : [],
     backlogCollapsed: saved?.backlogCollapsed === true,
     backlogGroups: Array.isArray(saved?.backlogGroups)
         ? saved.backlogGroups.filter(

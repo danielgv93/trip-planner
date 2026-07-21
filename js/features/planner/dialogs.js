@@ -1,7 +1,7 @@
 // The add/edit place dialog (with Nominatim search) and the tag / category
 // manager dialogs. Wires its own listeners on module load.
 
-import { store, save, dayBy } from "../../core/store.js?v=24";
+import { store, save, dayBy } from "../../core/store.js?v=26";
 import { $, esc, slug, id } from "../../shared/dom.js";
 import { toast, confirmAction } from "../../shared/notify.js?v=3";
 import { render } from "./render.js";
@@ -166,6 +166,10 @@ export function openDialog(dayId, spot, prefill = {}) {
         Number.isInteger(spot?.visitMinutes) && spot.visitMinutes > 0
             ? spot.visitMinutes
             : "";
+    $("#placePlannedStart").value = normalizeTime(spot?.plannedStart) || "";
+    $("#placeFixedStart").checked = spot?.fixedStart === true;
+    $("#placeOptional").checked = spot?.optional === true;
+    $("#placeScheduleNotApplicable").checked = spot?.scheduleNotApplicable === true;
     $("#placeDetails").open = !!spot;
     $("#resetCost").hidden = !spot;
     renderTagOptions(spot?.tags || []);
@@ -176,7 +180,17 @@ export function openDialog(dayId, spot, prefill = {}) {
         : "Busca un lugar o pega coordenadas en formato latitud, longitud.";
     dialog.showModal();
     openPreview(store.selectedLocation);
-    $("#placeName").focus();
+    const focusTargets = {
+        duration: "#placeVisitMinutes",
+        location: "#placeAddress",
+        schedule: "#placeOpeningTime",
+        reservation: "#placePlannedStart",
+    };
+    const focusTarget = focusTargets[prefill.focus];
+    if (focusTarget) {
+        $("#placeDetails").open = true;
+        $(focusTarget).focus();
+    } else $("#placeName").focus();
     const prefilledName =
         !spot &&
         typeof prefill?.name === "string" &&
@@ -283,6 +297,17 @@ $("#resetCost").addEventListener("click", () => {
     $("#placeCost").focus();
 });
 
+$("#placeScheduleNotApplicable").addEventListener("change", (event) => {
+    if (!event.target.checked) return;
+    $("#placeOpeningTime").value = "";
+    $("#placeClosingTime").value = "";
+});
+[$("#placeOpeningTime"), $("#placeClosingTime")].forEach((input) =>
+    input.addEventListener("input", () => {
+        if (input.value) $("#placeScheduleNotApplicable").checked = false;
+    }),
+);
+
 $("#placeForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = $("#placeName").value.trim(),
@@ -291,6 +316,7 @@ $("#placeForm").addEventListener("submit", async (e) => {
         costValue = $("#placeCost").value.trim(),
         openingTime = normalizeTime($("#placeOpeningTime").value),
         closingTime = normalizeTime($("#placeClosingTime").value),
+        plannedStart = normalizeTime($("#placePlannedStart").value),
         parsedCost = Number(costValue),
         cost =
             costValue !== "" && Number.isFinite(parsedCost) && parsedCost > 0
@@ -306,7 +332,15 @@ $("#placeForm").addEventListener("submit", async (e) => {
                 : undefined,
         coordinates = store.selectedLocation || null,
         spotTags = selectedTags(),
-        category = selectedCategory();
+        category = selectedCategory(),
+        fixedStart = $("#placeFixedStart").checked,
+        optional = $("#placeOptional").checked,
+        scheduleNotApplicable = $("#placeScheduleNotApplicable").checked;
+    if (fixedStart && !plannedStart) {
+        toast("Añade una hora planificada antes de marcar la reserva como fija.", "error");
+        $("#placePlannedStart").focus();
+        return;
+    }
     const target =
         editing.dayId === "backlog" ? store.backlog : dayBy(editing.dayId).spots;
     let spot = editing.spot;
@@ -346,6 +380,11 @@ $("#placeForm").addEventListener("submit", async (e) => {
     else spot.openingTime = openingTime;
     if (closingTime === undefined) delete spot.closingTime;
     else spot.closingTime = closingTime;
+    if (plannedStart === undefined) delete spot.plannedStart;
+    else spot.plannedStart = plannedStart;
+    if (fixedStart) spot.fixedStart = true; else delete spot.fixedStart;
+    if (optional) spot.optional = true; else delete spot.optional;
+    if (scheduleNotApplicable) spot.scheduleNotApplicable = true; else delete spot.scheduleNotApplicable;
     store.active = editing.dayId;
     dialog.close();
     save();
