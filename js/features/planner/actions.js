@@ -1,16 +1,16 @@
 // Header / top-bar actions: trip title editing, add day, preview toggle, reset,
 // import/export. Side-effect module — importing it wires the top-bar listeners.
 
-import { store, save, clearTagFilter } from "../../core/store.js?v=25";
+import { store, save, clearTagFilter } from "../../core/store.js";
 import { $, slug, id } from "../../shared/dom.js";
 import { render, applyTitle } from "./render.js";
 import { drawMap, syncRouteVisualizationControl } from "../map/map.js";
-import { toast, confirmAction } from "../../shared/notify.js?v=4";
+import { toast, confirmAction } from "../../shared/notify.js";
 import { sample, DEFAULT_CATEGORIES, DEFAULT_TITLE } from "../../core/constants.js";
-import { syncTripNotes } from "../notes/notes.js?v=3";
+import { syncTripNotes } from "../notes/notes.js";
 import { CURRENCIES, refreshExchangeRate } from "../finance/currency.js";
-import { serializePlan, parsePlanJson } from "../../core/plan-json.js?v=34";
-import { applyImportedPlan } from "./import-plan.js?v=1";
+import { serializePlan, parsePlanJson } from "../../core/plan-json.js";
+import { applyImportedPlan } from "./import-plan.js";
 import { pushUndo } from "./history.js";
 
 let titleEditCaptured = false;

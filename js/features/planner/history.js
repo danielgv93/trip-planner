@@ -2,7 +2,7 @@
 // stays outside store/save(), so reloading starts with empty undo/redo stacks.
 
 import { createUndoStack } from "../../core/undo-stack.js";
-import { store, save } from "../../core/store.js?v=25";
+import { store, save } from "../../core/store.js";
 
 const SNAPSHOT_KEYS = [
     "state",

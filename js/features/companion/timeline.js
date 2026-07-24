@@ -2,7 +2,7 @@
 // It derives a route forecast from persisted stop data without mutating it.
 
 import { esc, safeColor } from "../../shared/dom.js";
-import { categoryMeta, spotIsEnabled } from "../../core/store.js?v=25";
+import { categoryMeta, spotIsEnabled } from "../../core/store.js";
 import { distanceMeters } from "../../core/geo.js";
 import { timeToMinutes, minutesToTime } from "../../core/time.js";
 

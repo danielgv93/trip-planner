@@ -1,7 +1,7 @@
 // Canonical codec for the portable trip document. Local file import/
 // export and GitHub transport all use the same field selection.
 
-import { store } from "./store.js?v=25";
+import { store } from "./store.js";
 import { DEFAULT_CATEGORIES } from "./constants.js";
 import { isTime } from "./time.js";
 import {

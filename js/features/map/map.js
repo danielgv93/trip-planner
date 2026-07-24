@@ -12,12 +12,12 @@ import {
     spotMatchesFilter,
     spotIsEnabled,
     routeTimeOverride,
-} from "../../core/store.js?v=25";
+} from "../../core/store.js";
 import { $, esc, safeColor } from "../../shared/dom.js";
 import { DAY_COLORS } from "../../core/constants.js";
 import { distanceMeters } from "../../core/geo.js";
 import { fetchSpotImage } from "./images.js";
-import { registerBasemapMap } from "./basemap.js?v=6";
+import { registerBasemapMap } from "./basemap.js";
 
 const usesCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
 const map = L.map("map", {

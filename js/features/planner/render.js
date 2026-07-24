@@ -19,9 +19,9 @@ import {
     routeTimeOverrideKey,
     routeTimeProfile,
     routeTimeProfileKey,
-} from "../../core/store.js?v=25";
+} from "../../core/store.js";
 import { $, esc, safeColor, fmt, daysEl, id } from "../../shared/dom.js";
-import { toast, confirmAction } from "../../shared/notify.js?v=4";
+import { toast, confirmAction } from "../../shared/notify.js";
 import {
     drawMap,
     mapsLinkFor,
@@ -30,7 +30,7 @@ import {
     ensureRouteTravelTimes,
     highlightMapSpot,
 } from "../map/map.js";
-import { openDialog } from "./dialogs.js?v=2";
+import { openDialog } from "./dialogs.js";
 import { pushUndo } from "./history.js";
 import { foreignAmount, localAmount } from "../finance/currency.js";
 import { DAY_LOAD_WARNING_MINUTES } from "../../core/constants.js";
@@ -40,7 +40,7 @@ import {
     openingHourSegments,
     schedulesOverlap,
     scheduleOverlapSegments,
-} from "./schedule.js?v=1";
+} from "./schedule.js";
 
 export { timeToMinutes } from "../../core/time.js";
 export { openingHourSegments, schedulesOverlap, scheduleOverlapSegments };

@@ -1,7 +1,7 @@
 // Validation and immutable application of assistant-proposed plan actions.
 // Kept separate from provider transport and chat rendering.
 
-import { normalizePlan } from "../../core/plan-json.js?v=34";
+import { normalizePlan } from "../../core/plan-json.js";
 import { isTime } from "../../core/time.js";
 
 const MAX_ACTIONS = 30;

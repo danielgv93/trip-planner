@@ -2,11 +2,11 @@
 // GitHub repository file. This module owns UI and browser persistence; HTTP
 // transport and target validation live in github-api.js.
 
-import { store } from "../../core/store.js?v=25";
+import { store } from "../../core/store.js";
 import { $ } from "../../shared/dom.js";
-import { parsePlanJson, serializePlan } from "../../core/plan-json.js?v=34";
-import { applyImportedPlan } from "../planner/import-plan.js?v=1";
-import { confirmAction, promptAction, toast } from "../../shared/notify.js?v=4";
+import { parsePlanJson, serializePlan } from "../../core/plan-json.js";
+import { applyImportedPlan } from "../planner/import-plan.js";
+import { confirmAction, promptAction, toast } from "../../shared/notify.js";
 import {
     GithubError,
     GITHUB_STORAGE_KEY,
@@ -18,9 +18,9 @@ import {
     listGithubJsonFiles,
     getGithubFile,
     putGithubFile,
-} from "./github-api.js?v=1";
+} from "./github-api.js";
 
-export * from "./github-api.js?v=1";
+export * from "./github-api.js";
 
 export function loadGithubMetadata() {
     try {

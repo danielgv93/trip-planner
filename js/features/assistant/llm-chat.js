@@ -1,8 +1,8 @@
 import { esc } from "../../shared/dom.js";
-import { serializePlan } from "../../core/plan-json.js?v=34";
-import { applyImportedPlan } from "../planner/import-plan.js?v=1";
-import { toast } from "../../shared/notify.js?v=4";
-import { buildProposedPlan } from "./proposal.js?v=1";
+import { serializePlan } from "../../core/plan-json.js";
+import { applyImportedPlan } from "../planner/import-plan.js";
+import { toast } from "../../shared/notify.js";
+import { buildProposedPlan } from "./proposal.js";
 
 export { buildProposedPlan };
 

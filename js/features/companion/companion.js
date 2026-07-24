@@ -9,7 +9,7 @@ import {
     spotIsEnabled,
     routeTimeOverride,
     routeTimeProfile,
-} from "../../core/store.js?v=25";
+} from "../../core/store.js";
 import { render } from "../planner/render.js";
 import {
     drawMap,
@@ -18,7 +18,7 @@ import {
     cachedRouteTravelMinutes,
 } from "../map/map.js";
 import { createTimelineView } from "./timeline.js";
-import { registerBasemapMap } from "../map/basemap.js?v=6";
+import { registerBasemapMap } from "../map/basemap.js";
 import { timeToMinutes } from "../../core/time.js";
 import {
     localDateKey,
@@ -29,7 +29,7 @@ import {
     formatApproxDistance,
     orientationHeadingFromEvent,
     preferredHeading,
-} from "./navigation.js?v=1";
+} from "./navigation.js";
 
 export {
     localDateKey,
