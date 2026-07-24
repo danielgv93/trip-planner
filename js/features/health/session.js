@@ -1,4 +1,5 @@
-import { store, routeTimeProfile, routeTimeOverride } from "../../core/store.js?v=26";
+import { store, routeTimeProfile, routeTimeOverride, travelLeg } from "../../core/store.js?v=26";
+import { spotKind } from "../../core/itinerary.js";
 
 const results = new Map();
 
@@ -6,6 +7,7 @@ export const HEALTH_STATES = {
     solid: { label: "Sólido", icon: "✓" },
     tight: { label: "Justo", icon: "!" },
     impossible: { label: "Inviable", icon: "×" },
+    incomplete: { label: "Faltan datos", icon: "+" },
     unchecked: { label: "Sin comprobar", icon: "?" },
 };
 
@@ -16,6 +18,7 @@ export function healthSignature(day, routeContext = {}) {
         startTime: day?.startTime || null,
         spots: active.map((spot) => ({
             id: spot.id,
+            kind: spotKind(spot),
             visitMinutes: spot.visitMinutes || null,
             lat: Number.isFinite(spot.lat) ? spot.lat : null,
             lng: Number.isFinite(spot.lng) ? spot.lng : null,
@@ -35,8 +38,9 @@ export function currentRouteContext(day) {
     const legs = [];
     for (let index = 1; index < spots.length; index += 1) {
         const from = spots[index - 1], to = spots[index];
-        const profile = routeTimeProfile(from.id, to.id);
-        legs.push([from.id, to.id, profile, routeTimeOverride(from.id, to.id, profile)]);
+        const configured = travelLeg(from.id, to.id);
+        const profile = configured?.mode || routeTimeProfile(from.id, to.id);
+        legs.push([from.id, to.id, profile, configured || routeTimeOverride(from.id, to.id, profile)]);
     }
     return { legs, profile: store.routeProfile };
 }

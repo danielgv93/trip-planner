@@ -3,6 +3,7 @@
 
 import { normalizePlan } from "../../core/plan-json.js?v=35";
 import { isTime } from "../../core/time.js";
+import { normalizeTravelLeg, travelLegKey, TRAVEL_MODES } from "../../core/travel-legs.js";
 
 const MAX_ACTIONS = 30;
 
@@ -104,6 +105,10 @@ function cleanSpotPatch(patch, plan, { requireName = false } = {}) {
         assert(typeof patch[field] === "boolean", `${field} debe ser verdadero o falso.`);
         result[field] = patch[field];
     }
+    if (Object.hasOwn(patch, "kind")) {
+        assert(["activity", "waypoint"].includes(patch.kind), "La función de la parada no es válida.");
+        result.kind = patch.kind;
+    }
     return result;
 }
 
@@ -129,6 +134,9 @@ function pruneRouteSettings(plan) {
     );
     plan.routeTimeProfiles = Object.fromEntries(
         Object.entries(plan.routeTimeProfiles || {}).filter(([key]) => validRouteKey(key)),
+    );
+    plan.travelLegs = Object.fromEntries(
+        Object.entries(plan.travelLegs || {}).filter(([key]) => validRouteKey(key)),
     );
 }
 
@@ -257,6 +265,27 @@ export function buildProposedPlan(currentPlan, actions) {
                 assert(match, `No existe la parada “${action.spotId}”.`);
                 const [spot] = match.list.splice(match.index, 1);
                 summaries.push(`Eliminar la parada “${spot.name}”`);
+                break;
+            }
+            case "set_travel_leg": {
+                const fromId = tempIds.get(action.fromId) || action.fromId;
+                const toId = tempIds.get(action.toId) || action.toId;
+                assert(findSpot(plan, fromId) && findSpot(plan, toId) && fromId !== toId, "Los extremos del trayecto no son válidos.");
+                assert(TRAVEL_MODES.includes(action.leg?.mode), "El modo del trayecto no es válido.");
+                const leg = normalizeTravelLeg(action.leg);
+                assert(leg, "El trayecto no es válido.");
+                assert(!leg.fixedDeparture || leg.departureTime, "Una salida fija necesita hora.");
+                assert(!["bus", "train", "metro", "ferry", "flight", "other"].includes(leg.mode) || leg.durationMinutes, "El transporte manual necesita duración.");
+                plan.travelLegs ||= {};
+                plan.travelLegs[travelLegKey(fromId, toId)] = leg;
+                summaries.push("Configurar un trayecto");
+                break;
+            }
+            case "delete_travel_leg": {
+                const key = travelLegKey(action.fromId, action.toId);
+                assert(plan.travelLegs?.[key], "No existe ese trayecto.");
+                delete plan.travelLegs[key];
+                summaries.push("Eliminar un trayecto");
                 break;
             }
             case "set_tags": {

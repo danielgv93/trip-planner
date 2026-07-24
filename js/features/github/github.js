@@ -294,6 +294,7 @@ function buildChangesPreview() {
     addGroups("Paradas", spotChanges);
     const spotFields = [
         { label: "Nombre", read: (spot) => spot.name },
+        { label: "Tipo", read: (spot) => spot.kind, format: (value) => value === "waypoint" ? "Solo paso" : "Visita" },
         { label: "Día", read: (spot) => spot.dayId, format: (id) => dayNames.get(id) || "Día eliminado" },
         { label: "Grupo del backlog", read: (spot) => spot.backlogGroupId },
         { label: "Posición", read: (spot) => spot.position },
@@ -332,6 +333,7 @@ function buildChangesPreview() {
         { label: "Nombre", read: (category) => category.label },
         { label: "Color", read: (category) => category.color },
         { label: "Conecta la ruta", read: (category) => category.connects !== false },
+        { label: "Tipo sugerido", read: (category) => category.defaultSpotKind, format: (value) => value === "waypoint" ? "Solo paso" : "Visita" },
     ];
     for (const { before, after } of categoryChanges.modified) {
         totals.modify += 1;
@@ -361,6 +363,7 @@ function buildChangesPreview() {
         { label: "Notas del viaje", read: (plan) => plan.tripNotes },
         { label: "Modo de viaje", read: (plan) => plan.routeProfile, format: (value) => routeProfiles[value] || previewValue(value) },
         { label: "Tipo de ruta", read: (plan) => plan.routeVisualization, format: (value) => routeTypes[value] || previewValue(value) },
+        { label: "Trayectos", read: (plan) => plan.travelLegs || {}, format: (value) => `${Object.keys(value || {}).length} configurados` },
     ];
     const changedSettings = fieldChanges(remote, local, settingFields);
     if (changedSettings.length) {

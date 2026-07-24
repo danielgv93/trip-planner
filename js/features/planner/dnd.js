@@ -7,12 +7,13 @@
 
 import { daysEl } from "../../shared/dom.js";
 import { store } from "../../core/store.js?v=26";
-import { moveDay, moveSpot, render } from "./render.js";
+import { moveDay, moveSpot, moveTravelCard, render } from "./render.js";
 import { toast } from "../../shared/notify.js?v=3";
 
 let dragEl = null,
     ghost = null,
     dragSpotId = null,
+    dragTravelKey = null,
     grabDX = 0,
     grabDY = 0,
     startX = 0,
@@ -98,6 +99,7 @@ function endCleanup() {
     dragEl = null;
     dragging = false;
     dragSpotId = null;
+    dragTravelKey = null;
     dragPointerId = null;
 }
 
@@ -149,6 +151,8 @@ function onUp(e) {
     if (!dragging) {
         dragEl = null;
         dragSpotId = null;
+        dragTravelKey = null;
+        dragPointerId = null;
         return;
     }
     suppressClick = true;
@@ -157,13 +161,19 @@ function onUp(e) {
         backlogGroupId =
             dayId === "backlog" ? list.dataset.backlogGroup : undefined,
         index = [...list.querySelectorAll(".spot")].indexOf(dragEl),
-        spotId = dragSpotId;
+        spotId = dragSpotId,
+        travelKey = dragTravelKey,
+        followingItem = [...list.querySelectorAll(".spot")]
+            .slice(index + 1)
+            .find((item) => item.dataset.spot || item.dataset.travelLeg),
+        followingSpot = followingItem?.dataset.spot || followingItem?.dataset.travelLeg?.split(">")[0] || null;
     settled = false;
     const commit = () => {
         if (settled) return;
         settled = true;
         endCleanup();
-        moveSpot(spotId, dayId, index, backlogGroupId);
+        if (travelKey) moveTravelCard(travelKey, dayId, followingSpot);
+        else moveSpot(spotId, dayId, index, backlogGroupId);
     };
     const r = dragEl.getBoundingClientRect();
     ghost.style.transition = "transform .18s cubic-bezier(.2,.8,.2,1)";
@@ -310,11 +320,14 @@ daysEl.addEventListener("pointerdown", (e) => {
     suppressClick = false;
     // The schedule rail is an interactive, keyboard-focusable detail. Keep it
     // out of the drag start area so hover/focus feedback remains reliable.
-    if (e.target.closest(".spot-actions, .spot-hours, .spot-toggle")) return;
+    if (e.target.closest(".spot-actions, .travel-card-actions, .spot-hours, .spot-toggle")) return;
     if (e.button !== undefined && e.button !== 0) return;
     if (e.pointerType === "touch" && !e.target.closest(".handle")) return;
+    const travelKey = item.dataset.travelLeg || null;
+    if (travelKey && !e.target.closest(".travel-card-handle")) return;
     dragEl = item;
     dragSpotId = item.dataset.spot;
+    dragTravelKey = travelKey;
     startX = e.clientX;
     startY = e.clientY;
     dragPointerId = e.pointerId;

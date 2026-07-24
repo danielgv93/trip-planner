@@ -493,6 +493,9 @@
                 <button class="close" type="button" aria-label="Cerrar">×</button>
             </div>
             <form class="form travel-time-form" id="travelTimeForm">
+                <label id="travelPairField" hidden>Tramo
+                    <select id="travelPairSelect"></select>
+                </label>
                 <div class="travel-route-summary" aria-label="Tramo seleccionado">
                     <span class="travel-route-dot" aria-hidden="true"></span>
                     <span class="travel-route-line" aria-hidden="true">···</span>
@@ -506,6 +509,13 @@
                     <select id="travelMode">
                         <option value="walking">A pie</option>
                         <option value="driving">En coche</option>
+                        <option value="cycling">En bicicleta</option>
+                        <option value="bus">Autobús</option>
+                        <option value="train">Tren</option>
+                        <option value="metro">Metro</option>
+                        <option value="ferry">Ferry</option>
+                        <option value="flight">Avión</option>
+                        <option value="other">Otro</option>
                     </select>
                 </label>
                 <div class="travel-api-card" data-state="loading">
@@ -525,6 +535,15 @@
                         <button type="button" data-travel-step="5" aria-label="Añadir 5 minutos">+5</button>
                     </span>
                 </label>
+                <div class="travel-leg-details">
+                    <label>Salida<input id="travelDepartureTime" type="time" /></label>
+                    <label class="health-check-field"><input id="travelFixedDeparture" type="checkbox" /> Salida fija</label>
+                    <label>Línea o servicio<input id="travelLine" maxlength="120" placeholder="Ej. Tokaido Shinkansen" /></label>
+                    <label>Coste (<span id="travelCostCurrency">JPY</span>)<input id="travelCost" type="number" min="0" step="0.01" inputmode="decimal" /></label>
+                    <label class="travel-note-field">Notas<textarea id="travelNote" maxlength="1200" placeholder="Andén, localizador, billete…"></textarea></label>
+                    <label class="health-check-field"><input id="travelEmbedFrom" type="checkbox" /> Integrar origen en la tarjeta</label>
+                    <label class="health-check-field"><input id="travelEmbedTo" type="checkbox" /> Integrar destino en la tarjeta</label>
+                </div>
                 <p id="travelTimeHint" class="form-hint">El modo y el ajuste solo afectan a este tramo y recalculan el resto del timeline.</p>
                 <div class="form-actions travel-time-actions">
                     <button id="resetTravelTime" class="travel-reset" type="button" disabled>↺ Usar tiempo de la API</button>
@@ -599,6 +618,20 @@
                                 placeholder="Reserva, horario, idea de comida…"
                             ></textarea>
                         </label>
+                        <div class="spot-kind-option">
+                            <label>
+                                <input
+                                    id="placeIsWaypoint"
+                                    type="checkbox"
+                                    aria-describedby="placeKindHint"
+                                />
+                                <span>
+                                    <strong>Solo punto de paso</strong>
+                                    <small id="placeKindHint">Se incluirá en el mapa y la ruta, pero no ocupará tiempo ni necesitará horario. Útil para hoteles, estaciones, aeropuertos o puntos de recogida.</small>
+                                </span>
+                            </label>
+                            <p class="spot-kind-state" role="status" aria-live="polite"></p>
+                        </div>
                         <label class="cost-field"
                             ><span class="cost-label">Coste en moneda extranjera (<span id="placeCostCurrency">JPY</span>)</span>
                             <span class="cost-input-row">
@@ -620,7 +653,7 @@
                                 </button>
                             </span>
                         </label>
-                        <fieldset class="hours-field">
+                        <fieldset class="hours-field" data-activity-only>
                             <legend>Horario (opcional)</legend>
                             <div class="hours-input-row">
                                 <label
@@ -644,7 +677,7 @@
                             </div>
                             <label class="health-check-field"><input id="placeScheduleNotApplicable" type="checkbox" /> Sin horario aplicable</label>
                         </fieldset>
-                        <fieldset class="hours-field">
+                        <fieldset class="hours-field" data-activity-planning>
                             <legend>Planificación</legend>
                             <div class="hours-input-row">
                                 <label>Inicio planificado<input id="placePlannedStart" type="time" /></label>
@@ -698,7 +731,7 @@
                         type="color"
                         id="newCategoryColor"
                         value="#4c9a5b"
-                    /><button id="addCategory">Añadir</button>
+                    /><select id="newCategoryKind" aria-label="Tipo sugerido para nuevas paradas"><option value="activity">Visita</option><option value="waypoint">Solo paso</option></select><button id="addCategory">Añadir</button>
                 </div>
                 <div id="managerCategories" class="manager-list"></div>
                 <p class="form-hint">
@@ -706,7 +739,9 @@
                     <span
                         >Al borrar una categoría, las paradas que la usen quedan
                         sin categoría. El icono 🔗 conecta la categoría a la
-                        línea de la ruta.</span
+                        línea de la ruta. “Visita” o “Solo paso” solo sugiere el
+                        tipo al crear una parada nueva; nunca cambia las
+                        existentes.</span
                     >
                 </p>
             </div>

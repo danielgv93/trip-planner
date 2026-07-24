@@ -122,6 +122,9 @@ $("#resetBtn").onclick = () => {
         store.exchangeRate = null;
         store.exchangeRateDate = "";
         store.tripNotes = "";
+        store.travelLegs = {};
+        store.routeTimeOverrides = {};
+        store.routeTimeProfiles = {};
         store.routeVisualization = "straight";
         $("#routeVisualization").value = store.routeVisualization;
         syncRouteVisualizationControl();

@@ -50,6 +50,7 @@ Module map (paths are relative to `js/`):
 - **`core/store.js`** — the single source of truth and local persistence.
 - **`core/plan-json.js`** — portable plan normalization and serialization; it does not apply UI changes.
 - **`core/time.js`** / **`core/geo.js`** — pure time and geographic calculations.
+- **`core/itinerary.js`** / **`core/travel-legs.js`** — portable spot-role and directed travel-leg contracts.
 - **`shared/dom.js`** / **`shared/notify.js`** — stateless DOM helpers and reusable notifications.
 - **`features/planner/`** — destructive itinerary rendering, dialogs, actions, plan-application workflow, drag/drop, and search.
 - **`features/map/`** — Leaflet maps, basemaps, routes, and place images.
@@ -103,18 +104,26 @@ spot = {
   fixedStart?,  // true makes plannedStart an immovable reservation
   scheduleNotApplicable?, // true declares that opening/closing hours do not apply
   visitedAt?,   // ISO timestamp from companion mode
-  mapEnabled?   // false disables the stop everywhere; missing means enabled
+  mapEnabled?,  // false disables the stop everywhere; missing means enabled
+  kind          // "activity" | "waypoint"; legacy/missing means activity
 }
 
 category = {
   id,
   label,
   color,
-  connects? // only explicit false excludes the category from route polylines
+  connects?, // only explicit false excludes the category from route polylines
+  defaultSpotKind? // suggestion for new spots; never retroactive
+}
+
+travelLegs["fromId>toId"] = {
+  mode, // walking, driving, cycling, bus, train, metro, ferry, flight or other
+  durationMinutes?, departureTime?, fixedDeparture?, line?, note?, cost?,
+  embeddedEndpoints? // ["from"], ["to"] or both for a single travel card
 }
 ```
 
-`save()` writes `localStorage["trip-planner"]` with schema **version 26** (`STORAGE_VERSION` in `core/store.js`). Portable JSON uses its own independently versioned `PLAN_VERSION` in `core/plan-json.js`. Loading still accepts the legacy `japan-planner` key and old saves whose root is directly an array of days. If the persisted shape changes, bump the relevant version and preserve these read fallbacks/migrations.
+`save()` writes `localStorage["trip-planner"]` with schema **version 27** (`STORAGE_VERSION` in `core/store.js`). Portable JSON uses its own independently versioned `PLAN_VERSION` in `core/plan-json.js`. Loading still accepts the legacy `japan-planner` key and old saves whose root is directly an array of days. If the persisted shape changes, bump the relevant version and preserve these read fallbacks/migrations.
 
 JSON export includes the plan data needed for restoration (`days`, `backlog`, title, tags/categories, currencies/rate, notes, and route settings) plus `version` and `exportedAt`. Import requires `days` to be an array and supplies fallbacks for optional/older fields. Keep import and export in sync when adding a portable persisted field. Browser-only presentation state such as active filters is intentionally excluded.
 

@@ -5,6 +5,8 @@ import { esc, safeColor } from "../../shared/dom.js";
 import { categoryMeta, spotIsEnabled } from "../../core/store.js?v=26";
 import { distanceMeters } from "../../core/geo.js";
 import { timeToMinutes, minutesToTime } from "../../core/time.js";
+import { activityDuration, isWaypoint } from "../../core/itinerary.js";
+import { AUTOMATIC_TRAVEL_MODES } from "../../core/travel-legs.js";
 
 function stringValue(value, fallback = "") {
     return typeof value === "string" ? value : fallback;
@@ -100,9 +102,10 @@ export function buildTimelineProjection(
     let previous = null;
 
     const items = spots.map((spot) => {
-        const duration = Number.isInteger(spot.visitMinutes) && spot.visitMinutes > 0 ? spot.visitMinutes : 0;
-        const opening = timeToMinutes(spot.openingTime);
-        const storedClosing = timeToMinutes(spot.closingTime);
+        const waypoint = isWaypoint(spot);
+        const duration = activityDuration(spot);
+        const opening = waypoint ? null : timeToMinutes(spot.openingTime);
+        const storedClosing = waypoint ? null : timeToMinutes(spot.closingTime);
         const allDay = isAllDaySchedule(opening, storedClosing);
         const closing = allDay ? 1440 : storedClosing;
         const plannedStart = timeToMinutes(spot.plannedStart);
@@ -123,6 +126,17 @@ export function buildTimelineProjection(
         let arrival = cursor;
         let start;
         let actual = false;
+        const departure = timeToMinutes(resolvedTravel?.departureTime);
+        const fixedDeparture = resolvedTravel?.fixedDeparture === true && departure !== null;
+        const legReadyAt = cursor;
+        const missedDeparture = fixedDeparture && legReadyAt > departure ? legReadyAt - departure : 0;
+
+        if (!actual && fixedDeparture) {
+            travelStart = departure;
+            travelEnd = departure + travel;
+            arrival = travelEnd;
+            cursor = travelEnd;
+        }
 
         if (visited && isToday) {
             const visitedDate = new Date(spot.visitedAt);
@@ -135,14 +149,14 @@ export function buildTimelineProjection(
             }
         }
         if (!actual && plannedStart !== null) {
-            travelStart = cursor;
-            travelEnd = cursor + travel;
+            if (!fixedDeparture) travelStart = cursor;
+            if (!fixedDeparture) travelEnd = cursor + travel;
             arrival = travelEnd;
             start = plannedStart;
             cursor = Math.max(travelEnd, start + duration);
         } else if (!actual) {
-            travelStart = cursor;
-            cursor += travel;
+            if (!fixedDeparture) travelStart = cursor;
+            if (!fixedDeparture) cursor += travel;
             travelEnd = cursor;
             arrival = travelEnd;
             start = opening !== null && opening < (closing ?? 1440) ? Math.max(cursor, opening) : cursor;
@@ -163,12 +177,21 @@ export function buildTimelineProjection(
             allDay,
             plannedStart,
             fixedStart: spot.fixedStart === true && plannedStart !== null,
+            waypoint,
             arrival,
             wait: Math.max(0, start - arrival),
             travel,
             travelOfficial: resolvedTravel?.officialMinutes ?? null,
             travelOverridden: resolvedTravel?.overridden === true,
             travelProfile: resolvedTravel?.profile || profile,
+            travelMode: resolvedTravel?.mode || resolvedTravel?.profile || profile,
+            travelMissingDuration: previous !== null && resolvedTravel?.mode && !AUTOMATIC_TRAVEL_MODES.includes(resolvedTravel.mode) && !Number.isFinite(resolvedTravel?.minutes),
+            travelLine: resolvedTravel?.line || "",
+            travelCost: resolvedTravel?.cost || 0,
+            travelEmbeddedEndpoints: resolvedTravel?.embeddedEndpoints || [],
+            travelDepartureTime: resolvedTravel?.departureTime || null,
+            travelFixedDeparture: fixedDeparture,
+            travelWait: fixedDeparture ? Math.max(0, departure - legReadyAt) : 0,
             travelApproximate:
                 previous !== null &&
                 !Number.isFinite(resolvedTravel?.minutes),
@@ -194,6 +217,8 @@ export function buildTimelineProjection(
             item.conflicts.push({ type: "late-reservation", minutes: arrival - start });
         if (previous && travelEnd > start)
             item.conflicts.push({ type: "travel-overlap", minutes: travelEnd - start });
+        if (missedDeparture)
+            item.conflicts.push({ type: "missed-departure", minutes: missedDeparture });
         previous = spot;
         return item;
     });
@@ -255,13 +280,14 @@ export function createTimelineView(
     const transfers = projection.items.filter((item) => item.travel > 0 && item.fromSpot).map((item) => {
         const from = stringValue(item.fromSpot.name, "la parada anterior") || "la parada anterior";
         const to = stringValue(item.spot.name, "la siguiente parada") || "la siguiente parada";
-        const modeLabel = item.travelProfile === "driving" ? "en coche" : "andando";
+        const modeLabels = { walking: "andando", driving: "en coche", cycling: "en bicicleta", bus: "en autobús", train: "en tren", metro: "en metro", ferry: "en ferry", flight: "en avión", other: "en transporte" };
+        const modeLabel = modeLabels[item.travelMode] || "en transporte";
         const source = item.travelOverridden
             ? "ajustado"
             : item.travelOfficial !== null
               ? `API · ${modeLabel}`
               : "estimado";
-        const aria = `Trayecto ${modeLabel} de ${from} a ${to}: ${item.travel} min, ${source}`;
+        const aria = `Trayecto ${modeLabel} de ${from} a ${to}: ${item.travel} min${item.travelLine ? `, ${item.travelLine}` : ""}, ${source}`;
         const tag = interactive ? "button" : "div";
         const travelConflict = item.travelEnd > item.start;
         const classes = `companion-timeline-transfer${interactive ? " is-editable" : ""}${item.travelOverridden ? " is-overridden" : ""}${travelConflict ? " is-conflict" : ""}`;
@@ -269,20 +295,21 @@ export function createTimelineView(
             ? ` type="button" data-timeline-travel-from="${esc(String(item.fromSpot.id))}" data-timeline-travel-to="${esc(String(item.spot.id))}" data-timeline-travel-profile="${esc(item.travelProfile)}" data-timeline-travel-minutes="${item.travel}" data-timeline-start="${item.travelStart}" data-timeline-tooltip="${esc(aria)}" aria-haspopup="dialog"`
             : "";
         const titleAttr = interactive ? "" : ` title="${esc(aria)}"`;
-        return `<${tag} class="${classes}"${interactionAttrs} style="--timeline-start:${percent(item.travelStart)};--timeline-width:${((item.travel / span) * 100).toFixed(3)}%"${titleAttr} aria-label="${esc(aria)}"><span aria-hidden="true">↝</span><strong>${item.travel} min</strong><small>${source}</small></${tag}>`;
+        return `<${tag} class="${classes}"${interactionAttrs} style="--timeline-start:${percent(item.travelStart)};--timeline-width:${((item.travel / span) * 100).toFixed(3)}%"${titleAttr} aria-label="${esc(aria)}"><span aria-hidden="true">↝</span><strong>${item.travelLine ? `${esc(item.travelLine)} · ` : ""}${item.travel} min</strong><small>${item.travelDepartureTime ? `Salida ${esc(item.travelDepartureTime)} · ` : ""}${source}</small></${tag}>`;
     });
 
     const resolvedNext = nextSpot || projection.items.find((item) => !item.visited)?.spot || null;
     const blocks = projection.items.map((item, index) => {
         const nextItem = projection.items[index + 1];
+        if (item.travelEmbeddedEndpoints.includes("to") || nextItem?.travelEmbeddedEndpoints?.includes("from")) return "";
         const outgoingTravel = nextItem?.fromSpot === item.spot ? nextItem.travel : 0;
         const color = safeColor(categoryMeta(item.spot.category).color, "#6b6b6b");
         const widthMinutes = Math.max(item.duration, interactive ? 30 : 6);
         const hasOverlap = item.overlaps.length > 0;
-        const classes = ["companion-timeline-block", interactive ? "is-editable" : "", item.spot === resolvedNext ? "is-next" : "", item.outside ? "is-outside-hours" : "", hasOverlap ? "is-overlapping" : "", item.plannedStart !== null ? "is-planned" : "", item.duration ? "" : "is-unsized", item.visited ? "is-visited" : ""].filter(Boolean).join(" ");
+        const classes = ["companion-timeline-block", interactive ? "is-editable" : "", item.waypoint ? "is-waypoint" : "", item.spot === resolvedNext ? "is-next" : "", item.outside ? "is-outside-hours" : "", hasOverlap ? "is-overlapping" : "", item.plannedStart !== null ? "is-planned" : "", item.duration ? "" : "is-unsized", item.visited ? "is-visited" : ""].filter(Boolean).join(" ");
         const rawName = stringValue(item.spot.name, "Parada sin nombre") || "Parada sin nombre";
         const name = esc(rawName);
-        const timing = item.duration ? `${clockLabel(item.start)}–${clockLabel(item.end)}` : `${clockLabel(item.start)} · sin duración`;
+        const timing = item.waypoint ? `${clockLabel(item.start)} · solo paso` : item.duration ? `${clockLabel(item.start)}–${clockLabel(item.end)}` : `${clockLabel(item.start)} · sin duración`;
         const hours = item.allDay
             ? "Todo el día"
             : item.opening !== null && item.closing !== null

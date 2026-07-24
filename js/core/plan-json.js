@@ -5,8 +5,13 @@ import { store } from "./store.js?v=26";
 import { DEFAULT_CATEGORIES } from "./constants.js";
 import { isTime } from "./time.js";
 import { normalizeHealthDay, normalizeHealthSpot } from "./plan-metadata.js";
+import {
+    categoryDefaultSpotKind,
+    normalizeSpotKind,
+} from "./itinerary.js";
+import { migrateLegacyTravelLegs } from "./travel-legs.js";
 
-export const PLAN_VERSION = 24;
+export const PLAN_VERSION = 25;
 
 export function serializePlan({ exportedAt = true } = {}) {
     const plan = {
@@ -24,8 +29,7 @@ export function serializePlan({ exportedAt = true } = {}) {
         categories: store.categories,
         routeProfile: store.routeProfile,
         routeVisualization: store.routeVisualization,
-        routeTimeOverrides: store.routeTimeOverrides,
-        routeTimeProfiles: store.routeTimeProfiles,
+        travelLegs: store.travelLegs,
     };
     if (exportedAt) plan.exportedAt = new Date().toISOString();
     return plan;
@@ -39,14 +43,14 @@ export function normalizeSpot(spot) {
     if (!isRecord(spot) || typeof spot.id !== "string" || typeof spot.name !== "string") {
         throw new Error("INVALID_PLAN");
     }
-    const normalized = normalizeHealthSpot({
+    const normalized = normalizeSpotKind(normalizeHealthSpot({
         ...spot,
         address: typeof spot.address === "string" ? spot.address : "",
         note: typeof spot.note === "string" ? spot.note : "",
         tags: Array.isArray(spot.tags)
             ? spot.tags.filter((tag) => typeof tag === "string")
             : [],
-    });
+    }));
     if (typeof spot.category !== "string") delete normalized.category;
     if (!Number.isFinite(spot.lat)) delete normalized.lat;
     if (!Number.isFinite(spot.lng)) delete normalized.lng;
@@ -131,6 +135,7 @@ export function normalizePlan(value) {
                 ...category,
                 color: typeof category.color === "string" ? category.color : "#7d8589",
                 connects: category.connects !== false,
+                defaultSpotKind: categoryDefaultSpotKind(category),
             };
         })
         : structuredClone(store.categories || DEFAULT_CATEGORIES);
@@ -150,10 +155,16 @@ export function normalizePlan(value) {
               Object.entries(value.routeTimeProfiles).filter(
                   ([key, profile]) =>
                       typeof key === "string" &&
-                      ["walking", "driving"].includes(profile),
+                      ["walking", "driving", "cycling"].includes(profile),
               ),
           )
         : {};
+    const travelLegs = migrateLegacyTravelLegs(
+        value.travelLegs,
+        routeTimeProfiles,
+        routeTimeOverrides,
+        { spotIds: new Set(spotIds) },
+    );
 
     return {
         version: PLAN_VERSION,
@@ -181,6 +192,7 @@ export function normalizePlan(value) {
             : "straight",
         routeTimeOverrides,
         routeTimeProfiles,
+        travelLegs,
     };
 }
 

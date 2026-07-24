@@ -16,10 +16,11 @@ import {
     spotMatchesFilter,
     spotIsEnabled,
     routeTimeOverride,
-    routeTimeOverrideKey,
     routeTimeProfile,
-    routeTimeProfileKey,
+    travelLeg,
 } from "../../core/store.js?v=26";
+import { isWaypoint } from "../../core/itinerary.js";
+import { AUTOMATIC_TRAVEL_MODES, normalizeTravelLeg, travelLegKey } from "../../core/travel-legs.js";
 import { $, esc, safeColor, fmt, daysEl, id } from "../../shared/dom.js";
 import { toast, confirmAction } from "../../shared/notify.js?v=3";
 import {
@@ -36,7 +37,7 @@ import { foreignAmount, localAmount } from "../finance/currency.js";
 import { DAY_LOAD_WARNING_MINUTES } from "../../core/constants.js";
 import { dayWorkload as calculateDayWorkload } from "./workload.js";
 import { healthBadgeMarkup } from "../health/session.js";
-import { relocateSpot } from "./move-spot.js";
+import { relocateSpot, relocateTravelCard } from "./move-spot.js?v=2";
 import { buildTimelineProjection, createTimelineView } from "../companion/timeline.js";
 import { timeToMinutes, minutesToTime } from "../../core/time.js";
 import {
@@ -74,6 +75,11 @@ const travelInput = $("#travelTimeMinutes");
 const travelMode = $("#travelMode");
 const travelApiValue = $("#travelApiValue");
 const resetTravelTimeButton = $("#resetTravelTime");
+const travelDepartureTime = $("#travelDepartureTime");
+const travelFixedDeparture = $("#travelFixedDeparture");
+const travelLine = $("#travelLine");
+const travelCost = $("#travelCost");
+const travelNote = $("#travelNote");
 let travelEditing = null;
 
 const timelineTooltip = document.createElement("div");
@@ -94,6 +100,16 @@ export function sumCosts(spots) {
                 : 0),
         0,
     );
+}
+
+export function sumTravelCosts(day) {
+    const sequence = (day?.spots || []).filter(spotIsEnabled);
+    let total = 0;
+    for (let index = 1; index < sequence.length; index += 1) {
+        const cost = travelLeg(sequence[index - 1].id, sequence[index].id)?.cost;
+        if (Number.isFinite(cost) && cost > 0) total += cost;
+    }
+    return total;
 }
 
 function enabledSpotCount(spots) {
@@ -126,12 +142,12 @@ function dayWorkload(day) {
 }
 
 // Spanish workload segment for the day-head <small> line, e.g.
-// " · ~3 h de actividad · ~45 min de trayectos". Empty string (no leading
+// " · ~3 h de visitas · ~45 min de trayectos". Empty string (no leading
 // separator) when neither part has data, so the line stays byte-identical to
 // today's output.
 function dayLoadText(activity, travel) {
     const parts = [];
-    if (activity > 0) parts.push(`${formatDurationMinutes(activity)} de actividad`);
+    if (activity > 0) parts.push(`${formatDurationMinutes(activity)} de visitas`);
     if (travel != null) parts.push(`${formatDurationMinutes(travel)} de trayectos`);
     return parts.length ? ` · ${parts.join(" · ")}` : "";
 }
@@ -175,14 +191,26 @@ export function renderSpotHours(spot, color, interactive = true) {
 }
 
 function timelineTravelForLeg(from, to) {
-    const profile = routeTimeProfile(from.id, to.id);
-    const officialMinutes = cachedRouteTravelMinutes(from, to, profile);
-    const override = routeTimeOverride(from.id, to.id, profile);
+    const configured = travelLeg(from.id, to.id);
+    const profile = AUTOMATIC_TRAVEL_MODES.includes(configured?.mode)
+        ? configured.mode
+        : routeTimeProfile(from.id, to.id);
+    const officialMinutes = AUTOMATIC_TRAVEL_MODES.includes(profile)
+        ? cachedRouteTravelMinutes(from, to, profile)
+        : null;
+    const override = configured?.durationMinutes ?? routeTimeOverride(from.id, to.id, profile);
     return {
         minutes: override ?? officialMinutes,
         officialMinutes,
         overridden: override !== null,
         profile,
+        mode: configured?.mode || profile,
+        departureTime: configured?.departureTime,
+        fixedDeparture: configured?.fixedDeparture,
+        line: configured?.line,
+        note: configured?.note,
+        cost: configured?.cost,
+        embeddedEndpoints: configured?.embeddedEndpoints,
     };
 }
 
@@ -190,7 +218,8 @@ function timelineProfilesForDay(day) {
     const spots = day?.spots?.filter(spotIsEnabled) || [];
     const profiles = new Set(["walking"]);
     for (let index = 1; index < spots.length; index += 1) {
-        profiles.add(routeTimeProfile(spots[index - 1].id, spots[index].id));
+        const mode = travelLeg(spots[index - 1].id, spots[index].id)?.mode || routeTimeProfile(spots[index - 1].id, spots[index].id);
+        if (AUTOMATIC_TRAVEL_MODES.includes(mode)) profiles.add(mode);
     }
     return profiles;
 }
@@ -327,22 +356,24 @@ function wireTimelineTooltips(tools) {
 function paintTravelDialogValues() {
     if (!travelEditing) return;
     const profile = travelEditing.profile;
-    const official = cachedRouteTravelMinutes(
+    const automatic = AUTOMATIC_TRAVEL_MODES.includes(profile);
+    const official = automatic ? cachedRouteTravelMinutes(
         travelEditing.from,
         travelEditing.to,
         profile,
-    );
+    ) : null;
     const override = routeTimeOverride(
         travelEditing.from.id,
         travelEditing.to.id,
         profile,
     );
     travelEditing.officialMinutes = official;
-    travelApiValue.textContent =
-        official === null ? "No disponible" : `${official} min`;
+    travelApiValue.textContent = automatic
+        ? official === null ? "No disponible" : `${official} min`
+        : "Duración manual";
     travelApiValue.closest(".travel-api-card").dataset.state =
         official === null ? "unavailable" : "ready";
-    resetTravelTimeButton.disabled = override === null;
+    resetTravelTimeButton.disabled = !automatic || !travelLeg(travelEditing.from.id, travelEditing.to.id)?.durationMinutes;
     if (override !== null) travelInput.value = override;
     else if (official !== null) travelInput.value = official;
 }
@@ -357,25 +388,66 @@ async function openTravelTimeDialog(dayId, button) {
     );
     if (!day || !from || !to) return;
     const profile = routeTimeProfile(from.id, to.id);
-    travelEditing = { dayId, from, to, profile, officialMinutes: null, requestToken: 0 };
+    const configured = travelLeg(from.id, to.id);
+    const mode = configured?.mode || profile;
+    travelEditing = { dayId, from, to, profile: mode, officialMinutes: null, requestToken: 0 };
     $("#travelFromName").textContent = from.name || "Parada anterior";
     $("#travelToName").textContent = to.name || "Parada siguiente";
     const shownMinutes = Number(button.dataset.timelineTravelMinutes);
-    travelMode.value = profile;
+    travelMode.value = mode;
+    travelDepartureTime.value = configured?.departureTime || "";
+    travelFixedDeparture.checked = configured?.fixedDeparture === true;
+    travelLine.value = configured?.line || "";
+    travelCost.value = configured?.cost || "";
+    travelNote.value = configured?.note || "";
+    $("#travelCostCurrency").textContent = store.foreignCurrency;
+    $("#travelEmbedFrom").checked = configured?.embeddedEndpoints?.includes("from") || false;
+    $("#travelEmbedTo").checked = configured?.embeddedEndpoints?.includes("to") || false;
     travelInput.value =
         routeTimeOverride(from.id, to.id, profile) ??
         (Number.isFinite(shownMinutes) && shownMinutes > 0 ? shownMinutes : "");
     travelApiValue.textContent = "Consultando…";
     travelApiValue.closest(".travel-api-card").dataset.state = "loading";
     resetTravelTimeButton.disabled =
-        routeTimeOverride(from.id, to.id, profile) === null;
-    travelDialog.showModal();
+        !AUTOMATIC_TRAVEL_MODES.includes(profile) || routeTimeOverride(from.id, to.id, profile) === null;
+    if (!travelDialog.open) travelDialog.showModal();
     travelInput.focus();
     travelInput.select();
-    await ensureRouteTravelTimes(day.spots, profile);
+    if (AUTOMATIC_TRAVEL_MODES.includes(profile))
+        await ensureRouteTravelTimes(day.spots, profile);
     if (!travelEditing || travelEditing.from !== from || travelEditing.to !== to)
         return;
     paintTravelDialogValues();
+}
+
+function openNewTravelDialog(dayId) {
+    const day = dayBy(dayId);
+    const sequence = day?.spots.filter(spotIsEnabled) || [];
+    if (sequence.length < 2) {
+        toast("Añade al menos dos puntos al día para crear un trayecto.", "info");
+        return;
+    }
+    const pairSelect = $("#travelPairSelect");
+    pairSelect.innerHTML = sequence.slice(1).map((to, index) =>
+        `<option value="${esc(String(sequence[index].id))}>${esc(String(to.id))}">${esc(sequence[index].name)} → ${esc(to.name)}</option>`,
+    ).join("");
+    $("#travelPairField").hidden = false;
+    const openSelected = () => {
+        const [fromId, toId] = pairSelect.value.split(">");
+        openTravelTimeDialog(dayId, { dataset: { timelineTravelFrom: fromId, timelineTravelTo: toId, timelineTravelMinutes: "" } });
+    };
+    pairSelect.onchange = openSelected;
+    openSelected();
+}
+
+export function openTravelLegDialog(dayId, fromId, toId) {
+    return openTravelTimeDialog(dayId, {
+        dataset: {
+            timelineTravelFrom: String(fromId),
+            timelineTravelTo: String(toId),
+            timelineTravelMinutes: "",
+        },
+    });
 }
 
 function commitTimelineStarts(dayId, starts) {
@@ -995,35 +1067,36 @@ travelForm.addEventListener("submit", (event) => {
     if (!travelEditing || !travelInput.reportValidity()) return;
     const minutes = Number(travelInput.value);
     if (!Number.isInteger(minutes) || minutes <= 0) return;
-    const key = routeTimeOverrideKey(
-        travelEditing.from.id,
-        travelEditing.to.id,
-        travelEditing.profile,
-    );
-    const profileKey = routeTimeProfileKey(
-        travelEditing.from.id,
-        travelEditing.to.id,
-    );
-    const nextOverride =
-        minutes === travelEditing.officialMinutes ? undefined : minutes;
-    const nextProfile =
-        travelEditing.profile === "walking"
-            ? undefined
-            : travelEditing.profile;
-    if (
-        store.routeTimeOverrides[key] === nextOverride &&
-        store.routeTimeProfiles[profileKey] === nextProfile
-    ) {
-        travelDialog.close();
+    if (travelFixedDeparture.checked && !travelDepartureTime.value) {
+        toast("Añade una hora de salida para marcarla como fija.", "error");
+        travelDepartureTime.focus();
         return;
     }
+    const key = travelLegKey(travelEditing.from.id, travelEditing.to.id);
+    const parsedCost = Number(travelCost.value);
+    const requestedEndpoints = [$("#travelEmbedFrom").checked ? ["from", travelEditing.from] : null, $("#travelEmbedTo").checked ? ["to", travelEditing.to] : null].filter(Boolean);
+    const currentKey = travelLegKey(travelEditing.from.id, travelEditing.to.id);
+    const invalidEndpoint = requestedEndpoints.find(([, spot]) =>
+        !isWaypoint(spot) || Object.keys(store.travelLegs).some((legKey) => legKey !== currentKey && legKey.split(">").includes(String(spot.id))),
+    );
+    if (invalidEndpoint) {
+        toast(`“${invalidEndpoint[1].name}” solo puede integrarse si es un punto de paso no compartido.`, "error");
+        return;
+    }
+    const embeddedEndpoints = requestedEndpoints.map(([role]) => role);
+    const next = normalizeTravelLeg({
+        mode: travelEditing.profile,
+        durationMinutes: minutes,
+        departureTime: travelDepartureTime.value,
+        fixedDeparture: travelFixedDeparture.checked,
+        line: travelLine.value,
+        note: travelNote.value,
+        cost: Number.isFinite(parsedCost) && parsedCost > 0 ? parsedCost : undefined,
+        embeddedEndpoints,
+    });
+    if (JSON.stringify(store.travelLegs[key]) === JSON.stringify(next)) { travelDialog.close(); return; }
     pushUndo();
-    if (minutes === travelEditing.officialMinutes)
-        delete store.routeTimeOverrides[key];
-    else store.routeTimeOverrides[key] = minutes;
-    if (travelEditing.profile === "walking")
-        delete store.routeTimeProfiles[profileKey];
-    else store.routeTimeProfiles[profileKey] = travelEditing.profile;
+    store.travelLegs[key] = next;
     travelDialog.close();
     save();
     render();
@@ -1033,24 +1106,26 @@ travelForm.addEventListener("submit", (event) => {
 
 travelMode.addEventListener("change", async () => {
     if (!travelEditing) return;
-    const profile = travelMode.value === "driving" ? "driving" : "walking";
+    const profile = travelMode.value;
     travelEditing.profile = profile;
     const token = ++travelEditing.requestToken;
-    const override = routeTimeOverride(
-        travelEditing.from.id,
-        travelEditing.to.id,
-        profile,
-    );
-    const cached = cachedRouteTravelMinutes(
+    const override = travelLeg(travelEditing.from.id, travelEditing.to.id)?.durationMinutes ?? routeTimeOverride(travelEditing.from.id, travelEditing.to.id, profile);
+    const automatic = AUTOMATIC_TRAVEL_MODES.includes(profile);
+    const cached = automatic ? cachedRouteTravelMinutes(
         travelEditing.from,
         travelEditing.to,
         profile,
-    );
+    ) : null;
     travelInput.value = override ?? cached ?? travelInput.value;
     travelApiValue.textContent = cached === null ? "Consultando…" : `${cached} min`;
     travelApiValue.closest(".travel-api-card").dataset.state =
         cached === null ? "loading" : "ready";
-    resetTravelTimeButton.disabled = override === null;
+    resetTravelTimeButton.disabled = !automatic || override === null;
+    if (!automatic) {
+        travelApiValue.textContent = "Duración manual";
+        travelApiValue.closest(".travel-api-card").dataset.state = "unavailable";
+        return;
+    }
     const day = dayBy(travelEditing.dayId);
     await ensureRouteTravelTimes(day?.spots, profile);
     if (!travelEditing || travelEditing.requestToken !== token) return;
@@ -1070,14 +1145,14 @@ travelDialog.querySelectorAll("[data-travel-step]").forEach((button) => {
 
 resetTravelTimeButton.addEventListener("click", () => {
     if (!travelEditing) return;
-    const key = routeTimeOverrideKey(
-        travelEditing.from.id,
-        travelEditing.to.id,
-        travelEditing.profile,
-    );
-    if (store.routeTimeOverrides[key] === undefined) return;
+    if (!AUTOMATIC_TRAVEL_MODES.includes(travelEditing.profile)) return;
+    const key = travelLegKey(travelEditing.from.id, travelEditing.to.id);
+    const leg = store.travelLegs[key];
+    if (!leg?.durationMinutes) return;
     pushUndo();
-    delete store.routeTimeOverrides[key];
+    const next = { ...leg };
+    delete next.durationMinutes;
+    store.travelLegs[key] = next;
     travelDialog.close();
     save();
     render();
@@ -1096,6 +1171,8 @@ travelDialog.addEventListener("click", (event) => {
 });
 travelDialog.addEventListener("close", () => {
     travelEditing = null;
+    $("#travelPairField").hidden = true;
+    $("#travelPairSelect").onchange = null;
 });
 
 function spotNameForHours(row) {
@@ -1211,17 +1288,23 @@ export function duplicateDay(dayId) {
     const idx = store.state.findIndex((d) => d.id === dayId);
     if (idx === -1) return;
     const day = store.state[idx],
+        spotIdMap = new Map(),
         clone = {
             id: id(),
             date: day.date,
             title: day.title + " (copia)",
-            spots: day.spots.map((s) => ({
-                ...s,
-                id: id(),
-                tags: [...(s.tags || [])],
-            })),
+            spots: day.spots.map((s) => {
+                const nextId = id();
+                spotIdMap.set(String(s.id), nextId);
+                return { ...s, id: nextId, tags: [...(s.tags || [])] };
+            }),
         };
     pushUndo();
+    Object.entries(store.travelLegs).forEach(([key, leg]) => {
+        const [fromId, toId] = key.split(">");
+        if (spotIdMap.has(fromId) && spotIdMap.has(toId))
+            store.travelLegs[travelLegKey(spotIdMap.get(fromId), spotIdMap.get(toId))] = structuredClone(leg);
+    });
     store.state.splice(idx + 1, 0, clone);
     save();
     render();
@@ -1331,7 +1414,12 @@ function renderList(list, spots, isBacklog = false) {
         list.innerHTML = store.activeTagFilter.size > 0
             ? '<div class="empty">Ninguna parada coincide con el filtro</div>'
             : '<div class="empty">Arrastra aquí una idea o añade una nueva.</div>';
-    visible.forEach((s) => {
+    visible.forEach((s, visibleIndex) => {
+        const previous = visible[visibleIndex - 1];
+        const next = visible[visibleIndex + 1];
+        const incoming = previous ? travelLeg(previous.id, s.id) : null;
+        const outgoing = next ? travelLeg(s.id, next.id) : null;
+        const hiddenAsEndpoint = incoming?.embeddedEndpoints?.includes("to") || outgoing?.embeddedEndpoints?.includes("from");
         const spot = document.createElement("div");
         spot.className = "spot";
         spot.dataset.spot = s.id;
@@ -1342,7 +1430,7 @@ function renderList(list, spots, isBacklog = false) {
                 ? `<span class="spot-cost"><strong>${esc(foreignAmount(s.cost))}</strong><small>${esc(localAmount(s.cost))}</small></span>`
                 : "";
         const visitMinutes =
-            Number.isInteger(s.visitMinutes) && s.visitMinutes > 0
+            !isWaypoint(s) && Number.isInteger(s.visitMinutes) && s.visitMinutes > 0
                 ? s.visitMinutes
                 : null;
         // Purely presentational (no tabindex, no pointer handlers) so the
@@ -1354,21 +1442,70 @@ function renderList(list, spots, isBacklog = false) {
             ? `<span class="spot-meta">${esc(s.note)}</span>`
             : "";
         const enabled = spotIsEnabled(s);
-        const spotHours = renderSpotHours(s, cat.color, enabled);
+        const waypoint = isWaypoint(s);
+        const spotHours = waypoint
+            ? ""
+            : renderSpotHours(s, cat.color, enabled);
         const spotTiming =
             spotHours || spotDuration
                 ? `<span class="spot-timing">${spotHours}${spotDuration}</span>`
                 : "";
-        if (enabled) mapNumber += 1;
+        if (enabled && !hiddenAsEndpoint) mapNumber += 1;
         const number = isBacklog
             ? ""
             : enabled
               ? `<span class="number">${mapNumber}</span>`
               : '<span class="number number-placeholder" aria-hidden="true">−</span>';
         spot.classList.toggle("spot-disabled", !enabled);
-        spot.innerHTML = `<button class="handle" type="button" title="Reordenar parada" aria-label="Reordenar ${esc(s.name || "parada")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number} ${esc(s.name)}</span>${spotNote}${spotTiming}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="spot-overflow-control"><button type="button" class="spot-overflow-button" data-act="overflow" title="Más acciones" aria-label="Más acciones para ${esc(s.name || "parada")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></span>`;
-        wireMapSpotHighlight(spot, s.id);
-        list.append(spot);
+        spot.classList.toggle("spot-waypoint", waypoint);
+        const waypointTime =
+            waypoint && timeToMinutes(s.plannedStart) !== null
+                ? ` · ${esc(s.plannedStart)}`
+                : "";
+        const kindBadge = waypoint
+            ? `<span class="spot-kind-badge" title="Forma parte de la ruta sin duración de visita"><span aria-hidden="true">◇</span> Solo paso${waypointTime}</span>`
+            : "";
+        spot.innerHTML = `<button class="handle" type="button" title="Reordenar parada" aria-label="Reordenar ${esc(s.name || "parada")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number} ${esc(s.name)}</span>${kindBadge}${spotNote}${spotTiming}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="spot-overflow-control"><button type="button" class="spot-overflow-button" data-act="overflow" title="Más acciones" aria-label="Más acciones para ${esc(s.name || "parada")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></span>`;
+        if (!hiddenAsEndpoint) {
+            wireMapSpotHighlight(spot, s.id);
+            list.append(spot);
+        }
+        if (outgoing?.embeddedEndpoints?.length && next) {
+            const travelCard = document.createElement("div");
+            travelCard.className = "spot travel-card";
+            travelCard.dataset.travelLeg = travelLegKey(s.id, next.id);
+            const modeIcons = { walking: "🚶", driving: "🚗", cycling: "🚲", bus: "🚌", train: "🚄", metro: "🚇", ferry: "⛴", flight: "✈", other: "↝" };
+            const modeLabels = { walking: "A pie", driving: "Coche", cycling: "Bicicleta", bus: "Autobús", train: "Tren", metro: "Metro", ferry: "Ferry", flight: "Avión", other: "Trayecto" };
+            const arrival = outgoing.departureTime && outgoing.durationMinutes
+                ? minutesToTime(timeToMinutes(outgoing.departureTime) + outgoing.durationMinutes, { wrap: true })
+                : "";
+            const price = Number.isFinite(outgoing.cost) && outgoing.cost > 0
+                ? `<span class="spot-cost"><strong>${esc(foreignAmount(outgoing.cost))}</strong><small>${esc(localAmount(outgoing.cost))}</small></span>` : "";
+            const draggable = outgoing.embeddedEndpoints?.includes("from") && outgoing.embeddedEndpoints?.includes("to");
+            travelCard.innerHTML = `${draggable ? `<button class="handle travel-card-handle" type="button" title="Reordenar viaje" aria-label="Reordenar viaje ${esc(s.name)} a ${esc(next.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button>` : ""}<span class="travel-card-icon" aria-hidden="true">${modeIcons[outgoing.mode] || "↝"}</span><span class="spot-content"><span class="spot-name">${esc(s.name || "Origen")} → ${esc(next.name || "Destino")}</span><span class="spot-meta">${esc(outgoing.line || modeLabels[outgoing.mode] || "Trayecto")}${outgoing.durationMinutes ? ` · ${outgoing.durationMinutes} min` : " · duración pendiente"}</span>${outgoing.departureTime ? `<span class="spot-timing">Salida ${esc(outgoing.departureTime)}${arrival ? ` · llegada ${esc(arrival)}` : ""}</span>` : ""}${outgoing.note ? `<span class="spot-meta">${esc(outgoing.note)}</span>` : ""}</span>${price}<span class="travel-card-actions"><button type="button" class="travel-card-edit" aria-label="Editar trayecto">Editar</button><button type="button" class="travel-card-delete" aria-label="Eliminar trayecto">×</button></span>`;
+            travelCard.querySelector(".travel-card-edit").addEventListener("click", () => {
+                openTravelTimeDialog(list.closest(".day")?.dataset.day, { dataset: { timelineTravelFrom: String(s.id), timelineTravelTo: String(next.id), timelineTravelMinutes: String(outgoing.durationMinutes || "") } });
+            });
+            travelCard.querySelector(".travel-card-delete").addEventListener("click", async () => {
+                const ok = await confirmAction({ title: "Eliminar trayecto", message: `¿Eliminar el trayecto ${s.name} → ${next.name}?`, confirmLabel: "Eliminar" });
+                if (!ok) return;
+                pushUndo();
+                const key = travelLegKey(s.id, next.id);
+                const endpoints = outgoing.embeddedEndpoints || [];
+                delete store.travelLegs[key];
+                [["from", s], ["to", next]].forEach(([role, endpoint]) => {
+                    if (!endpoints.includes(role) || !isWaypoint(endpoint)) return;
+                    const shared = Object.keys(store.travelLegs).some((candidate) => candidate.split(">").includes(String(endpoint.id)));
+                    if (!shared) {
+                        const endpointIndex = spots.findIndex((candidate) => candidate.id === endpoint.id);
+                        if (endpointIndex >= 0) spots.splice(endpointIndex, 1);
+                    }
+                });
+                save(); render(); drawMap();
+                toast("Trayecto eliminado.", "info");
+            });
+            list.append(travelCard);
+        }
     });
     wireHoursComparison(list);
 }
@@ -1471,6 +1608,7 @@ function openDayActionMenu(button, day, { remove }) {
     menu.setAttribute("role", "menu");
     menu.setAttribute("aria-label", `Acciones para ${day.title || "día"}`);
     menu.innerHTML = `<span class="move-control day-action-move-control"><button type="button" class="move-button day-action-item" data-day-action="move" role="menuitem" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M14 8l4 4-4 4"/><path d="M8 7V5M8 19v-2"/></svg><span>Mover día</span><span class="day-action-arrow" aria-hidden="true">›</span></button></span><button type="button" class="day-action-item" data-day-action="duplicate" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Duplicar día</span></button><button type="button" class="day-action-item day-action-danger" data-day-action="delete" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M9 7l1-3h4l1 3M6 7l1 14h10l1-14"/></svg><span>Eliminar día</span></button>`;
+    menu.insertAdjacentHTML("afterbegin", '<button type="button" class="day-action-item" data-day-action="travel" role="menuitem"><span aria-hidden="true">↝</span><span>Añadir trayecto</span></button>');
     control.append(menu);
     control.closest(".day")?.classList.add("menu-open");
     button.setAttribute("aria-expanded", "true");
@@ -1495,7 +1633,8 @@ function openDayActionMenu(button, day, { remove }) {
             return;
         }
         closeDayActionMenus();
-        if (action === "duplicate") duplicateDay(day.id);
+        if (action === "travel") openNewTravelDialog(day.id);
+        else if (action === "duplicate") duplicateDay(day.id);
         else if (action === "delete") remove();
     });
 }
@@ -1750,10 +1889,10 @@ function applyDayLoad(dayEl, day) {
                 travel != null ? formatDurationMinutes(travel) : "calculando…",
             totalText =
                 travel != null ? formatDurationMinutes(total) : "pendiente";
-        detail.innerHTML = `<span><i class="is-activity"></i>Actividad <strong>${esc(activityText)}</strong></span><span><i class="is-travel"></i>Trayectos <strong>${esc(travelText)}</strong></span><span class="day-load-total">Total <strong>${esc(totalText)}</strong></span>`;
+        detail.innerHTML = `<span><i class="is-activity"></i>Visitas <strong>${esc(activityText)}</strong></span><span><i class="is-travel"></i>Trayectos <strong>${esc(travelText)}</strong></span><span class="day-load-total">Total <strong>${esc(totalText)}</strong></span>`;
         meter.setAttribute(
             "aria-label",
-            `Carga del día. Actividad: ${activityText}. Trayectos: ${travelText}. Total: ${totalText}.`,
+            `Carga del día. Visitas: ${activityText}. Trayectos: ${travelText}. Total: ${totalText}.`,
         );
     } else {
         meter.style.removeProperty("--load-activity");
@@ -1827,7 +1966,7 @@ function wireQuickAdd(card, dayId, backlogGroupId) {
                 dayId === "backlog" ? store.backlog : dayBy(dayId)?.spots;
             if (!target) return;
             pushUndo();
-            const spot = { id: id(), name, address: "", note: "", tags: [] };
+            const spot = { id: id(), name, address: "", note: "", tags: [], kind: "activity" };
             if (dayId === "backlog" && backlogGroupId)
                 spot.backlogGroupId = backlogGroupId;
             target.push(spot);
@@ -2112,7 +2251,7 @@ export function render({ persist = true } = {}) {
     });
     const tripTotal =
         sumCosts(store.backlog) +
-        store.state.reduce((total, day) => total + sumCosts(day.spots), 0);
+        store.state.reduce((total, day) => total + sumCosts(day.spots) + sumTravelCosts(day), 0);
     const budgetTotal = $("#tripBudgetTotal"),
         fullBudgetTotal = formatDualCost(tripTotal);
     budgetTotal.textContent = `Total: ${store.exchangeRate ? localAmount(tripTotal) : foreignAmount(tripTotal)}`;
@@ -2165,6 +2304,28 @@ export function moveSpot(spotId, toDay, at, backlogGroupId) {
     save();
     render();
     drawMap();
+}
+
+export function moveTravelCard(key, toDay, beforeSpotId = null) {
+    if (toDay === "backlog") {
+        toast("Una tarjeta de viaje debe permanecer dentro de un día.", "info");
+        render({ persist: false });
+        return false;
+    }
+    const targetDay = dayBy(toDay);
+    if (!targetDay) {
+        render({ persist: false });
+        return false;
+    }
+    pushUndo();
+    if (!relocateTravelCard(store, key, toDay, beforeSpotId)) {
+        render({ persist: false });
+        return false;
+    }
+    store.active = targetDay.id;
+    save(); render(); drawMap();
+    toast("Viaje movido con sus puntos de origen y destino.", "success");
+    return true;
 }
 
 // Reorder real days without changing the active day or any persisted shape.
@@ -2240,15 +2401,20 @@ daysEl.addEventListener("click", (e) => {
     } else if (b.dataset.act === "edit") openDialog(dayId, items[i]);
     else if (b.dataset.act === "delete") {
         const name = items[i].name;
+        const affectedLegs = Object.keys(store.travelLegs || {}).filter((key) => {
+            const [fromId, toId] = key.split(">");
+            return fromId === items[i].id || toId === items[i].id;
+        });
         confirmAction({
             title: "Borrar parada",
-            message: `¿Borrar “${name}”?`,
+            message: `¿Borrar “${name}”?${affectedLegs.length ? ` También se eliminarán ${affectedLegs.length} ${affectedLegs.length === 1 ? "trayecto asociado" : "trayectos asociados"}.` : ""}`,
         }).then((ok) => {
             if (!ok) return;
             const idx = items.findIndex((s) => s.id === spotEl.dataset.spot);
             if (idx === -1) return;
             pushUndo();
             items.splice(idx, 1);
+            affectedLegs.forEach((key) => delete store.travelLegs[key]);
             save();
             render();
             drawMap();

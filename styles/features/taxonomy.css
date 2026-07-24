@@ -508,3 +508,4 @@
     outline: 2px solid #3f7d9c;
     outline-offset: 2px;
 }
+.category-kind-select { max-width: 132px; font-size: 12px; }

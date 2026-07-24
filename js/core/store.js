@@ -13,8 +13,13 @@ import {
     UNCATEGORIZED,
 } from "./constants.js";
 import { normalizeHealthDay, normalizeHealthSpot } from "./plan-metadata.js";
+import {
+    categoryDefaultSpotKind,
+    normalizeSpotKind,
+} from "./itinerary.js";
+import { migrateLegacyTravelLegs, travelLegKey } from "./travel-legs.js";
 
-export const STORAGE_VERSION = 26;
+export const STORAGE_VERSION = 27;
 
 function loadSavedState() {
     const raw =
@@ -34,7 +39,7 @@ const saved = loadSavedState();
 function normalizeSavedDay(day) {
     const normalized = normalizeHealthDay(day);
     normalized.spots = Array.isArray(day?.spots)
-        ? day.spots.map(normalizeHealthSpot)
+        ? day.spots.map((spot) => normalizeSpotKind(normalizeHealthSpot(spot)))
         : [];
     return normalized;
 }
@@ -57,7 +62,7 @@ export const store = {
         ? saved
         : saved?.days || structuredClone(sample)).map(normalizeSavedDay),
     backlog: Array.isArray(saved?.backlog)
-        ? saved.backlog.map(normalizeHealthSpot)
+        ? saved.backlog.map((spot) => normalizeSpotKind(normalizeHealthSpot(spot)))
         : [],
     backlogCollapsed: saved?.backlogCollapsed === true,
     backlogGroups: Array.isArray(saved?.backlogGroups)
@@ -72,7 +77,10 @@ export const store = {
         ? saved.tags
         : ["comida", "templo", "reserva", "compras"],
     categories: Array.isArray(saved?.categories)
-        ? saved.categories
+        ? saved.categories.map((category) => ({
+              ...category,
+              defaultSpotKind: categoryDefaultSpotKind(category),
+          }))
         : structuredClone(DEFAULT_CATEGORIES),
     // Routing preference persisted with the trip. Legacy/array saves lack it,
     // so fall back to "driving".
@@ -112,10 +120,11 @@ export const store = {
                   Object.entries(saved.routeTimeProfiles).filter(
                       ([key, profile]) =>
                           typeof key === "string" &&
-                          ["walking", "driving"].includes(profile),
+                          ["walking", "driving", "cycling"].includes(profile),
                   ),
               )
             : {},
+    travelLegs: {},
     // Local presentation preference. It deliberately stays out of portable
     // plan exports: collaborators can choose their own column balance.
     workspaceSplit:
@@ -139,6 +148,12 @@ export const store = {
     githubBusy: false,
     githubRemoteSnapshot: null,
 };
+store.travelLegs = migrateLegacyTravelLegs(
+    saved?.travelLegs,
+    store.routeTimeProfiles,
+    store.routeTimeOverrides,
+    { spotIds: new Set([...store.state.flatMap((day) => day.spots), ...store.backlog].map((spot) => spot.id)) },
+);
 store.active = store.state[0]?.id;
 
 export function toggleTagFilter(tag) {
@@ -185,8 +200,7 @@ export function save() {
             routeProfile: store.routeProfile,
             routeVisualization: store.routeVisualization,
             basemap: store.basemap,
-            routeTimeOverrides: store.routeTimeOverrides,
-            routeTimeProfiles: store.routeTimeProfiles,
+            travelLegs: store.travelLegs,
             workspaceSplit: store.workspaceSplit,
         }),
     );
@@ -209,6 +223,7 @@ export function replacePlanState(plan) {
     store.routeVisualization = plan.routeVisualization;
     store.routeTimeOverrides = plan.routeTimeOverrides;
     store.routeTimeProfiles = plan.routeTimeProfiles;
+    store.travelLegs = plan.travelLegs;
     store.previewMode = false;
     store.selectedLocation = null;
     store.active = store.state[0]?.id || "backlog";
@@ -220,6 +235,9 @@ export function routeTimeOverrideKey(fromId, toId, profile = "walking") {
 }
 
 export function routeTimeOverride(fromId, toId, profile = "walking") {
+    const leg = store.travelLegs[travelLegKey(fromId, toId)];
+    if (leg?.mode === profile && Number.isInteger(leg.durationMinutes))
+        return leg.durationMinutes;
     const value =
         store.routeTimeOverrides[
             routeTimeOverrideKey(fromId, toId, profile)
@@ -232,8 +250,14 @@ export function routeTimeProfileKey(fromId, toId) {
 }
 
 export function routeTimeProfile(fromId, toId) {
+    const mode = store.travelLegs[travelLegKey(fromId, toId)]?.mode;
+    if (["walking", "driving", "cycling"].includes(mode)) return mode;
     const profile = store.routeTimeProfiles[routeTimeProfileKey(fromId, toId)];
     return profile === "driving" ? "driving" : "walking";
+}
+
+export function travelLeg(fromId, toId) {
+    return store.travelLegs[travelLegKey(fromId, toId)] || null;
 }
 
 export function dayBy(id) {

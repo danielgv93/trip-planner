@@ -91,3 +91,32 @@ test("normalizePlan descarta metadatos retirados y reservas incoherentes", () =>
     assert.equal(spot.scheduleUrl, undefined);
     assert.equal(spot.scheduleVerifiedAt, undefined);
 });
+
+test("normalizePlan migra roles y trayectos legacy al contrato portable", () => {
+    const value = plan();
+    value.days[0].spots.push({ id: "s2", name: "Hotel", kind: "waypoint" });
+    value.routeTimeProfiles = { "s1>s2": "driving" };
+    value.routeTimeOverrides = { "driving:s1>s2": 18 };
+    const normalized = normalizePlan(value);
+    assert.equal(normalized.days[0].spots[0].kind, "activity");
+    assert.equal(normalized.days[0].spots[1].kind, "waypoint");
+    assert.deepEqual(normalized.travelLegs["s1>s2"], { mode: "driving", durationMinutes: 18 });
+});
+
+test("normalizePlan conserva un trayecto completo con precio y extremos embebidos", () => {
+    const value = plan();
+    value.days[0].spots.push({ id: "s2", name: "Tokyo", kind: "waypoint" });
+    value.travelLegs = { "s1>s2": { mode: "train", durationMinutes: 135, departureTime: "09:12", fixedDeparture: true, line: "Shinkansen", note: "Andén 6", cost: 13320, embeddedEndpoints: ["from", "to"] } };
+    assert.deepEqual(normalizePlan(value).travelLegs, value.travelLegs);
+});
+
+test("normalizePlan no deduce el tipo de parada a partir del identificador de categoría", () => {
+    const value = plan();
+    value.categories = [
+        { id: "hotel", label: "Alojamiento", color: "#123456" },
+        { id: "transport", label: "Transporte", color: "#654321", defaultSpotKind: "waypoint" },
+    ];
+    const normalized = normalizePlan(value);
+    assert.equal(normalized.categories[0].defaultSpotKind, "activity");
+    assert.equal(normalized.categories[1].defaultSpotKind, "waypoint");
+});

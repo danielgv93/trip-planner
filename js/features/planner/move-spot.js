@@ -25,3 +25,48 @@ export function relocateSpot(plan, spotId, toDay, at, backlogGroupId) {
     }
     return { spot, fromDay, toDay };
 }
+
+// Atomically relocates a travel card whose two waypoint endpoints are embedded.
+// The directed leg remains keyed by the same stable endpoint ids.
+export function relocateTravelCard(plan, key, toDay, beforeSpotId = null) {
+    if (toDay === "backlog") return null;
+    const [fromId, destinationId, extra] = String(key).split(">");
+    if (!fromId || !destinationId || extra) return null;
+    const leg = plan.travelLegs?.[key];
+    if (
+        !leg?.embeddedEndpoints?.includes("from") ||
+        !leg.embeddedEndpoints.includes("to")
+    )
+        return null;
+
+    const sourceDay = plan.state.find((day) => {
+        const index = day.spots.findIndex(
+            (spot) => String(spot.id) === fromId,
+        );
+        return (
+            index >= 0 &&
+            String(day.spots[index + 1]?.id) === destinationId
+        );
+    });
+    const targetDay = plan.state.find((day) => String(day.id) === String(toDay));
+    if (!sourceDay || !targetDay) return null;
+
+    const sourceIndex = sourceDay.spots.findIndex(
+        (spot) => String(spot.id) === fromId,
+    );
+    const endpoints = sourceDay.spots.splice(sourceIndex, 2);
+    if (sourceDay !== targetDay) {
+        endpoints.forEach((spot) => {
+            delete spot.plannedStart;
+            delete spot.fixedStart;
+        });
+    }
+    let targetIndex = beforeSpotId
+        ? targetDay.spots.findIndex(
+              (spot) => String(spot.id) === String(beforeSpotId),
+          )
+        : targetDay.spots.length;
+    if (targetIndex < 0) targetIndex = targetDay.spots.length;
+    targetDay.spots.splice(targetIndex, 0, ...endpoints);
+    return { endpoints, fromDay: sourceDay.id, toDay: targetDay.id };
+}

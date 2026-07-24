@@ -9,7 +9,9 @@ import {
     spotIsEnabled,
     routeTimeOverride,
     routeTimeProfile,
+    travelLeg,
 } from "../../core/store.js?v=26";
+import { AUTOMATIC_TRAVEL_MODES } from "../../core/travel-legs.js";
 import { render } from "../planner/render.js";
 import {
     drawMap,
@@ -268,15 +270,24 @@ export function enabledStops(day) {
     return Array.isArray(day?.spots) ? day.spots.filter(spotIsEnabled) : [];
 }
 
-export function visitProgress(day) {
+function visitStops(day) {
     const enabled = enabledStops(day);
+    return enabled.filter((spot, index) => {
+        const incoming = index > 0 ? travelLeg(enabled[index - 1].id, spot.id) : null;
+        const outgoing = index < enabled.length - 1 ? travelLeg(spot.id, enabled[index + 1].id) : null;
+        return !incoming?.embeddedEndpoints?.includes("to") && !outgoing?.embeddedEndpoints?.includes("from");
+    });
+}
+
+export function visitProgress(day) {
+    const enabled = visitStops(day);
     const visited = enabled.filter((spot) => validVisitedAt(spot.visitedAt));
     return { enabled, visited, completed: visited.length, total: enabled.length };
 }
 
 export function nextUnvisitedStop(day) {
     return (
-        enabledStops(day).find((spot) => !validVisitedAt(spot.visitedAt)) || null
+        visitStops(day).find((spot) => !validVisitedAt(spot.visitedAt)) || null
     );
 }
 
@@ -974,14 +985,21 @@ function renderTimeline(day, next) {
         delayMinutes: simulatedDelayMinutes,
         nextSpot: next,
         travelForLeg: (from, to) => {
-            const profile = routeTimeProfile(from.id, to.id);
-            const officialMinutes = cachedRouteTravelMinutes(from, to, profile);
-            const override = routeTimeOverride(from.id, to.id, profile);
+            const configured = travelLeg(from.id, to.id);
+            const profile = AUTOMATIC_TRAVEL_MODES.includes(configured?.mode) ? configured.mode : routeTimeProfile(from.id, to.id);
+            const officialMinutes = AUTOMATIC_TRAVEL_MODES.includes(profile) ? cachedRouteTravelMinutes(from, to, profile) : null;
+            const override = configured?.durationMinutes ?? routeTimeOverride(from.id, to.id, profile);
             return {
                 minutes: override ?? officialMinutes,
                 officialMinutes,
                 overridden: override !== null,
                 profile,
+                mode: configured?.mode || profile,
+                departureTime: configured?.departureTime,
+                fixedDeparture: configured?.fixedDeparture,
+                line: configured?.line,
+                cost: configured?.cost,
+                embeddedEndpoints: configured?.embeddedEndpoints,
             };
         },
     });

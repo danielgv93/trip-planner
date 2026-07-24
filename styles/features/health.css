@@ -101,7 +101,7 @@
 }
 .health-overview {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 8px;
     padding: 10px 24px 4px;
 }
@@ -121,6 +121,7 @@
 .health-overview-item.is-solid { --health-tone: #2f7653; --health-soft: #e5f2e9; }
 .health-overview-item.is-tight { --health-tone: #98610a; --health-soft: #fbefd2; }
 .health-overview-item.is-impossible { --health-tone: #a14039; --health-soft: #f9e6e3; }
+.health-overview-item.is-incomplete { --health-tone: #356b8c; --health-soft: #e3eff6; }
 .health-overview-icon {
     display: grid;
     width: 25px;
@@ -157,6 +158,7 @@
 .health-day.is-solid { --health-tone: #2f7653; --health-soft: #e5f2e9; }
 .health-day.is-tight { --health-tone: #98610a; --health-soft: #fbefd2; }
 .health-day.is-impossible { --health-tone: #a14039; --health-soft: #f9e6e3; }
+.health-day.is-incomplete { --health-tone: #356b8c; --health-soft: #e3eff6; }
 .health-day:focus { outline: 3px solid color-mix(in srgb, var(--health-tone) 24%, transparent); outline-offset: 2px; }
 .health-day > summary {
     display: flex;
@@ -228,6 +230,7 @@
 .health-badge.is-solid { --health-tone: #2f7653; --health-soft: #e5f2e9; }
 .health-badge.is-tight { --health-tone: #98610a; --health-soft: #fbefd2; }
 .health-badge.is-impossible { --health-tone: #a14039; --health-soft: #f9e6e3; }
+.health-badge.is-incomplete { --health-tone: #356b8c; --health-soft: #e3eff6; }
 .health-badge:hover,
 .health-badge:focus-visible { border-color: var(--health-tone); outline: none; }
 .health-day-body { background: #fff; }

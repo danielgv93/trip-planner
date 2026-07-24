@@ -1615,3 +1615,26 @@ body.preview-mode .quick-add {
 .add-day:hover {
     background: #edf5f3;
 }
+.spot-kind-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: fit-content;
+    color: #3f6f86;
+    font-size: 11px;
+    font-weight: 700;
+}
+.spot-waypoint { border-style: dashed; }
+.travel-card {
+    border-color: color-mix(in srgb, #3f7d9c 45%, var(--line));
+    background: color-mix(in srgb, #3f7d9c 6%, var(--surface));
+}
+.travel-card-icon { align-self: center; font-size: 22px; }
+.travel-card-actions { display: flex; align-items: center; gap: 6px; }
+.travel-card-delete { color: var(--danger, #a33); }
+.companion-timeline-block.is-waypoint {
+    min-width: 14px;
+    border-radius: 3px;
+    transform: rotate(45deg);
+}
+.companion-timeline-block.is-waypoint .companion-timeline-content { transform: rotate(-45deg); }

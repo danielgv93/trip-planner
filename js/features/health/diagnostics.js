@@ -1,4 +1,5 @@
 import { spotIsEnabled } from "../../core/store.js?v=26";
+import { isWaypoint } from "../../core/itinerary.js";
 
 export const HEALTH_THRESHOLDS = Object.freeze({
     lowMargin: 30,
@@ -14,7 +15,7 @@ function issue(type, severity, spot, message, evidence = {}) {
 export function diagnoseDay(day, projection) {
     const spots = (day?.spots || []).filter(spotIsEnabled);
     if (!spots.length) return {
-        state: "unchecked",
+        state: "incomplete",
         issues: [issue("empty", "missing", null, "Añade al menos una parada activa para comprobar este día.")],
         metrics: { activity: 0, travel: 0, walking: 0, minMargin: null },
         approximate: false,
@@ -23,25 +24,29 @@ export function diagnoseDay(day, projection) {
     const issues = [];
     const items = projection?.items || [];
     for (const spot of spots) {
-        if (!(Number.isInteger(spot.visitMinutes) && spot.visitMinutes > 0))
+        const waypoint = isWaypoint(spot);
+        if (!waypoint && !(Number.isInteger(spot.visitMinutes) && spot.visitMinutes > 0))
             issues.push(issue("missing-duration", "missing", spot, `Falta la duración de ${spot.name || "esta parada"}.`, { field: "duration" }));
         if (!Number.isFinite(spot.lat) || !Number.isFinite(spot.lng))
             issues.push(issue("missing-location", "missing", spot, `Falta una ubicación válida para ${spot.name || "esta parada"}.`, { field: "location" }));
-        const completeSchedule = spot.scheduleNotApplicable !== true && Boolean(spot.openingTime && spot.closingTime);
+        const completeSchedule = !waypoint && spot.scheduleNotApplicable !== true && Boolean(spot.openingTime && spot.closingTime);
         const fixedSchedule = spot.fixedStart === true && Boolean(spot.plannedStart);
-        if (!completeSchedule && !fixedSchedule && spot.scheduleNotApplicable !== true)
+        if (!waypoint && !completeSchedule && !fixedSchedule && spot.scheduleNotApplicable !== true)
             issues.push(issue("missing-schedule", "missing", spot, `Falta el horario completo de ${spot.name || "esta parada"}.`, { field: fixedSchedule ? "reservation" : "schedule" }));
         if (completeSchedule && spot.openingTime >= spot.closingTime && !(spot.openingTime === "00:00" && spot.closingTime === "00:00"))
             issues.push(issue("ambiguous-schedule", "warning", spot, `El horario nocturno o de 24 horas de ${spot.name || "esta parada"} es ambiguo.`));
     }
 
     for (const item of items) {
+        if (item.travelMissingDuration)
+            issues.push(issue("missing-travel-duration", "missing", item.spot, `Falta la duración del trayecto hasta ${item.spot.name}.`, { field: "travel", fromId: item.fromSpot?.id }));
         for (const conflict of item.conflicts || []) {
             const messages = {
                 "outside-hours": `${item.spot.name} queda fuera de su horario.`,
                 "late-reservation": `Llegarías ${conflict.minutes} min tarde a la reserva de ${item.spot.name}.`,
                 "travel-overlap": `El trayecto invade ${conflict.minutes} min el inicio de ${item.spot.name}.`,
                 "visit-overlap": `La visita de ${item.spot.name} se solapa con otra parada.`,
+                "missed-departure": `Perderías la salida hacia ${item.spot.name} por ${conflict.minutes} min.`,
             };
             issues.push(issue(conflict.type, "hard", item.spot, messages[conflict.type], conflict));
         }
@@ -68,7 +73,7 @@ export function diagnoseDay(day, projection) {
     const state = issues.some((item) => item.severity === "hard")
         ? "impossible"
         : issues.some((item) => item.severity === "missing")
-          ? "unchecked"
+          ? "incomplete"
           : issues.some((item) => item.severity === "warning")
             ? "tight"
             : "solid";
@@ -76,5 +81,5 @@ export function diagnoseDay(day, projection) {
 }
 
 export function stateRank(state) {
-    return { impossible: 0, unchecked: 1, tight: 2, solid: 3 }[state] ?? 0;
+    return { impossible: 0, unchecked: 1, incomplete: 1, tight: 2, solid: 3 }[state] ?? 0;
 }

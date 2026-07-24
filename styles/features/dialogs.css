@@ -807,3 +807,32 @@
 .suggestions {
     z-index: 1001;
 }
+.spot-kind-option {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+    background: color-mix(in srgb, var(--surface) 94%, #3f7d9c);
+}
+.spot-kind-option > label {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    cursor: pointer;
+}
+.spot-kind-option input { margin-top: 3px; }
+.spot-kind-option label span { display: grid; gap: 3px; }
+.spot-kind-option small,
+.spot-kind-state {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.4;
+}
+.spot-kind-state { margin: 7px 0 0 25px; }
+.spot-kind-state:empty { display: none; }
+#placeDialog.is-waypoint .spot-kind-option {
+    border-color: color-mix(in srgb, #3f7d9c 55%, var(--line));
+    background: color-mix(in srgb, #3f7d9c 8%, var(--surface));
+}
+.travel-leg-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.travel-leg-details .travel-note-field { grid-column: 1 / -1; }
+.travel-leg-details textarea { min-height: 70px; }

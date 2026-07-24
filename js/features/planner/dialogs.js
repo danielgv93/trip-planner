@@ -6,6 +6,7 @@ import { $, esc, slug, id } from "../../shared/dom.js";
 import { toast, confirmAction } from "../../shared/notify.js?v=3";
 import { render } from "./render.js";
 import { pushUndo } from "./history.js";
+import { categoryDefaultSpotKind, spotKind } from "../../core/itinerary.js";
 import {
     drawMap,
     setPreview,
@@ -20,6 +21,7 @@ const categoryDialog = $("#categoryDialog");
 // { dayId, spot } target of the currently open place dialog. Only this module
 // touches it, so it stays a module-local rather than living in the store.
 let editing = null;
+let kindTouched = false;
 let searchTimer;
 let searchController;
 
@@ -129,10 +131,34 @@ function renderCategoryOptions(selected = []) {
                 x.classList.remove("selected"),
             );
             if (!wasSelected) b.classList.add("selected");
+            if (!editing?.spot && !kindTouched && !wasSelected) {
+                const category = store.categories.find((item) => item.id === c.id);
+                setPlaceKind(categoryDefaultSpotKind(category));
+            }
         };
         el.append(b);
     });
 }
+
+function setPlaceKind(kind) {
+    const resolved = kind === "waypoint" ? "waypoint" : "activity";
+    const waypoint = resolved === "waypoint";
+    $("#placeIsWaypoint").checked = waypoint;
+    dialog.classList.toggle("is-waypoint", waypoint);
+    dialog.querySelectorAll("[data-activity-only]").forEach((field) => {
+        field.hidden = waypoint;
+        field.disabled = waypoint;
+    });
+    const state = dialog.querySelector(".spot-kind-state");
+    state.textContent = waypoint
+        ? "Se tratará como un hito de duración cero. Los datos de visita se conservarán por si cambias de opción."
+        : "";
+}
+
+$("#placeIsWaypoint").addEventListener("change", (event) => {
+    kindTouched = true;
+    setPlaceKind(event.target.checked ? "waypoint" : "activity");
+});
 
 function selectedCategory() {
     const el = $("#categoryOptions .selected");
@@ -141,7 +167,14 @@ function selectedCategory() {
 
 export function openDialog(dayId, spot, prefill = {}) {
     cancelPendingSearch();
-    editing = { dayId, spot, backlogGroupId: prefill.backlogGroupId };
+    editing = {
+        dayId,
+        spot,
+        backlogGroupId: prefill.backlogGroupId,
+        onSave: typeof prefill.onSave === "function" ? prefill.onSave : null,
+    };
+    kindTouched = Boolean(spot);
+    setPlaceKind(spotKind(spot));
     store.selectedLocation =
         Number.isFinite(spot?.lat) && Number.isFinite(spot?.lng)
             ? {
@@ -336,6 +369,7 @@ $("#placeForm").addEventListener("submit", async (e) => {
         fixedStart = $("#placeFixedStart").checked,
         optional = $("#placeOptional").checked,
         scheduleNotApplicable = $("#placeScheduleNotApplicable").checked;
+    const kind = $("#placeIsWaypoint").checked ? "waypoint" : "activity";
     if (fixedStart && !plannedStart) {
         toast("Añade una hora planificada antes de marcar la reserva como fija.", "error");
         $("#placePlannedStart").focus();
@@ -351,6 +385,7 @@ $("#placeForm").addEventListener("submit", async (e) => {
             address,
             note,
             tags: spotTags,
+            kind,
         });
         if (coordinates)
             Object.assign(spot, {
@@ -361,7 +396,7 @@ $("#placeForm").addEventListener("submit", async (e) => {
         if (category) spot.category = category;
         else delete spot.category;
     } else {
-        spot = { id: id(), name, address, note, tags: spotTags };
+        spot = { id: id(), name, address, note, tags: spotTags, kind };
         if (editing.dayId === "backlog" && editing.backlogGroupId)
             spot.backlogGroupId = editing.backlogGroupId;
         if (coordinates)
@@ -385,11 +420,13 @@ $("#placeForm").addEventListener("submit", async (e) => {
     if (fixedStart) spot.fixedStart = true; else delete spot.fixedStart;
     if (optional) spot.optional = true; else delete spot.optional;
     if (scheduleNotApplicable) spot.scheduleNotApplicable = true; else delete spot.scheduleNotApplicable;
+    const onSave = editing.onSave;
     store.active = editing.dayId;
     dialog.close();
     save();
     render();
     drawMap();
+    onSave?.();
 });
 
 dialog.querySelector(".close").onclick = dialog.querySelector(
@@ -609,6 +646,16 @@ function renderManagerCategories() {
         sw.append(swInput, slider);
         connectToggle.append(sw, swIcon);
         syncConnect();
+        const kindSelect = document.createElement("select");
+        kindSelect.className = "category-kind-select";
+        kindSelect.title = "Tipo sugerido para nuevas paradas";
+        kindSelect.setAttribute("aria-label", `Tipo sugerido de ${c.label}`);
+        kindSelect.innerHTML = '<option value="activity">Visita</option><option value="waypoint">Solo paso</option>';
+        kindSelect.value = categoryDefaultSpotKind(c);
+        kindSelect.addEventListener("change", (event) => {
+            c.defaultSpotKind = event.target.value === "waypoint" ? "waypoint" : "activity";
+            save();
+        });
         const delBtn = document.createElement("button");
         delBtn.type = "button";
         delBtn.className = "cat-del";
@@ -641,7 +688,7 @@ function renderManagerCategories() {
         };
         const controls = document.createElement("div");
         controls.className = "cat-controls";
-        controls.append(connectToggle, delBtn);
+        controls.append(kindSelect, connectToggle, delBtn);
         row.append(colorInput, nameInput, controls);
         list.append(row);
     });
@@ -659,7 +706,7 @@ $("#addCategory").onclick = () => {
     let catId = slug(name);
     if (store.categories.some((c) => c.id === catId))
         catId += "-" + Date.now().toString(36);
-    store.categories.push({ id: catId, label: name, color, connects: true });
+    store.categories.push({ id: catId, label: name, color, connects: true, defaultSpotKind: $("#newCategoryKind").value === "waypoint" ? "waypoint" : "activity" });
     $("#newCategoryName").value = "";
     save();
     render();

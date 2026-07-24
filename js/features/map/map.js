@@ -12,7 +12,9 @@ import {
     spotMatchesFilter,
     spotIsEnabled,
     routeTimeOverride,
+    travelLeg,
 } from "../../core/store.js?v=26";
+import { AUTOMATIC_TRAVEL_MODES } from "../../core/travel-legs.js";
 import { $, esc, safeColor } from "../../shared/dom.js";
 import { DAY_COLORS } from "../../core/constants.js";
 import { distanceMeters } from "../../core/geo.js";
@@ -62,12 +64,13 @@ export function invalidateMainMap() {
 // In-memory only, keyed by `fromCoord|toCoord|profile`. Derived data: never
 // persisted, rebuilt on load, survives the destructive render.
 const routeCache = new Map();
+const routeRequests = new Map();
 let routeCacheRevision = 0;
 
 export function routeTravelRevision() { return routeCacheRevision; }
 let routeTimer = null;
-// Bumped on every ensureRoutes() call; async legs resolving with a stale token
-// are discarded so a late response can't paint the wrong day.
+// Bumped on every ensureRoutes() call; a late response can warm the shared
+// cache, but a stale token prevents it from painting the wrong day.
 let routeToken = 0;
 
 // Dialog preview-map instances (created lazily on first openPreview/setPreview).
@@ -129,6 +132,19 @@ function icon(n, color) {
     });
 }
 
+function markerLabel(spots, spot) {
+    const index = spots.indexOf(spot);
+    const incoming = index > 0 ? travelLeg(spots[index - 1].id, spot.id) : null;
+    const outgoing = index < spots.length - 1 ? travelLeg(spot.id, spots[index + 1].id) : null;
+    if (incoming?.embeddedEndpoints?.includes("to")) return "◆";
+    if (outgoing?.embeddedEndpoints?.includes("from")) return "●";
+    return spots.slice(0, index + 1).filter((candidate, candidateIndex, sequence) => {
+        const before = candidateIndex > 0 ? travelLeg(sequence[candidateIndex - 1].id, candidate.id) : null;
+        const after = candidateIndex < sequence.length - 1 ? travelLeg(candidate.id, sequence[candidateIndex + 1].id) : null;
+        return !before?.embeddedEndpoints?.includes("to") && !after?.embeddedEndpoints?.includes("from");
+    }).length;
+}
+
 function removeLegend() {
     if (legendControl) {
         legendControl.remove();
@@ -185,7 +201,7 @@ function drawGlobalMap() {
         located.forEach((s) => {
             const marker = L.marker([s.lat, s.lng], {
                 icon: icon(
-                    visibleSpots.indexOf(s) + 1,
+                    markerLabel(visibleSpots, s),
                     categoryMeta(s.category).color,
                 ),
             })
@@ -227,10 +243,13 @@ const ROUTING_SERVERS = {
 // Same "needs network, degrades gracefully offline" posture as the Nominatim
 // geocoding. Raw km/min are cached; formatting happens on paint.
 async function fetchLeg(from, to, profile) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
         const server = ROUTING_SERVERS[profile] || ROUTING_SERVERS.driving;
         const r = await fetch(
             `${server}/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`,
+            { signal: controller.signal },
         );
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
@@ -249,7 +268,28 @@ async function fetchLeg(from, to, profile) {
             min: null,
             approx: true,
         };
+    } finally {
+        clearTimeout(timeout);
     }
+}
+
+// Map rendering, timeline cards and the health check can request the same leg
+// at the same time. Share that work and cache it as soon as it settles.
+function fetchLegOnce(from, to, profile) {
+    const key = keyFor(from, to, profile);
+    if (routeCache.has(key)) return Promise.resolve(routeCache.get(key));
+    if (routeRequests.has(key)) return routeRequests.get(key);
+    const request = fetchLeg(from, to, profile)
+        .then((leg) => {
+            routeCache.set(key, leg);
+            routeCacheRevision += 1;
+            return leg;
+        })
+        .finally(() => {
+            if (routeRequests.get(key) === request) routeRequests.delete(key);
+        });
+    routeRequests.set(key, request);
+    return request;
 }
 
 // The routing legs MUST follow the drawn polyline, not "all located spots": a
@@ -276,13 +316,19 @@ export function cachedDayTravelMinutes(day) {
     if (seq.length < 2) return null;
     let total = 0;
     for (let i = 0; i < seq.length - 1; i++) {
+        const configured = travelLeg(seq[i].id, seq[i + 1].id);
+        if (Number.isInteger(configured?.durationMinutes)) {
+            total += configured.durationMinutes;
+            continue;
+        }
+        const profile = AUTOMATIC_TRAVEL_MODES.includes(configured?.mode) ? configured.mode : store.routeProfile;
         const leg = routeCache.get(
-            keyFor(seq[i], seq[i + 1], store.routeProfile),
+            keyFor(seq[i], seq[i + 1], profile),
         );
         const override = routeTimeOverride(
             seq[i].id,
             seq[i + 1].id,
-            store.routeProfile,
+            profile,
         );
         if (override !== null) {
             total += override;
@@ -317,14 +363,10 @@ export async function ensureRouteTravelTimes(spots, profile = "walking") {
         )
             continue;
         const key = keyFor(from, to, profile);
-        if (!routeCache.has(key)) pending.push({ from, to, key });
+        if (!routeCache.has(key)) pending.push(fetchLegOnce(from, to, profile));
     }
     if (!pending.length) return;
-    const results = await Promise.all(
-        pending.map(({ from, to }) => fetchLeg(from, to, profile)),
-    );
-    pending.forEach(({ key }, index) => routeCache.set(key, results[index]));
-    if (pending.length) routeCacheRevision += 1;
+    await Promise.all(pending);
 }
 
 function fmtKm(km) {
@@ -352,8 +394,10 @@ function drawRouteLine(seq) {
         return;
     }
     for (let i = 0; i < seq.length - 1; i++) {
+        const configured = travelLeg(seq[i].id, seq[i + 1].id);
+        const profile = AUTOMATIC_TRAVEL_MODES.includes(configured?.mode) ? configured.mode : store.routeProfile;
         const leg = routeCache.get(
-            keyFor(seq[i], seq[i + 1], store.routeProfile),
+            keyFor(seq[i], seq[i + 1], profile),
         );
         // Keep a direct segment visible while the street route loads or when
         // the routing service cannot be reached.
@@ -361,7 +405,8 @@ function drawRouteLine(seq) {
             [seq[i].lat, seq[i].lng],
             [seq[i + 1].lat, seq[i + 1].lng],
         ];
-        L.polyline(leg?.points || fallback, style).addTo(routeLayer);
+        const manual = configured && !AUTOMATIC_TRAVEL_MODES.includes(configured.mode);
+        L.polyline(manual ? fallback : leg?.points || fallback, manual ? { ...style, color: "#3f7d9c", dashArray: "3 8" } : style).addTo(routeLayer);
     }
 }
 
@@ -392,15 +437,12 @@ function ensureRoutes() {
     // 450 ms geocoding debounce.
     clearTimeout(routeTimer);
     routeTimer = setTimeout(async () => {
-        const results = await Promise.all(
-            pending.map(([from, to]) => fetchLeg(from, to, profile)),
+        await Promise.all(
+            pending.map(([from, to]) => fetchLegOnce(from, to, profile)),
         );
-        // Stale-guard: a newer ensureRoutes() ran (or the day changed) while we
-        // were awaiting — drop this result entirely.
+        // Stale-guard: keep the reusable cache entries, but do not repaint a
+        // route that is no longer active.
         if (myToken !== routeToken || myActive !== store.active) return;
-        pending.forEach(([from, to], i) =>
-            routeCache.set(keyFor(from, to, profile), results[i]),
-        );
         drawMap();
         document.dispatchEvent(new CustomEvent("trip:route-times-updated"));
     }, 450);
@@ -485,7 +527,7 @@ export function drawMap() {
             const baseHtml = `<b>${esc(s.name)}</b><br><small>${esc(s.note || s.address || "")}</small>${legPart}`;
             const marker = L.marker([s.lat, s.lng], {
                 icon: icon(
-                    visibleSpots.indexOf(s) + 1,
+                    markerLabel(visibleSpots, s),
                     categoryMeta(s.category).color,
                 ),
             })

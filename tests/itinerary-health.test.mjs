@@ -33,6 +33,33 @@ test("sin horario aplicable satisface el dato horario", () => {
     assert.equal(result.issues.some((issue) => issue.type === "missing-schedule"), false);
 });
 
+test("un punto de paso no exige duración ni horario aunque conserve datos antiguos", () => {
+    const value = spot({
+        kind: "waypoint",
+        visitMinutes: undefined,
+        openingTime: undefined,
+        closingTime: undefined,
+    });
+    const result = diagnoseDay(
+        { id: "d1", spots: [value] },
+        projection({ spot: value, duration: 0, travel: 0, margin: null }),
+    );
+    assert.equal(result.issues.some((issue) => issue.type === "missing-duration"), false);
+    assert.equal(result.issues.some((issue) => issue.type === "missing-schedule"), false);
+});
+
+test("los datos ausentes se distinguen de un día sin comprobar", () => {
+    const value = spot({ visitMinutes: undefined, openingTime: undefined, closingTime: undefined });
+    const result = diagnoseDay({ id: "d1", spots: [value] }, projection({ spot: value }));
+    assert.equal(result.state, "incomplete");
+    assert.ok(result.issues.some((issue) => issue.severity === "missing"));
+});
+
+test("un día sin paradas activas queda marcado como incompleto", () => {
+    const result = diagnoseDay({ id: "d1", spots: [] }, { items: [] });
+    assert.equal(result.state, "incomplete");
+});
+
 test("los umbrales de margen y caminata clasifican el día como justo", () => {
     const value = spot();
     const result = diagnoseDay({ id: "d1", spots: [value] }, projection({ spot: value, travel: 121, margin: 30 }));
