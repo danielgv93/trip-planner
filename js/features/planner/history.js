@@ -2,7 +2,7 @@
 // stays outside store/save(), so reloading starts with empty undo/redo stacks.
 
 import { createUndoStack } from "../../core/undo-stack.js";
-import { store, save } from "../../core/store.js?v=24";
+import { store, save } from "../../core/store.js?v=25";
 
 const SNAPSHOT_KEYS = [
     "state",
@@ -16,7 +16,8 @@ const SNAPSHOT_KEYS = [
     "foreignCurrency",
     "exchangeRate",
     "exchangeRateDate",
-    "tripNotes",
+    "tripNotePages",
+    "activeTripNotePageId",
     "routeProfile",
     "routeVisualization",
     "routeTimeOverrides",

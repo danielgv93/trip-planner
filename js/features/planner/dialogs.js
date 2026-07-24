@@ -1,9 +1,9 @@
 // The add/edit place dialog (with Nominatim search) and the tag / category
 // manager dialogs. Wires its own listeners on module load.
 
-import { store, save, dayBy } from "../../core/store.js?v=24";
+import { store, save, dayBy } from "../../core/store.js?v=25";
 import { $, esc, slug, id } from "../../shared/dom.js";
-import { toast, confirmAction } from "../../shared/notify.js?v=3";
+import { toast, confirmAction } from "../../shared/notify.js?v=4";
 import { render } from "./render.js";
 import { pushUndo } from "./history.js";
 import {

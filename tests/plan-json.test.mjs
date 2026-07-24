@@ -29,6 +29,42 @@ test("normalizePlan conserva datos válidos y descarta horas inválidas", () => 
     assert.equal(normalized.days[0].spots[0].mapEnabled, true);
 });
 
+test("normalizePlan migra las notas antiguas a una página General", () => {
+    const value = { ...plan(), tripNotes: "Reserva confirmada" };
+    const normalized = normalizePlan(value);
+    assert.deepEqual(normalized.tripNotePages, [{
+        id: "notes-general",
+        title: "General",
+        content: "Reserva confirmada",
+    }]);
+    assert.equal(normalized.activeTripNotePageId, "notes-general");
+});
+
+test("normalizePlan conserva páginas de notas y valida la pestaña activa", () => {
+    const value = {
+        ...plan(),
+        tripNotePages: [
+            { id: "p1", title: "Reservas", content: "Hotel" },
+            { id: "p2", title: "Equipaje", content: "Pasaporte" },
+        ],
+        activeTripNotePageId: "p2",
+    };
+    const normalized = normalizePlan(value);
+    assert.equal(normalized.tripNotePages.length, 2);
+    assert.equal(normalized.activeTripNotePageId, "p2");
+});
+
+test("normalizePlan rechaza páginas de notas con identificadores repetidos", () => {
+    const value = {
+        ...plan(),
+        tripNotePages: [
+            { id: "p1", title: "Una", content: "" },
+            { id: "p1", title: "Otra", content: "" },
+        ],
+    };
+    assert.throws(() => normalizePlan(value), /INVALID_PLAN/);
+});
+
 test("normalizePlan rechaza identificadores repetidos", () => {
     const value = plan();
     value.backlog.push({ id: "s1", name: "Duplicada" });
@@ -61,5 +97,7 @@ test("serializePlan genera el documento portable actual", () => {
     const serialized = serializePlan({ exportedAt: false });
     assert.equal(serialized.version, PLAN_VERSION);
     assert.equal(Object.hasOwn(serialized, "exportedAt"), false);
+    assert.equal(Object.hasOwn(serialized, "activeTripNotePageId"), false);
     assert.ok(Array.isArray(serialized.days));
+    assert.ok(Array.isArray(serialized.tripNotePages));
 });

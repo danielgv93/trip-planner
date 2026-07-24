@@ -1,8 +1,8 @@
 // Header controls and keyboard shortcuts for the planner history.
 
-import { store } from "../../core/store.js?v=24";
+import { store } from "../../core/store.js?v=25";
 import { $ } from "../../shared/dom.js";
-import { syncTripNotes } from "../notes/notes.js";
+import { syncTripNotes } from "../notes/notes.js?v=3";
 import { drawMap, syncRouteVisualizationControl } from "../map/map.js";
 import { isDragInProgress } from "./dnd.js";
 import { applyTitle, render } from "./render.js";

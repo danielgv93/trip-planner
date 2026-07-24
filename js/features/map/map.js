@@ -12,7 +12,7 @@ import {
     spotMatchesFilter,
     spotIsEnabled,
     routeTimeOverride,
-} from "../../core/store.js?v=24";
+} from "../../core/store.js?v=25";
 import { $, esc, safeColor } from "../../shared/dom.js";
 import { DAY_COLORS } from "../../core/constants.js";
 import { distanceMeters } from "../../core/geo.js";

@@ -19,9 +19,9 @@ import {
     routeTimeOverrideKey,
     routeTimeProfile,
     routeTimeProfileKey,
-} from "../../core/store.js?v=24";
+} from "../../core/store.js?v=25";
 import { $, esc, safeColor, fmt, daysEl, id } from "../../shared/dom.js";
-import { toast, confirmAction } from "../../shared/notify.js?v=3";
+import { toast, confirmAction } from "../../shared/notify.js?v=4";
 import {
     drawMap,
     mapsLinkFor,
@@ -30,7 +30,7 @@ import {
     ensureRouteTravelTimes,
     highlightMapSpot,
 } from "../map/map.js";
-import { openDialog } from "./dialogs.js";
+import { openDialog } from "./dialogs.js?v=2";
 import { pushUndo } from "./history.js";
 import { foreignAmount, localAmount } from "../finance/currency.js";
 import { DAY_LOAD_WARNING_MINUTES } from "../../core/constants.js";

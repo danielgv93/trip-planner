@@ -144,8 +144,14 @@ export function promptAction({
             result = input.value.trim();
             confirmDialog.close();
         };
+        input.onkeydown = (event) => {
+            if (event.key !== "Enter" || event.isComposing) return;
+            event.preventDefault();
+            $("#confirmOk").click();
+        };
         confirmDialog.onclose = () => {
             $("#confirmOk").onclick = null;
+            input.onkeydown = null;
             confirmDialog.onclose = null;
             field.hidden = true;
             renderChangePreview(null);
