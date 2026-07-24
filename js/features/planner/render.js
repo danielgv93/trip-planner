@@ -300,6 +300,10 @@ function openDurationDialog(dayId, spotId) {
     const day = dayBy(dayId);
     const spot = day?.spots.find((candidate) => String(candidate.id) === spotId);
     if (!spot) return;
+    if (isWaypoint(spot)) {
+        openDialog(dayId, spot);
+        return;
+    }
     durationEditing = { dayId, spot };
     $("#durationSpotName").textContent = spot.name || "Parada sin nombre";
     durationInput.value =
@@ -512,11 +516,29 @@ function paintLiveTimelineConflicts(tools, active) {
         (hasClosing && end > closing) ||
         (hasClosing && !duration && start >= closing)
     )) active.classList.add("is-live-outside");
-    if (!duration) return;
+    if (!duration) {
+        blocks.forEach((other) => {
+            if (other === active) return;
+            const otherStart = Number(other.dataset.timelineStart);
+            const otherDuration = Number(other.dataset.timelineDuration);
+            if (
+                otherDuration > 0 &&
+                start >= otherStart &&
+                start < otherStart + otherDuration
+            ) active.classList.add("is-live-overlap");
+        });
+        return;
+    }
     blocks.forEach((other) => {
         if (other === active) return;
         const otherStart = Number(other.dataset.timelineStart);
-        const otherEnd = otherStart + Number(other.dataset.timelineDuration);
+        const otherDuration = Number(other.dataset.timelineDuration);
+        const otherEnd = otherStart + otherDuration;
+        if (!otherDuration && other.classList.contains("is-waypoint")) {
+            if (otherStart >= start && otherStart < end)
+                other.classList.add("is-live-overlap");
+            return;
+        }
         if (start < otherEnd && otherStart < end) {
             active.classList.add("is-live-overlap");
             other.classList.add("is-live-overlap");

@@ -18,6 +18,24 @@ test("un waypoint es un hito sin duración de actividad", () => {
     assert.equal(projection.items[1].start, 555);
 });
 
+test("un waypoint no reserva carril y marca conflicto si cae dentro de una visita", () => {
+    const day = { date: "2026-07-20", startTime: "09:00", spots: [
+        { id: "museum", name: "Museo", kind: "activity", visitMinutes: 90, plannedStart: "09:00" },
+        { id: "meeting", name: "Encuentro", kind: "waypoint", plannedStart: "09:30" },
+    ] };
+    const projection = buildTimelineProjection(day, {
+        now: new Date("2026-07-19T12:00:00"),
+        travelForLeg: () => ({ minutes: 0, profile: "walking" }),
+    });
+    const [activity, waypoint] = projection.items;
+    assert.equal(projection.lanes, 1);
+    assert.equal(activity.lane, 0);
+    assert.equal(waypoint.lane, 0);
+    assert.deepEqual(activity.overlaps, []);
+    assert.deepEqual(waypoint.overlaps, [[570, 570]]);
+    assert.equal(waypoint.conflicts.some((item) => item.type === "visit-overlap"), true);
+});
+
 test("una salida fija espera o produce missed-departure", () => {
     const base = { date: "2026-07-20", startTime: "09:00", spots: [
         { id: "a", name: "Origen", kind: "activity", visitMinutes: 30 },

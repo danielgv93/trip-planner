@@ -1633,8 +1633,44 @@ body.preview-mode .quick-add {
 .travel-card-actions { display: flex; align-items: center; gap: 6px; }
 .travel-card-delete { color: var(--danger, #a33); }
 .companion-timeline-block.is-waypoint {
-    min-width: 14px;
-    border-radius: 3px;
-    transform: rotate(45deg);
+    z-index: 3;
+    min-width: 28px;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    border-left: 2px solid var(--timeline-color);
+    border-radius: 0;
+    background: transparent;
 }
-.companion-timeline-block.is-waypoint .companion-timeline-content { transform: rotate(-45deg); }
+.companion-timeline-block.is-waypoint::before {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    top: 13px;
+    left: -6px;
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--timeline-color);
+    border-radius: 50%;
+    background: var(--card);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--timeline-color) 15%, transparent);
+}
+.companion-timeline-block.is-waypoint .companion-timeline-content {
+    display: none;
+}
+.companion-timeline-block.is-waypoint.is-overlapping {
+    border-left-color: #a22e28;
+    box-shadow: none;
+}
+.companion-timeline-block.is-waypoint.is-overlapping::before {
+    border-color: #a22e28;
+    box-shadow: 0 0 0 3px rgb(162 46 40 / .18);
+}
+.companion-timeline-block.is-waypoint.is-live-overlap {
+    border-left-color: #a22e28;
+    box-shadow: none;
+}
+.companion-timeline-block.is-waypoint.is-live-overlap::before {
+    border-color: #a22e28;
+    box-shadow: 0 0 0 3px rgb(162 46 40 / .18);
+}

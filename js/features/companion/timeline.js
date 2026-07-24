@@ -49,6 +49,10 @@ function assignOverlapMetadata(items) {
     const laneEnds = [];
     [...items].sort((a, b) => a.start - b.start || a.end - b.end).forEach((item) => {
         item.overlaps = [];
+        if (item.waypoint) {
+            item.lane = 0;
+            return;
+        }
         let lane = laneEnds.findIndex((end) => end <= item.start);
         if (lane === -1) lane = laneEnds.length;
         item.lane = lane;
@@ -58,9 +62,20 @@ function assignOverlapMetadata(items) {
         items.slice(index + 1).forEach((other) => {
             const start = Math.max(item.start, other.start);
             const end = Math.min(item.end, other.end);
-            if (start >= end) return;
-            item.overlaps.push([start, end]);
-            other.overlaps.push([start, end]);
+            if (start < end) {
+                item.overlaps.push([start, end]);
+                other.overlaps.push([start, end]);
+                return;
+            }
+            const waypoint = item.waypoint ? item : other.waypoint ? other : null;
+            const activity = waypoint === item ? other : item;
+            if (
+                !waypoint ||
+                activity.waypoint ||
+                waypoint.start < activity.start ||
+                waypoint.start >= activity.end
+            ) return;
+            waypoint.overlaps.push([waypoint.start, waypoint.start]);
         });
     });
     return Math.max(1, laneEnds.length);
