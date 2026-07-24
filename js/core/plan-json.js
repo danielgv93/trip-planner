@@ -1,7 +1,7 @@
 // Canonical codec for the portable trip document. Local file import/
 // export and GitHub transport all use the same field selection.
 
-import { store } from "./store.js?v=26";
+import { store } from "./store.js?v=28";
 import { DEFAULT_CATEGORIES } from "./constants.js";
 import { isTime } from "./time.js";
 import { normalizeHealthDay, normalizeHealthSpot } from "./plan-metadata.js";
@@ -10,8 +10,12 @@ import {
     normalizeSpotKind,
 } from "./itinerary.js";
 import { migrateLegacyTravelLegs } from "./travel-legs.js";
+import {
+    activeTripNotePage,
+    normalizeTripNotePages,
+} from "./note-pages.js";
 
-export const PLAN_VERSION = 25;
+export const PLAN_VERSION = 26;
 
 export function serializePlan({ exportedAt = true } = {}) {
     const plan = {
@@ -21,7 +25,7 @@ export function serializePlan({ exportedAt = true } = {}) {
         foreignCurrency: store.foreignCurrency,
         exchangeRate: store.exchangeRate,
         exchangeRateDate: store.exchangeRateDate,
-        tripNotes: store.tripNotes,
+        tripNotePages: store.tripNotePages,
         days: store.state,
         backlog: store.backlog,
         backlogGroups: store.backlogGroups,
@@ -165,6 +169,14 @@ export function normalizePlan(value) {
         routeTimeOverrides,
         { spotIds: new Set(spotIds) },
     );
+    const tripNotePages = normalizeTripNotePages(value.tripNotePages, {
+        legacyNotes: typeof value.tripNotes === "string" ? value.tripNotes : "",
+        strict: value.tripNotePages !== undefined,
+    });
+    const activeNotePage = activeTripNotePage(
+        tripNotePages,
+        value.activeTripNotePageId,
+    );
 
     return {
         version: PLAN_VERSION,
@@ -175,7 +187,8 @@ export function normalizePlan(value) {
             ? value.exchangeRate
             : null,
         exchangeRateDate: typeof value.exchangeRateDate === "string" ? value.exchangeRateDate : "",
-        tripNotes: typeof value.tripNotes === "string" ? value.tripNotes : "",
+        tripNotePages,
+        activeTripNotePageId: activeNotePage.id,
         days,
         backlog,
         backlogGroups,

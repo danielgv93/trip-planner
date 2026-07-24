@@ -1,7 +1,7 @@
 import { esc } from "../../shared/dom.js";
-import { serializePlan } from "../../core/plan-json.js?v=35";
+import { serializePlan } from "../../core/plan-json.js?v=36";
 import { applyImportedPlan } from "../planner/import-plan.js?v=1";
-import { toast } from "../../shared/notify.js?v=3";
+import { toast } from "../../shared/notify.js?v=4";
 import { buildProposedPlan } from "./proposal.js?v=3";
 
 export { buildProposedPlan };
@@ -190,7 +190,7 @@ Devuelve SIEMPRE un único objeto JSON válido, sin Markdown, con esta forma:
 {"reply":"respuesta breve para el usuario","actions":[]}
 
 Las acciones admitidas son:
-- {"type":"set_trip","title?":string,"notes?":string,"routeProfile?":"walking"|"driving"|"cycling","routeVisualization?":"straight"|"streets"}
+- {"type":"set_trip","title?":string,"notes?":string,"routeProfile?":"walking"|"driving"|"cycling","routeVisualization?":"straight"|"streets"} (notes actualiza la primera página de notas)
 - {"type":"add_day","tempId":string,"date":"YYYY-MM-DD","title":string,"at?":number}
 - {"type":"update_day","dayId":string,"date?":"YYYY-MM-DD","title?":string}
 - {"type":"delete_day","dayId":string} (sus paradas pasan a ideas pendientes)

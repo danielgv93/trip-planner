@@ -18,11 +18,11 @@ import {
     routeTimeOverride,
     routeTimeProfile,
     travelLeg,
-} from "../../core/store.js?v=26";
+} from "../../core/store.js?v=28";
 import { isWaypoint } from "../../core/itinerary.js";
 import { AUTOMATIC_TRAVEL_MODES, normalizeTravelLeg, travelLegKey } from "../../core/travel-legs.js";
 import { $, esc, safeColor, fmt, daysEl, id } from "../../shared/dom.js";
-import { toast, confirmAction } from "../../shared/notify.js?v=3";
+import { toast, confirmAction } from "../../shared/notify.js?v=4";
 import {
     drawMap,
     mapsLinkFor,
@@ -31,7 +31,7 @@ import {
     ensureRouteTravelTimes,
     highlightMapSpot,
 } from "../map/map.js";
-import { openDialog } from "./dialogs.js?v=1";
+import { openDialog } from "./dialogs.js?v=3";
 import { pushUndo } from "./history.js";
 import { foreignAmount, localAmount } from "../finance/currency.js";
 import { DAY_LOAD_WARNING_MINUTES } from "../../core/constants.js";

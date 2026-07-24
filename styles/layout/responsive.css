@@ -232,8 +232,35 @@ body.preview-mode .spot {
         font-size: 12px;
     }
     .notes-dialog-content { padding: 16px; }
+    .trip-notes-tabs-bar {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .trip-notes-add-page {
+        align-self: flex-start;
+        margin: 0 0 5px;
+    }
     .notes-dialog textarea,
     .trip-notes-preview { min-height: 52vh; }
+    .trip-notes-workspace {
+        grid-template-columns: minmax(125px, 0.3fr) minmax(0, 1fr);
+        gap: 10px;
+    }
+    .trip-notes-index {
+        max-height: calc(52vh + 57px);
+    }
+    .trip-notes-index nav a[data-level="2"] { padding-left: 12px; }
+    .trip-notes-index nav a[data-level="3"] { padding-left: 17px; }
+    .trip-notes-index nav a[data-level="4"] { padding-left: 22px; }
+    .trip-notes-index nav a[data-level="5"] { padding-left: 27px; }
+    .trip-notes-index nav a[data-level="6"] { padding-left: 32px; }
+    .trip-notes-toolbar {
+        align-items: flex-start;
+    }
+    .trip-notes-page-actions {
+        gap: 2px;
+    }
     .hours-input-row {
         grid-template-columns: 1fr;
     }

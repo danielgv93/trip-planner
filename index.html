@@ -20,7 +20,7 @@
             rel="stylesheet"
             href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css"
         />
-        <link rel="stylesheet" href="styles/app.css?v=2026072103" />
+        <link rel="stylesheet" href="styles/app.css?v=2026072403" />
     </head>
     <body>
         <header class="top">
@@ -443,20 +443,54 @@
                 <button class="close" aria-label="Cerrar">×</button>
             </div>
             <div class="notes-dialog-content">
-                <div class="trip-notes-toolbar">
-                    <button id="tripNotesMode" type="button" aria-pressed="false">Previsualizar</button>
-                    <span>Markdown</span>
+                <div class="trip-notes-tabs-bar">
+                    <div
+                        id="tripNotesTabs"
+                        class="trip-notes-tabs"
+                        role="tablist"
+                        aria-label="Páginas de notas"
+                    ></div>
+                    <button id="tripNotesAddPage" class="trip-notes-add-page" type="button">
+                        <span aria-hidden="true">＋</span> Nueva página
+                    </button>
                 </div>
-                <textarea
-                    id="tripNotes"
-                    maxlength="5000"
-                    aria-label="Notas generales del viaje"
-                    placeholder="Añade reservas, teléfonos, enlaces o cualquier recordatorio útil…"
-                ></textarea>
-                <div id="tripNotesPreview" class="trip-notes-preview" aria-label="Vista previa de las notas" hidden></div>
-                <div class="trip-notes-meta">
-                    <span>Admite # títulos, **negrita**, listas y enlaces</span>
-                    <span id="tripNotesStatus" class="trip-notes-status" aria-live="polite"></span>
+                <div class="trip-notes-workspace">
+                    <aside class="trip-notes-index" aria-labelledby="tripNotesIndexTitle">
+                        <div class="trip-notes-index-head">
+                            <span>Esta página</span>
+                            <strong id="tripNotesIndexTitle">Índice</strong>
+                        </div>
+                        <nav id="tripNotesIndex" aria-label="Índice de las notas"></nav>
+                        <div id="tripNotesIndexEmpty" class="trip-notes-index-empty">
+                            <strong>No hay títulos disponibles</strong>
+                            <span>Escribe un título en una línea nueva con <code>#</code>, <code>##</code> o hasta <code>######</code>.</span>
+                            <small>Ejemplo: <code>## Reservas</code></small>
+                        </div>
+                    </aside>
+                    <div class="trip-notes-editor">
+                        <div class="trip-notes-toolbar">
+                            <div class="trip-notes-page-actions">
+                                <button id="tripNotesRenamePage" type="button">Renombrar</button>
+                                <button id="tripNotesDeletePage" class="is-danger" type="button">Eliminar</button>
+                            </div>
+                            <div class="trip-notes-view-actions">
+                                <span>Markdown</span>
+                                <button id="tripNotesMode" type="button" aria-pressed="false">Previsualizar</button>
+                            </div>
+                        </div>
+                        <textarea
+                            id="tripNotes"
+                            maxlength="5000"
+                            aria-label="Notas generales del viaje"
+                            placeholder="Añade reservas, teléfonos, enlaces o cualquier recordatorio útil…"
+                        ></textarea>
+                        <div id="tripNotesLinks" class="trip-notes-editor-links" aria-label="Enlaces detectados en las notas" hidden></div>
+                        <div id="tripNotesPreview" class="trip-notes-preview" aria-label="Vista previa de las notas" hidden></div>
+                        <div class="trip-notes-meta">
+                            <span>Admite # títulos, **negrita**, listas y enlaces</span>
+                            <span id="tripNotesStatus" class="trip-notes-status" aria-live="polite"></span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </dialog>
@@ -927,6 +961,6 @@
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
         <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js"></script>
-        <script type="module" src="js/app/main.js?v=2026072104"></script>
+        <script type="module" src="js/app/main.js?v=2026072404"></script>
     </body>
 </html>

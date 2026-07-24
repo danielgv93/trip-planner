@@ -2,11 +2,11 @@
 // GitHub repository file. This module owns UI and browser persistence; HTTP
 // transport and target validation live in github-api.js.
 
-import { store } from "../../core/store.js?v=26";
+import { store } from "../../core/store.js?v=28";
 import { $ } from "../../shared/dom.js";
-import { parsePlanJson, serializePlan } from "../../core/plan-json.js?v=35";
+import { parsePlanJson, serializePlan } from "../../core/plan-json.js?v=36";
 import { applyImportedPlan } from "../planner/import-plan.js?v=1";
-import { confirmAction, promptAction, toast } from "../../shared/notify.js?v=3";
+import { confirmAction, promptAction, toast } from "../../shared/notify.js?v=4";
 import {
     GithubError,
     GITHUB_STORAGE_KEY,
@@ -111,7 +111,7 @@ const PLAN_SNAPSHOT_KEYS = [
     "foreignCurrency",
     "exchangeRate",
     "exchangeRateDate",
-    "tripNotes",
+    "tripNotePages",
     "days",
     "backlog",
     "backlogGroups",
@@ -360,7 +360,11 @@ function buildChangesPreview() {
         { label: "Moneda extranjera", read: (plan) => plan.foreignCurrency },
         { label: "Tipo de cambio", read: (plan) => plan.exchangeRate },
         { label: "Fecha del cambio", read: (plan) => plan.exchangeRateDate },
-        { label: "Notas del viaje", read: (plan) => plan.tripNotes },
+        {
+            label: "Páginas de notas",
+            read: (plan) => plan.tripNotePages,
+            format: (value) => `${Array.isArray(value) ? value.length : 0} página(s)`,
+        },
         { label: "Modo de viaje", read: (plan) => plan.routeProfile, format: (value) => routeProfiles[value] || previewValue(value) },
         { label: "Tipo de ruta", read: (plan) => plan.routeVisualization, format: (value) => routeTypes[value] || previewValue(value) },
         { label: "Trayectos", read: (plan) => plan.travelLegs || {}, format: (value) => `${Object.keys(value || {}).length} configurados` },

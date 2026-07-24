@@ -10,7 +10,7 @@ import {
     routeTimeOverride,
     routeTimeProfile,
     travelLeg,
-} from "../../core/store.js?v=26";
+} from "../../core/store.js?v=28";
 import { AUTOMATIC_TRAVEL_MODES } from "../../core/travel-legs.js";
 import { render } from "../planner/render.js";
 import {

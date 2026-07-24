@@ -3,15 +3,15 @@
 // graph has evaluated — so no cross-module call fires against a half-initialised
 // binding.
 
-import { store } from "../core/store.js?v=26";
+import { store } from "../core/store.js?v=28";
 import "../shared/modal-scroll.js?v=1";
-import "../features/planner/dialogs.js?v=1";
+import "../features/planner/dialogs.js?v=3";
 import "../features/planner/dnd.js";
-import "../features/planner/undo-controls.js";
-import "../features/planner/actions.js?v=35";
+import "../features/planner/undo-controls.js?v=2";
+import "../features/planner/actions.js?v=36";
 import "../features/planner/spot-search.js";
 import "../features/planner/sticky-days.js";
-import "../features/health/health.js?v=2";
+import "../features/health/health.js?v=3";
 import "../features/github/github.js?v=34";
 import "../features/finance/budget.js?v=30";
 import "../features/workspace/workspace-resize.js?v=3";

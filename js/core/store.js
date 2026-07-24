@@ -18,8 +18,12 @@ import {
     normalizeSpotKind,
 } from "./itinerary.js";
 import { migrateLegacyTravelLegs, travelLegKey } from "./travel-legs.js";
+import {
+    activeTripNotePage,
+    normalizeTripNotePages,
+} from "./note-pages.js";
 
-export const STORAGE_VERSION = 27;
+export const STORAGE_VERSION = 28;
 
 function loadSavedState() {
     const raw =
@@ -35,6 +39,13 @@ function loadSavedState() {
 }
 
 const saved = loadSavedState();
+const savedTripNotePages = normalizeTripNotePages(saved?.tripNotePages, {
+    legacyNotes: typeof saved?.tripNotes === "string" ? saved.tripNotes : "",
+});
+const savedActiveTripNotePage = activeTripNotePage(
+    savedTripNotePages,
+    saved?.activeTripNotePageId,
+);
 
 function normalizeSavedDay(day) {
     const normalized = normalizeHealthDay(day);
@@ -57,7 +68,8 @@ export const store = {
             : null,
     exchangeRateDate:
         typeof saved?.exchangeRateDate === "string" ? saved.exchangeRateDate : "",
-    tripNotes: typeof saved?.tripNotes === "string" ? saved.tripNotes : "",
+    tripNotePages: savedTripNotePages,
+    activeTripNotePageId: savedActiveTripNotePage.id,
     state: (Array.isArray(saved)
         ? saved
         : saved?.days || structuredClone(sample)).map(normalizeSavedDay),
@@ -190,7 +202,8 @@ export function save() {
             foreignCurrency: store.foreignCurrency,
             exchangeRate: store.exchangeRate,
             exchangeRateDate: store.exchangeRateDate,
-            tripNotes: store.tripNotes,
+            tripNotePages: store.tripNotePages,
+            activeTripNotePageId: store.activeTripNotePageId,
             days: store.state,
             backlog: store.backlog,
             backlogCollapsed: store.backlogCollapsed,
@@ -218,7 +231,8 @@ export function replacePlanState(plan) {
     store.foreignCurrency = plan.foreignCurrency;
     store.exchangeRate = plan.exchangeRate;
     store.exchangeRateDate = plan.exchangeRateDate;
-    store.tripNotes = plan.tripNotes;
+    store.tripNotePages = plan.tripNotePages;
+    store.activeTripNotePageId = plan.activeTripNotePageId;
     store.routeProfile = plan.routeProfile;
     store.routeVisualization = plan.routeVisualization;
     store.routeTimeOverrides = plan.routeTimeOverrides;

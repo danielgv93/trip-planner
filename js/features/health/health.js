@@ -1,7 +1,7 @@
-import { store, save, dayBy, routeTimeProfile, routeTimeOverride, travelLeg } from "../../core/store.js?v=26";
+import { store, save, dayBy, routeTimeProfile, routeTimeOverride, travelLeg } from "../../core/store.js?v=28";
 import { AUTOMATIC_TRAVEL_MODES, disconnectedTravelLegs, parseTravelLegKey } from "../../core/travel-legs.js";
 import { $, esc } from "../../shared/dom.js";
-import { toast } from "../../shared/notify.js?v=3";
+import { toast } from "../../shared/notify.js?v=4";
 import { buildTimelineProjection } from "../companion/timeline.js";
 import { cachedRouteTravelMinutes, drawMap } from "../map/map.js";
 import { openDialog } from "../planner/dialogs.js?v=1";

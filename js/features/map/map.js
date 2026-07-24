@@ -13,7 +13,7 @@ import {
     spotIsEnabled,
     routeTimeOverride,
     travelLeg,
-} from "../../core/store.js?v=26";
+} from "../../core/store.js?v=28";
 import { AUTOMATIC_TRAVEL_MODES } from "../../core/travel-legs.js";
 import { $, esc, safeColor } from "../../shared/dom.js";
 import { DAY_COLORS } from "../../core/constants.js";

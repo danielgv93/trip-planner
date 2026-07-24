@@ -1,7 +1,7 @@
 // Validation and immutable application of assistant-proposed plan actions.
 // Kept separate from provider transport and chat rendering.
 
-import { normalizePlan } from "../../core/plan-json.js?v=35";
+import { normalizePlan } from "../../core/plan-json.js?v=36";
 import { isTime } from "../../core/time.js";
 import { normalizeTravelLeg, travelLegKey, TRAVEL_MODES } from "../../core/travel-legs.js";
 
@@ -158,8 +158,18 @@ export function buildProposedPlan(currentPlan, actions) {
                     changed = true;
                 }
                 if (Object.hasOwn(action, "notes")) {
-                    plan.tripNotes = cleanString(action.notes, "Notas", 5000);
-                    summaries.push("Actualizar las notas del viaje");
+                    const content = cleanString(action.notes, "Notas", 5000);
+                    if (!Array.isArray(plan.tripNotePages) || !plan.tripNotePages.length) {
+                        plan.tripNotePages = [{
+                            id: "notes-general",
+                            title: "General",
+                            content,
+                        }];
+                        plan.activeTripNotePageId = "notes-general";
+                    } else {
+                        plan.tripNotePages[0].content = content;
+                    }
+                    summaries.push("Actualizar la página General de las notas");
                     changed = true;
                 }
                 if (Object.hasOwn(action, "routeProfile")) {
