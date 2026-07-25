@@ -13,13 +13,13 @@ import {
     spotIsEnabled,
     routeTimeOverride,
     travelLeg,
-} from "../../core/store.js?v=28";
+} from "../../core/store.js";
 import { AUTOMATIC_TRAVEL_MODES } from "../../core/travel-legs.js";
 import { $, esc, safeColor } from "../../shared/dom.js";
 import { DAY_COLORS } from "../../core/constants.js";
 import { distanceMeters } from "../../core/geo.js";
 import { fetchSpotImage } from "./images.js";
-import { registerBasemapMap } from "./basemap.js?v=6";
+import { registerBasemapMap } from "./basemap.js";
 
 const usesCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
 const map = L.map("map", {

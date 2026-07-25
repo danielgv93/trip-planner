@@ -1,4 +1,4 @@
-import { spotIsEnabled } from "../../core/store.js?v=28";
+import { spotIsEnabled } from "../../core/store.js";
 import { activityDuration } from "../../core/itinerary.js";
 
 export function dayWorkload(day, travel = null) {

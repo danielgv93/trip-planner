@@ -18,11 +18,11 @@ import {
     routeTimeOverride,
     routeTimeProfile,
     travelLeg,
-} from "../../core/store.js?v=28";
+} from "../../core/store.js";
 import { isWaypoint } from "../../core/itinerary.js";
 import { AUTOMATIC_TRAVEL_MODES, normalizeTravelLeg, travelLegKey } from "../../core/travel-legs.js";
 import { $, esc, safeColor, fmt, daysEl, id } from "../../shared/dom.js";
-import { toast, confirmAction } from "../../shared/notify.js?v=4";
+import { toast, confirmAction } from "../../shared/notify.js";
 import {
     drawMap,
     mapsLinkFor,
@@ -31,20 +31,20 @@ import {
     ensureRouteTravelTimes,
     highlightMapSpot,
 } from "../map/map.js";
-import { openDialog } from "./dialogs.js?v=3";
+import { openDialog } from "./dialogs.js";
 import { pushUndo } from "./history.js";
 import { foreignAmount, localAmount } from "../finance/currency.js";
 import { DAY_LOAD_WARNING_MINUTES } from "../../core/constants.js";
 import { dayWorkload as calculateDayWorkload } from "./workload.js";
 import { healthBadgeMarkup } from "../health/session.js";
-import { relocateSpot, relocateTravelCard } from "./move-spot.js?v=2";
+import { relocateSpot, relocateTravelCard } from "./move-spot.js";
 import { buildTimelineProjection, createTimelineView } from "../companion/timeline.js";
 import { timeToMinutes, minutesToTime } from "../../core/time.js";
 import {
     openingHourSegments,
     schedulesOverlap,
     scheduleOverlapSegments,
-} from "./schedule.js?v=1";
+} from "./schedule.js";
 
 export { timeToMinutes } from "../../core/time.js";
 export { openingHourSegments, schedulesOverlap, scheduleOverlapSegments };

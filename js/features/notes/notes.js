@@ -1,7 +1,7 @@
-import { store, save } from "../../core/store.js?v=28";
+import { store, save } from "../../core/store.js";
 import { activeTripNotePage } from "../../core/note-pages.js";
 import { $, id } from "../../shared/dom.js";
-import { confirmAction, promptAction } from "../../shared/notify.js?v=4";
+import { confirmAction, promptAction } from "../../shared/notify.js";
 import { extractNoteLinks, inlineMarkdown } from "./markdown.js";
 
 const notes = $("#tripNotes");

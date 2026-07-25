@@ -1,10 +1,10 @@
 // Read-only budget breakdown dialog. It derives every value from the shared
 // store, so moving or editing spots needs no budget-specific mutation path.
 
-import { store, spotIsEnabled } from "../../core/store.js?v=28";
+import { store, spotIsEnabled } from "../../core/store.js";
 import { $, esc } from "../../shared/dom.js";
 import { sumCosts, sumTravelCosts } from "../planner/render.js";
-import { travelLeg } from "../../core/store.js?v=28";
+import { travelLeg } from "../../core/store.js";
 import { foreignAmount, localAmount } from "./currency.js";
 
 const dialog = $("#budgetDialog");

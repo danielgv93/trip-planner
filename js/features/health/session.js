@@ -1,4 +1,4 @@
-import { store, routeTimeProfile, routeTimeOverride, travelLeg } from "../../core/store.js?v=28";
+import { store, routeTimeProfile, routeTimeOverride, travelLeg } from "../../core/store.js";
 import { spotKind } from "../../core/itinerary.js";
 
 const results = new Map();

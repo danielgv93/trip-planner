@@ -11,6 +11,6 @@
 @import url("./features/dialogs.css");
 @import url("./features/taxonomy.css");
 @import url("./features/health.css");
-@import url("./layout/responsive.css?v=2026071801");
+@import url("./layout/responsive.css");
 @import url("./features/companion.css");
 @import url("./features/llm-chat.css");

@@ -1,4 +1,4 @@
-import { spotIsEnabled } from "../../core/store.js?v=28";
+import { spotIsEnabled } from "../../core/store.js";
 import { isWaypoint } from "../../core/itinerary.js";
 
 export const HEALTH_THRESHOLDS = Object.freeze({
