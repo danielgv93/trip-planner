@@ -27,7 +27,7 @@ export function openingHourSegments(openingTime, closingTime) {
     ];
 }
 
-function scheduleIntervals(openingTime, closingTime) {
+export function scheduleIntervals(openingTime, closingTime) {
     const opening = timeToMinutes(openingTime),
         closing = timeToMinutes(closingTime);
     if (opening === 0 && closing === 0) return [[0, 1440]];

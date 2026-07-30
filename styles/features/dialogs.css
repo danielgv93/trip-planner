@@ -416,10 +416,17 @@
 }
 
 .travel-time-dialog {
-    width: min(430px, calc(100% - 32px));
+    width: min(540px, calc(100% - 32px));
+    max-height: calc(100dvh - 32px);
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 .travel-time-form {
     gap: 16px;
+    grid-template-columns: minmax(0, 1fr);
+}
+.travel-time-form [hidden] {
+    display: none !important;
 }
 .travel-route-summary {
     display: grid;
@@ -458,6 +465,7 @@
     gap: 7px !important;
 }
 .travel-mode-field select {
+    min-width: 0;
     width: 100%;
     padding: 10px 11px;
     border: 1px solid #d9d8d2;
@@ -525,6 +533,43 @@
     background: #e7e4dd;
     color: var(--muted);
 }
+.travel-api-card[data-state="approximate"] {
+    border-color: #e4d2b4;
+    background: #fffaf1;
+}
+.travel-duration-choice {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+    border: 0;
+    padding: 0;
+}
+.travel-duration-choice legend {
+    margin-bottom: 7px;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+}
+.travel-duration-choice label {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 9px 11px;
+    background: #fff;
+    cursor: pointer;
+}
+.travel-duration-choice label:has(input:checked) {
+    border-color: var(--green);
+    background: #edf5f2;
+}
+.travel-duration-choice label:has(input:disabled) {
+    cursor: not-allowed;
+    opacity: .5;
+}
 .travel-time-field {
     gap: 8px !important;
 }
@@ -571,6 +616,57 @@
 }
 .travel-time-actions {
     flex-wrap: wrap;
+}
+.travel-progressive-details {
+    min-width: 0;
+    max-width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #faf9f6;
+}
+.travel-progressive-details summary {
+    min-height: 44px;
+    padding: 12px 14px;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.travel-progressive-details[open] summary { border-bottom: 1px solid var(--line); }
+.travel-progressive-details .travel-leg-details,
+.travel-advanced-options { padding: 14px; }
+.travel-leg-details,
+.travel-leg-details > label,
+.travel-advanced-options { min-width: 0; }
+.travel-leg-details input,
+.travel-leg-details textarea { min-width: 0; width: 100%; box-sizing: border-box; }
+.travel-advanced-options { display: grid; gap: 6px; }
+.travel-advanced-options label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13px;
+}
+.travel-advanced-options .form-hint { margin: 0 0 6px 24px; }
+.field-error {
+    display: block;
+    min-height: 0;
+    color: #a33b32;
+    font-size: 11px;
+    line-height: 1.35;
+}
+.field-error:empty { display: none; }
+.form-status {
+    min-height: 0;
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+.form-status:empty { display: none; }
+.form-actions .travel-delete {
+    margin-right: auto;
+    border-color: #e2b8b3;
+    color: var(--red);
 }
 .form-actions .travel-reset {
     margin-right: auto;
@@ -836,3 +932,17 @@
 .travel-leg-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .travel-leg-details .travel-note-field { grid-column: 1 / -1; }
 .travel-leg-details textarea { min-height: 70px; }
+
+@media (max-width: 560px) {
+    .travel-time-dialog {
+        width: calc(100% - 16px);
+        max-height: calc(100dvh - 16px);
+    }
+    .travel-duration-choice,
+    .travel-leg-details { grid-template-columns: minmax(0, 1fr); }
+    .travel-leg-details .travel-note-field { grid-column: auto; }
+    .travel-time-actions { align-items: stretch; }
+    .travel-time-actions button { flex: 1 1 100%; }
+    .travel-time-actions .travel-delete,
+    .travel-time-actions .travel-reset { margin-right: 0; }
+}

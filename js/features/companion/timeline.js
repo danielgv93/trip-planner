@@ -85,7 +85,7 @@ function validVisitedAt(value) {
     return typeof value === "string" && Number.isFinite(Date.parse(value));
 }
 
-function estimatedTravelMinutes(from, to, profile = "walking") {
+export function estimatedTravelMinutes(from, to, profile = "walking") {
     const meters = distanceMeters(from, to);
     if (!Number.isFinite(meters)) return 0;
     const metersPerMinute = profile === "walking" ? 75 : profile === "cycling" ? 250 : 500;

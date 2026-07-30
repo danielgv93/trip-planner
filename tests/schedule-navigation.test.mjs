@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
     openingHourSegments,
+    scheduleIntervals,
     scheduleOverlapSegments,
     schedulesOverlap,
 } from "../js/features/planner/schedule.js";
@@ -22,6 +23,12 @@ test("los horarios nocturnos se dividen y comparan correctamente", () => {
     assert.equal(schedulesOverlap("22:00", "02:00", "01:00", "03:00"), true);
     assert.equal(schedulesOverlap("09:00", "10:00", "10:00", "11:00"), false);
     assert.equal(scheduleOverlapSegments("09:00", "12:00", "10:00", "11:00").length, 1);
+});
+
+test("los intervalos distinguen día completo y horario ambiguo", () => {
+    assert.deepEqual(scheduleIntervals("00:00", "00:00"), [[0, 1440]]);
+    assert.deepEqual(scheduleIntervals("09:00", "09:00"), []);
+    assert.deepEqual(scheduleIntervals("22:00", "02:00"), [[1320, 1440], [0, 120]]);
 });
 
 test("la navegación normaliza rumbo, distancia y fuente preferida", () => {
