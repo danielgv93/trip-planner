@@ -1648,7 +1648,7 @@ function renderList(list, spots, isBacklog = false) {
         const kindBadge = waypoint
             ? `<span class="spot-kind-badge" title="Forma parte de la ruta sin duración de visita"><span aria-hidden="true">◇</span> Solo paso${waypointTime}</span>`
             : "";
-        spot.innerHTML = `<button class="handle" type="button" title="Reordenar parada" aria-label="Reordenar ${esc(s.name || "parada")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number} ${esc(s.name)}</span>${kindBadge}${spotNote}${spotTiming}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="spot-overflow-control"><button type="button" class="spot-overflow-button" data-act="overflow" title="Más acciones" aria-label="Más acciones para ${esc(s.name || "parada")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></span>`;
+        spot.innerHTML = `<button class="handle" type="button" title="Reordenar parada" aria-label="Reordenar ${esc(s.name || "parada")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number}<span class="spot-name-label">${esc(s.name)}</span></span>${kindBadge}${spotNote}${spotTiming}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="spot-overflow-control"><button type="button" class="spot-overflow-button" data-act="overflow" title="Más acciones" aria-label="Más acciones para ${esc(s.name || "parada")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></span>`;
         if (!hiddenAsEndpoint) {
             wireMapSpotHighlight(spot, s.id);
             list.append(spot);
@@ -1665,7 +1665,7 @@ function renderList(list, spots, isBacklog = false) {
             const price = Number.isFinite(outgoing.cost) && outgoing.cost > 0
                 ? `<span class="spot-cost"><strong>${esc(foreignAmount(outgoing.cost))}</strong><small>${esc(localAmount(outgoing.cost))}</small></span>` : "";
             const draggable = outgoing.embeddedEndpoints?.includes("from") && outgoing.embeddedEndpoints?.includes("to");
-            travelCard.innerHTML = `${draggable ? `<button class="handle travel-card-handle" type="button" title="Reordenar viaje" aria-label="Reordenar viaje ${esc(s.name)} a ${esc(next.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button>` : ""}<span class="travel-card-icon" aria-hidden="true">${modeIcons[outgoing.mode] || "↝"}</span><span class="spot-content"><span class="spot-name">${esc(s.name || "Origen")} → ${esc(next.name || "Destino")}</span><span class="spot-meta">${esc(outgoing.line || presentation.modeLabel)} · ${presentation.minutes ? `${presentation.minutes} min` : "Duración pendiente"}</span><span class="spot-meta">${esc(presentation.sourceLabel)}</span>${outgoing.departureTime ? `<span class="spot-timing">Salida ${esc(outgoing.departureTime)}${arrival ? ` · llegada ${esc(arrival)}` : ""}</span>` : ""}${outgoing.note ? `<span class="spot-meta">${esc(outgoing.note)}</span>` : ""}</span>${price}<span class="travel-card-actions"><button type="button" class="travel-card-edit" aria-label="Editar trayecto">Editar</button><button type="button" class="travel-card-delete" aria-label="Eliminar trayecto">×</button></span>`;
+            travelCard.innerHTML = `${draggable ? `<button class="handle travel-card-handle" type="button" title="Reordenar viaje" aria-label="Reordenar viaje ${esc(s.name)} a ${esc(next.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button>` : ""}<span class="travel-card-icon" aria-hidden="true">${modeIcons[outgoing.mode] || "↝"}</span><span class="spot-content"><span class="spot-name">${esc(s.name || "Origen")} → ${esc(next.name || "Destino")}</span><span class="spot-meta">${esc(outgoing.line || presentation.modeLabel)} · ${presentation.minutes ? `${presentation.minutes} min` : "Duración pendiente"}</span>${outgoing.departureTime ? `<span class="spot-timing">Salida ${esc(outgoing.departureTime)}${arrival ? ` · llegada ${esc(arrival)}` : ""}</span>` : ""}${outgoing.note ? `<span class="spot-meta">${esc(outgoing.note)}</span>` : ""}</span>${price}<span class="travel-card-actions"><button type="button" class="travel-card-edit" aria-label="Editar trayecto">Editar</button><button type="button" class="travel-card-delete" aria-label="Eliminar trayecto">×</button></span>`;
             travelCard.querySelector(".travel-card-edit").addEventListener("click", () => {
                 openTravelTimeDialog(list.closest(".day")?.dataset.day, { dataset: { timelineTravelFrom: String(s.id), timelineTravelTo: String(next.id), timelineTravelMinutes: String(outgoing.durationMinutes || "") } });
             });
@@ -1696,8 +1696,8 @@ function renderList(list, spots, isBacklog = false) {
             const duration = presentation.minutes
                 ? `${presentation.minutes} min`
                 : presentation.sourceLabel;
-            const accessible = `Trayecto de ${s.name || "origen"} a ${next.name || "destino"}, ${presentation.modeLabel}, ${duration}, ${presentation.sourceLabel}`;
-            connector.innerHTML = `<button type="button" class="travel-leg-connector-button" data-leg-connector-key="${esc(key)}" aria-label="${esc(accessible)}" aria-haspopup="dialog"><span class="travel-leg-connector-route"><span aria-hidden="true">↝</span><strong>${esc(presentation.modeLabel)}</strong><span>${esc(duration)}</span></span><small>${esc(presentation.sourceLabel)}</small><span class="travel-leg-connector-action">${esc(presentation.actionLabel)}</span></button>`;
+            const accessible = `Trayecto de ${s.name || "origen"} a ${next.name || "destino"}, ${presentation.modeLabel}, ${duration}`;
+            connector.innerHTML = `<button type="button" class="travel-leg-connector-button" data-leg-connector-key="${esc(key)}" aria-label="${esc(accessible)}" aria-haspopup="dialog"><span class="travel-leg-connector-route"><span aria-hidden="true">↝</span><strong>${esc(presentation.modeLabel)}</strong><span>${esc(duration)}</span></span><span class="travel-leg-connector-action">${esc(presentation.actionLabel)}</span></button>`;
             const trigger = connector.querySelector("button");
             trigger.addEventListener("click", () => openTravelTimeDialog(
                 list.closest(".day")?.dataset.day,
@@ -2128,9 +2128,9 @@ function refreshTravelLegConnectors() {
             `travel-leg-connector is-${presentation.status}`;
         button.setAttribute(
             "aria-label",
-            `Trayecto de ${from.name || "origen"} a ${to.name || "destino"}, ${presentation.modeLabel}, ${duration}, ${presentation.sourceLabel}`,
+            `Trayecto de ${from.name || "origen"} a ${to.name || "destino"}, ${presentation.modeLabel}, ${duration}`,
         );
-        button.innerHTML = `<span class="travel-leg-connector-route"><span aria-hidden="true">↝</span><strong>${esc(presentation.modeLabel)}</strong><span>${esc(duration)}</span></span><small>${esc(presentation.sourceLabel)}</small><span class="travel-leg-connector-action">${esc(presentation.actionLabel)}</span>`;
+        button.innerHTML = `<span class="travel-leg-connector-route"><span aria-hidden="true">↝</span><strong>${esc(presentation.modeLabel)}</strong><span>${esc(duration)}</span></span><span class="travel-leg-connector-action">${esc(presentation.actionLabel)}</span>`;
     });
 }
 
@@ -2304,6 +2304,11 @@ export function render({ persist = true } = {}) {
     if (!Array.isArray(store.backlogGroups)) store.backlogGroups = [];
     timelineTooltip.hidden = true;
     renderTags();
+    const totalStops = store.backlog.length +
+        store.state.reduce((total, day) => total + day.spots.length, 0);
+    const overview = $("#itineraryOverview");
+    if (overview)
+        overview.textContent = `${store.state.length} ${store.state.length === 1 ? "día" : "días"} · ${totalStops} ${totalStops === 1 ? "parada" : "paradas"}`;
     daysEl.innerHTML = "";
     const b = document.createElement("article");
     b.className =

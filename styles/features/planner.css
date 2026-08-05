@@ -38,6 +38,79 @@ main {
 .planner {
     min-width: 0;
 }
+.itinerary-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 9px;
+    padding: 8px 9px 8px 13px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--card) 92%, var(--sand));
+    box-shadow: 0 4px 14px #24323a08;
+}
+.itinerary-overview {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+}
+.itinerary-overview strong {
+    color: var(--ink);
+    font-size: 13px;
+}
+.itinerary-overview span {
+    overflow: hidden;
+    color: var(--muted);
+    font: 10px "DM Mono";
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.density-switch {
+    flex: none;
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid #d8d3c9;
+    border-radius: 7px;
+    background: #ece9e2;
+}
+.density-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 5px 9px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: #737b7d;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+.density-option svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+}
+.density-option:hover,
+.density-option:focus-visible {
+    color: var(--ink);
+    outline: none;
+}
+.density-option:focus-visible {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 35%, transparent);
+}
+.density-option.active {
+    background: #fff;
+    color: var(--green);
+    box-shadow: 0 1px 5px #24323a18;
+}
 .days {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -47,6 +120,151 @@ main {
        reliable descendant and fights the explicit tag-filter anchor. */
     overflow-anchor: none;
 }
+
+/* Compact remains the same interactive itinerary, with a denser visual
+   hierarchy instead of a separate, feature-limited renderer. */
+body.compact-itinerary .days { gap: 8px; }
+body.compact-itinerary .day {
+    border-radius: 8px;
+    box-shadow: 0 3px 12px #24323a0a;
+}
+body.compact-itinerary .day-head {
+    min-height: 52px;
+    gap: 7px;
+    padding: 7px 9px;
+}
+body.compact-itinerary .day-handle,
+body.compact-itinerary .day-collapse,
+body.compact-itinerary .day-overflow-button {
+    width: 32px;
+    height: 32px;
+}
+body.compact-itinerary .day-handle svg,
+body.compact-itinerary .day-collapse svg,
+body.compact-itinerary .day-overflow-button svg { width: 17px; height: 17px; }
+body.compact-itinerary .date-box {
+    width: 39px;
+    padding: 3px 2px;
+}
+body.compact-itinerary .date-box span { font-size: 8px; }
+body.compact-itinerary .date-box strong { font-size: 17px; line-height: 17px; }
+body.compact-itinerary .title-line { line-height: 1.1; }
+body.compact-itinerary .day-title > small { font-size: 10px; }
+body.compact-itinerary .day-title-edit { width: 26px; height: 26px; }
+body.compact-itinerary .day-load-meter { margin-top: 2px; }
+body.compact-itinerary .day-time-tabs { padding-inline: 5px; }
+body.compact-itinerary .day-time-tab { padding: 4px 9px; font-size: 10px; }
+body.compact-itinerary .day-schedule-body,
+body.compact-itinerary .day-timeline-panel { padding-bottom: 8px; }
+body.compact-itinerary .spots { padding: 3px 5px; }
+body.compact-itinerary .spot {
+    min-height: 38px;
+    grid-template-columns: 28px 25px minmax(0, 1fr) auto 30px;
+    gap: 4px;
+    padding: 2px 4px;
+    border-radius: 5px;
+}
+body.compact-itinerary .handle {
+    width: 28px;
+    height: 32px;
+    border-radius: 6px;
+}
+body.compact-itinerary .handle svg { width: 16px; height: 16px; }
+body.compact-itinerary .spot-toggle { width: 25px; height: 32px; }
+body.compact-itinerary .spot-toggle input { width: 15px; height: 15px; }
+body.compact-itinerary .spot-content {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+body.compact-itinerary .spot-name {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 90px;
+    flex: 1 1 auto;
+    font-size: 12px;
+}
+body.compact-itinerary .spot-name-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+body.compact-itinerary .number {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    font-size: 9px;
+}
+body.compact-itinerary .spot-meta {
+    max-width: 120px;
+    margin: 0;
+    overflow: hidden;
+    color: #858c8d;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+body.compact-itinerary .spot-timing {
+    flex: 0 1 145px;
+    width: auto;
+    min-width: 68px;
+    margin: 0;
+}
+body.compact-itinerary .spot-hours { font-size: 9px; }
+body.compact-itinerary .spot-hours-rail { display: none; }
+body.compact-itinerary .spot-duration { font-size: 9px; }
+body.compact-itinerary .spot-kind-badge { flex: none; margin: 0; font-size: 9px; }
+body.compact-itinerary .spot-tags {
+    flex: 0 1 auto;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 3px;
+    margin: 0;
+    overflow: hidden;
+}
+body.compact-itinerary .spot-tags .tag:not(:first-of-type) { display: none; }
+body.compact-itinerary .category-badge,
+body.compact-itinerary .spot-tags .tag { padding: 2px 5px; font-size: 8px; white-space: nowrap; }
+body.compact-itinerary .spot-cost { padding-left: 6px; font-size: 9px; }
+body.compact-itinerary .spot-actions .spot-overflow-button {
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    border-radius: 6px;
+}
+body.compact-itinerary .spot-actions .spot-overflow-button svg { width: 16px; height: 16px; }
+body.compact-itinerary .travel-leg-connector {
+    /* The connector's vertical rule sits 4px inside this box. A 71px left
+       margin places its axis at 75px, through the stop number's centre. */
+    margin: 0 6px 0 71px;
+    padding-left: 13px;
+}
+body.compact-itinerary .travel-leg-connector-button {
+    min-height: 24px;
+    gap: 0 8px;
+    padding: 1px 7px;
+}
+body.compact-itinerary .travel-leg-connector-route {
+    font-size: 10px;
+    line-height: 1.1;
+}
+body.compact-itinerary .travel-leg-connector-route > span:first-child { width: 17px; height: 17px; font-size: 10px; }
+body.compact-itinerary .travel-leg-connector-action {
+    grid-row: 1;
+    align-self: center;
+    font-size: 9px;
+}
+body.compact-itinerary .quick-add { padding: 5px 7px; }
+body.compact-itinerary .quick-add-input { padding: 6px 8px; font-size: 11px; }
+body.compact-itinerary .quick-add-details { padding: 6px 8px; font-size: 10px; }
+body.compact-itinerary .backlog-groups { gap: 6px; padding: 6px; }
+body.compact-itinerary .backlog-group-head { min-height: 34px; padding: 3px 6px; }
+body.compact-itinerary .backlog-group-collapse,
+body.compact-itinerary .backlog-group-edit,
+body.compact-itinerary .backlog-group-delete { width: 26px; height: 26px; }
 .day {
     background: var(--card);
     border: 1px solid var(--line);
@@ -817,37 +1035,62 @@ body.preview-mode .quick-add {
     position: relative;
     display: flex;
     min-width: 0;
-    margin: 1px 8px 1px 46px;
-    padding-left: 17px;
+    /* Align the route stem with the centre of the numbered stop above. */
+    margin: 2px 8px 2px 100.5px;
+    padding-left: 18px;
+    transition:
+        transform 0.24s cubic-bezier(.2, .8, .2, 1),
+        opacity 0.14s ease;
 }
 .travel-leg-connector::before {
     content: "";
     position: absolute;
     left: 4px;
-    top: -7px;
-    bottom: -7px;
+    top: 6px;
+    bottom: 6px;
     border-left: 1px dashed #b9c7c2;
+}
+.travel-leg-connector::after {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 50%;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #9db3aa;
+    box-shadow: 0 0 0 3px #f7faf8;
+    transform: translateY(-50%);
 }
 .travel-leg-connector-button {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     width: 100%;
-    min-height: 44px;
-    gap: 2px 12px;
+    min-height: 32px;
+    gap: 0 12px;
     border: 1px solid transparent;
-    border-radius: 8px;
-    padding: 6px 9px;
+    border-radius: 9px;
+    padding: 4px 9px;
     background: transparent;
     color: var(--muted);
     text-align: left;
     cursor: pointer;
+    transition:
+        background 0.14s ease,
+        border-color 0.14s ease,
+        box-shadow 0.14s ease;
 }
-.travel-leg-connector-button:hover,
+.travel-leg-connector-button:hover {
+    border-color: #d8e3df;
+    background: #f4f8f6;
+    box-shadow: 0 3px 12px #315d4b0d;
+}
 .travel-leg-connector-button:focus-visible {
-    border-color: #cddbd6;
+    border-color: #c4d6cf;
     background: #f4f8f6;
     outline: 2px solid color-mix(in srgb, var(--green) 25%, transparent);
+    outline-offset: 1px;
 }
 .travel-leg-connector-route {
     display: flex;
@@ -856,27 +1099,35 @@ body.preview-mode .quick-add {
     gap: 7px;
     font-size: 12px;
 }
-.travel-leg-connector-route strong { color: var(--ink); }
-.travel-leg-connector-button small {
-    min-width: 0;
-    overflow: hidden;
-    font-size: 10px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.travel-leg-connector-route > span:first-child {
+    display: grid;
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    place-items: center;
+    border-radius: 50%;
+    background: #eaf3ef;
+    color: var(--green);
+    font-size: 12px;
+}
+.travel-leg-connector-route strong {
+    color: var(--ink);
+    font-weight: 650;
 }
 .travel-leg-connector-action {
     grid-column: 2;
-    grid-row: 1 / span 2;
+    grid-row: 1;
+    align-self: center;
     color: var(--green);
     font-size: 11px;
     font-weight: 700;
+    opacity: 0.82;
 }
 .travel-leg-connector.is-missing .travel-leg-connector-button {
     border-color: #e4c9a5;
     background: #fff9ef;
 }
-.travel-leg-connector.is-missing .travel-leg-connector-action,
-.travel-leg-connector.is-missing small { color: #8b5b18; }
+.travel-leg-connector.is-missing .travel-leg-connector-action { color: #8b5b18; }
 .spot {
     display: grid;
     grid-template-columns: 40px 32px minmax(0, 1fr) auto 40px;
@@ -906,8 +1157,11 @@ body.preview-mode .quick-add {
 .spot-cost strong { font: inherit; }
 .spot-cost small { color: var(--muted); font: 8px "DM Mono"; }
 .spot:hover {
-    border-color: var(--line);
-    background: #fcfcfa;
+    border-color: transparent;
+    background: #f8faf8;
+    box-shadow:
+        inset 3px 0 color-mix(in srgb, var(--green) 58%, transparent),
+        0 2px 10px #273d350b;
 }
 .spot.spot-disabled .spot-content,
 .spot.spot-disabled .spot-cost {
@@ -943,6 +1197,9 @@ body.preview-mode .quick-add {
         transform 0.14s ease,
         background 0.14s ease,
         border-color 0.14s ease;
+}
+.days.is-dragging .travel-leg-connector.drag-companion {
+    opacity: 0.42;
 }
 .handle {
     width: 40px;

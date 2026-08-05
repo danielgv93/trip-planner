@@ -23,7 +23,7 @@ import {
     normalizeTripNotePages,
 } from "./note-pages.js";
 
-export const STORAGE_VERSION = 28;
+export const STORAGE_VERSION = 29;
 
 function loadSavedState() {
     const raw =
@@ -145,6 +145,11 @@ export const store = {
         saved.workspaceSplit < 1
             ? saved.workspaceSplit
             : null,
+    // Device-local presentation preference. It is persisted with the browser
+    // save, but deliberately excluded from portable plan JSON.
+    itineraryDensity: saved?.itineraryDensity === "compact"
+        ? "compact"
+        : "comfortable",
     previewMode: false,
     // Held from a picked Nominatim suggestion until the place form is submitted.
     selectedLocation: null,
@@ -215,6 +220,7 @@ export function save() {
             basemap: store.basemap,
             travelLegs: store.travelLegs,
             workspaceSplit: store.workspaceSplit,
+            itineraryDensity: store.itineraryDensity,
         }),
     );
 }

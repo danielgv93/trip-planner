@@ -65,6 +65,8 @@ body.preview-mode .spot {
     cursor: default;
 }
 @media (max-width: 860px) {
+    .itinerary-toolbar { align-items: stretch; }
+    .itinerary-overview { align-self: center; }
     .day-head {
         gap: 7px;
         padding-inline: 10px;
@@ -308,6 +310,23 @@ body.preview-mode .spot {
     .day-schedule-axis {
         grid-template-columns: minmax(88px, 0.8fr) minmax(150px, 2.2fr);
     }
+}
+
+@media (max-width: 620px) {
+    .itinerary-toolbar { padding-left: 10px; }
+    .itinerary-overview strong { display: none; }
+    .density-option {
+        width: 44px;
+        min-height: 40px;
+        justify-content: center;
+        padding-inline: 0;
+    }
+    .density-option span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    body.compact-itinerary .spot-content { gap: 5px; }
+    body.compact-itinerary .spot-meta,
+    body.compact-itinerary .spot-tags .tag,
+    body.compact-itinerary .spot-timing { display: none; }
+    body.compact-itinerary .category-badge { display: inline-flex; }
 }
 
 @media (min-width: 601px) and (max-width: 860px) {

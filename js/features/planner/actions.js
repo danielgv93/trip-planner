@@ -53,6 +53,33 @@ currencyDialog.addEventListener("click", (event) => {
     if (event.target === currencyDialog) currencyDialog.close();
 });
 
+function syncItineraryDensity() {
+    const density = store.itineraryDensity === "compact"
+        ? "compact"
+        : "comfortable";
+    document.body.classList.toggle("compact-itinerary", density === "compact");
+    document.querySelectorAll("[data-density]").forEach((button) => {
+        const active = button.dataset.density === density;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+    });
+}
+
+document.querySelectorAll("[data-density]").forEach((button) => {
+    button.addEventListener("click", () => {
+        const density = button.dataset.density;
+        if (!["comfortable", "compact"].includes(density) || density === store.itineraryDensity)
+            return;
+        store.itineraryDensity = density;
+        syncItineraryDensity();
+        save();
+        // Compact markup omits secondary route-source copy entirely, so the
+        // destructive render keeps the DOM aligned with the chosen density.
+        render({ persist: false });
+    });
+});
+syncItineraryDensity();
+
 async function changeCurrency(key, value) {
     store[key] = value;
     store.exchangeRate = null;

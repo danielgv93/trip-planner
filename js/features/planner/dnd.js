@@ -12,6 +12,7 @@ import { toast } from "../../shared/notify.js";
 
 let dragEl = null,
     ghost = null,
+    dragConnector = null,
     dragSpotId = null,
     dragTravelKey = null,
     grabDX = 0,
@@ -61,8 +62,10 @@ function captureRects(elements) {
     return m;
 }
 
-function playFlip(first, elements, draggedElement) {
-    const els = [...elements].filter((el) => el !== draggedElement);
+function playFlip(first, elements, draggedElement, companionElement = null) {
+    const els = [...elements].filter(
+        (el) => el !== draggedElement && el !== companionElement,
+    );
     els.forEach((el) => {
         el.style.transition = "none";
         el.style.transform = "none";
@@ -90,6 +93,8 @@ function endCleanup() {
     ghost?.remove();
     ghost = null;
     dragEl?.classList.remove("dragging");
+    dragConnector?.classList.remove("drag-companion");
+    dragConnector = null;
     daysEl.classList.remove("is-dragging");
     document
         .querySelectorAll(".spots")
@@ -111,6 +116,16 @@ function onMove(e) {
         ghost.classList.add("spot-ghost");
         ghost.style.width = cardW + "px";
         document.body.append(ghost);
+        // The connector rendered immediately after a stop is its outgoing
+        // route. Keep that visual unit with the stop while the DOM is being
+        // reordered; render() will replace it with the correct new pair on
+        // drop.
+        dragConnector = dragEl.nextElementSibling?.matches(
+            ".travel-leg-connector",
+        )
+            ? dragEl.nextElementSibling
+            : null;
+        dragConnector?.classList.add("drag-companion");
         dragEl.classList.add("dragging");
         daysEl.classList.add("is-dragging");
         document.body.style.userSelect = "none";
@@ -130,17 +145,33 @@ function onMove(e) {
         .forEach((x) => x.classList.toggle("drag-over", x === list));
     const ref = insertionPoint(list, e.clientY);
     if (ref === dragEl) return;
+    const currentSpots = [
+        ...dragEl.parentElement.querySelectorAll(":scope > .spot"),
+    ];
+    const currentIndex = currentSpots.indexOf(dragEl);
+    const nextSpot = currentSpots[currentIndex + 1] || null;
     if (
         ref
-            ? ref === dragEl.nextElementSibling
+            ? dragEl.parentElement === list && ref === nextSpot
             : dragEl.parentElement === list &&
-              list.lastElementChild === dragEl
+              currentSpots.at(-1) === dragEl
     )
         return;
-    const first = captureRects(daysEl.querySelectorAll(".spot"));
-    if (ref) list.insertBefore(dragEl, ref);
-    else list.appendChild(dragEl);
-    playFlip(first, daysEl.querySelectorAll(".spot"), dragEl);
+    const animatedItems = daysEl.querySelectorAll(
+        ".spot, .travel-leg-connector",
+    );
+    const first = captureRects(animatedItems);
+    const moving = document.createDocumentFragment();
+    moving.append(dragEl);
+    if (dragConnector) moving.append(dragConnector);
+    if (ref) list.insertBefore(moving, ref);
+    else list.append(moving);
+    playFlip(
+        first,
+        daysEl.querySelectorAll(".spot, .travel-leg-connector"),
+        dragEl,
+        dragConnector,
+    );
 }
 
 function onUp(e) {

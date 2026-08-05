@@ -179,6 +179,28 @@
             </section>
             <section class="workspace">
                 <div class="planner">
+                    <div class="itinerary-toolbar" aria-label="Opciones del itinerario">
+                        <div class="itinerary-overview">
+                            <strong>Itinerario</strong>
+                            <span id="itineraryOverview">Vista general del viaje</span>
+                        </div>
+                        <div class="density-switch" role="group" aria-label="Densidad de la vista">
+                            <button
+                                class="density-option"
+                                type="button"
+                                data-density="comfortable"
+                                aria-pressed="true"
+                                title="Vista cómoda"
+                            ><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="6" rx="2"/><rect x="4" y="14" width="16" height="6" rx="2"/></svg><span>Cómoda</span></button>
+                            <button
+                                class="density-option"
+                                type="button"
+                                data-density="compact"
+                                aria-pressed="false"
+                                title="Vista compacta"
+                            ><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="4" rx="1.5"/><rect x="4" y="10" width="16" height="4" rx="1.5"/><rect x="4" y="16" width="16" height="4" rx="1.5"/></svg><span>Compacta</span></button>
+                        </div>
+                    </div>
                     <div id="tagBar" class="tag-bar">
                         <span class="tag-label">Filtrar</span
                         ><span id="filterActive" class="filter-active" hidden></span
