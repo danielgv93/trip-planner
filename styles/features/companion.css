@@ -316,9 +316,28 @@ body.companion-mode main {
 .companion-timeline-tick {
     position: absolute;
     bottom: 6px;
+    width: 0;
     color: var(--muted);
     font: 500 11px "DM Mono";
+}
+
+.companion-timeline-tick-label {
+    display: block;
+    width: max-content;
     transform: translateX(-50%);
+}
+
+.companion-timeline-tick-label[hidden] {
+    display: block;
+    visibility: hidden;
+}
+
+.companion-timeline-tick.is-first .companion-timeline-tick-label {
+    transform: none;
+}
+
+.companion-timeline-tick.is-last .companion-timeline-tick-label {
+    transform: translateX(-100%);
 }
 
 .companion-timeline-tick::after {
@@ -329,6 +348,10 @@ body.companion-mode main {
     width: 1px;
     height: calc(120px + (var(--timeline-lanes, 1) - 1) * 88px);
     background: color-mix(in srgb, var(--line) 65%, transparent);
+}
+
+.companion-timeline-tick.is-labeled::after {
+    background: color-mix(in srgb, var(--line) 82%, transparent);
 }
 
 .companion-timeline-block {

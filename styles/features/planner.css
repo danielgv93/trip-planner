@@ -818,22 +818,107 @@ body.preview-mode .quick-add {
 .day-timeline-panel {
     padding: 4px 15px 14px;
 }
+.day-timeline-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
 .day-timeline-summary {
+    flex: 1 1 320px;
     margin: 3px 0 0;
     color: var(--muted);
     font-size: 11px;
+}
+.day-timeline-zoom {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 9px;
+    border-radius: 999px;
+    background: #f2f2ed;
+    color: var(--muted);
+    transition: box-shadow .15s ease, background .15s ease;
+}
+.day-timeline-zoom:focus-within {
+    background: #edf3f0;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 22%, transparent);
+}
+.day-timeline-zoom > span {
+    font: 600 9px "DM Mono";
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+.day-timeline-zoom input {
+    width: 92px;
+    height: 14px;
+    margin: 0;
+    appearance: none;
+    border-radius: 999px;
+    outline: none;
+    background: linear-gradient(
+        to right,
+        var(--green) 0 var(--timeline-zoom-progress, 0%),
+        #d5d9d6 var(--timeline-zoom-progress, 0%) 100%
+    ) center / 100% 2px no-repeat;
+    cursor: ew-resize;
+}
+.day-timeline-zoom input::-webkit-slider-thumb {
+    width: 13px;
+    height: 13px;
+    appearance: none;
+    border: 2px solid var(--card);
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 1px 3px rgb(31 52 47 / .25);
+}
+.day-timeline-zoom input::-moz-range-thumb {
+    width: 9px;
+    height: 9px;
+    border: 2px solid var(--card);
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 1px 3px rgb(31 52 47 / .25);
+}
+.day-timeline-zoom output {
+    min-width: 30px;
+    color: var(--ink);
+    font: 600 10px "DM Mono";
+    text-align: right;
 }
 .day-time-tools .companion-timeline-canvas {
     min-height: 150px;
     margin-top: 8px;
 }
+.day-time-tools .companion-timeline-canvas.is-drag-scroll {
+    cursor: grab;
+}
+.day-time-tools .companion-timeline-canvas.is-panning,
+.day-time-tools .companion-timeline-canvas.is-panning * {
+    cursor: grabbing !important;
+}
 .day-time-tools .companion-timeline-track {
-    min-width: 620px;
+    min-width: 0;
+    margin-inline: 0;
 }
 .day-time-tools .companion-timeline-insight {
     margin-top: 6px;
     padding: 8px 10px;
     font-size: 12px;
+}
+@media (max-width: 620px) {
+    .day-timeline-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .day-timeline-summary {
+        flex-basis: auto;
+    }
+    .day-timeline-zoom {
+        align-self: flex-end;
+    }
 }
 .day-schedule-guide {
     position: absolute;

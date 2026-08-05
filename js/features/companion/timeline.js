@@ -290,7 +290,7 @@ export function createTimelineView(
     const percent = (value) => `${Math.max(0, Math.min(100, ((value - start) / span) * 100)).toFixed(3)}%`;
     const ticks = [];
     for (let minute = Math.ceil(start / 60) * 60; minute <= end; minute += 60)
-        ticks.push(`<span class="companion-timeline-tick" style="left:${percent(minute)}">${clockLabel(minute)}</span>`);
+        ticks.push(`<span class="companion-timeline-tick" data-timeline-tick-minute="${minute}" style="left:${percent(minute)}"><span class="companion-timeline-tick-label">${clockLabel(minute)}</span></span>`);
 
     const transfers = projection.items.filter((item) => item.travel > 0 && item.fromSpot).map((item) => {
         const from = stringValue(item.fromSpot.name, "la parada anterior") || "la parada anterior";

@@ -62,6 +62,23 @@ const expandedDayTools = new Map();
 // restores these classes without persisting presentation state in the plan.
 const selectedTimelineSpots = new Map();
 
+// View-only zoom for each day timeline. Keeping it beside the other timeline
+// UI state lets destructive renders rebuild the same editor viewport without
+// leaking a personal display preference into the portable trip plan.
+const timelineZoomByDay = new Map();
+const TIMELINE_ZOOM_MIN = 1;
+const TIMELINE_ZOOM_MAX = 4;
+const TIMELINE_ZOOM_STEP = 0.25;
+const TIMELINE_TICK_LABEL_GAP = 48;
+
+// One observer is enough for every rendered day. It is disconnected before
+// the destructive render replaces the cards, avoiding references to old DOM.
+const timelineTickResizeObserver = typeof ResizeObserver === "function"
+    ? new ResizeObserver((entries) => {
+        entries.forEach(({ target }) => updateTimelineTickLabels(target));
+    })
+    : null;
+
 // View-only state for the single inline quick-add editor. The draft lives here
 // too so an unrelated destructive render cannot silently discard typed text.
 // Neither value is part of the persisted store.
@@ -309,8 +326,166 @@ function renderDayTimeTools(day) {
         interactive: true,
         travelForLeg: timelineTravelForLeg,
     });
+    const timelineZoom = timelineZoomByDay.get(day.id) || TIMELINE_ZOOM_MIN;
+    const zoomLabel = `${Number(timelineZoom.toFixed(2))}×`;
+    const zoomControls = timeline.empty ? "" : `<label class="day-timeline-zoom"><span>Zoom</span><input type="range" min="${TIMELINE_ZOOM_MIN}" max="${TIMELINE_ZOOM_MAX}" step="${TIMELINE_ZOOM_STEP}" value="${timelineZoom}" data-timeline-zoom aria-label="Nivel de zoom del timeline"><output data-timeline-zoom-output aria-live="polite">${zoomLabel}</output></label>`;
     const baseId = `day-time-${esc(String(day.id))}`;
-    return `<section class="day-time-tools" aria-label="Planificación horaria"><div class="day-time-tabs" role="group" aria-label="Vista horaria"><button id="${baseId}-schedule-tab" class="day-time-tab" type="button" data-day-time-tab="schedule" aria-expanded="${scheduleSelected}" aria-controls="${baseId}-schedule-panel" ${scheduled.length ? "" : "disabled"}><span class="day-schedule-summary-icon" aria-hidden="true">◷</span><span>Horarios</span><span class="day-schedule-count">${scheduled.length}</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></button><button id="${baseId}-timeline-tab" class="day-time-tab" type="button" data-day-time-tab="timeline" aria-expanded="${timelineSelected}" aria-controls="${baseId}-timeline-panel"><span aria-hidden="true">↝</span><span>Timeline</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></button></div><div id="${baseId}-schedule-panel" class="day-schedule-body" role="region" aria-label="Horarios del día" ${scheduleSelected ? "" : "hidden"}><span class="day-schedule-guide" aria-hidden="true"></span><div class="day-schedule-axis" aria-hidden="true"><span></span><span class="day-schedule-axis-hours"><i>00</i><i>06</i><i>12</i><i>18</i><i>24</i></span></div>${rows}</div><div id="${baseId}-timeline-panel" class="day-timeline-panel" role="region" aria-label="Timeline del día" ${timelineSelected ? "" : "hidden"}><p class="day-timeline-summary">${esc(timeline.summary)} Pulsa para editar, arrastra para planificar o usa Mayús + arrastre para seleccionar varias paradas.</p><div class="companion-timeline-canvas" role="group" aria-label="${esc(timeline.aria)}">${timeline.html}</div>${timeline.empty ? "" : `<div class="companion-timeline-insight${timeline.warning ? " is-warning" : ""}" role="status">${esc(timeline.insight)}</div>`}</div></section>`;
+    return `<section class="day-time-tools" aria-label="Planificación horaria"><div class="day-time-tabs" role="group" aria-label="Vista horaria"><button id="${baseId}-schedule-tab" class="day-time-tab" type="button" data-day-time-tab="schedule" aria-expanded="${scheduleSelected}" aria-controls="${baseId}-schedule-panel" ${scheduled.length ? "" : "disabled"}><span class="day-schedule-summary-icon" aria-hidden="true">◷</span><span>Horarios</span><span class="day-schedule-count">${scheduled.length}</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></button><button id="${baseId}-timeline-tab" class="day-time-tab" type="button" data-day-time-tab="timeline" aria-expanded="${timelineSelected}" aria-controls="${baseId}-timeline-panel"><span aria-hidden="true">↝</span><span>Timeline</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></button></div><div id="${baseId}-schedule-panel" class="day-schedule-body" role="region" aria-label="Horarios del día" ${scheduleSelected ? "" : "hidden"}><span class="day-schedule-guide" aria-hidden="true"></span><div class="day-schedule-axis" aria-hidden="true"><span></span><span class="day-schedule-axis-hours"><i>00</i><i>06</i><i>12</i><i>18</i><i>24</i></span></div>${rows}</div><div id="${baseId}-timeline-panel" class="day-timeline-panel" role="region" aria-label="Timeline del día" ${timelineSelected ? "" : "hidden"}><div class="day-timeline-toolbar"><p class="day-timeline-summary">${esc(timeline.summary)} Pulsa para editar, arrastra para planificar o usa Mayús + arrastre para seleccionar varias paradas.</p>${zoomControls}</div><div class="companion-timeline-canvas" role="group" aria-label="${esc(timeline.aria)}">${timeline.html}</div>${timeline.empty ? "" : `<div class="companion-timeline-insight${timeline.warning ? " is-warning" : ""}" role="status">${esc(timeline.insight)}</div>`}</div></section>`;
+}
+
+function wireTimelineZoom(tools, dayId) {
+    const canvas = tools?.querySelector(".companion-timeline-canvas");
+    const track = canvas?.querySelector(".companion-timeline-track");
+    const input = tools?.querySelector("[data-timeline-zoom]");
+    const output = tools?.querySelector("[data-timeline-zoom-output]");
+    if (!canvas || !track || !input || !output) return;
+
+    const clampZoom = (value) => Math.min(
+        TIMELINE_ZOOM_MAX,
+        Math.max(TIMELINE_ZOOM_MIN, Number(value) || TIMELINE_ZOOM_MIN),
+    );
+    const paint = (value, anchorX = canvas.clientWidth / 2) => {
+        const zoom = clampZoom(value);
+        const previousWidth = track.scrollWidth || 1;
+        const timelineRatio = (canvas.scrollLeft + anchorX) / previousWidth;
+        timelineZoomByDay.set(dayId, zoom);
+        input.value = String(zoom);
+        output.value = `${Number(zoom.toFixed(2))}×`;
+        input.style.setProperty(
+            "--timeline-zoom-progress",
+            `${((zoom - TIMELINE_ZOOM_MIN) / (TIMELINE_ZOOM_MAX - TIMELINE_ZOOM_MIN)) * 100}%`,
+        );
+        // Override the shared companion minimum: at 1x the whole day fits the
+        // available canvas exactly, so the minimum cannot retain any panning.
+        track.style.minWidth = "0";
+        // Leave one device-independent pixel for fractional layout rounding:
+        // clientWidth is floored while scrollWidth is rounded up, which would
+        // otherwise expose a one-pixel scrollbar even when both visually fit.
+        track.style.width = `calc(${zoom * 100}% - 1px)`;
+        updateTimelineTickLabels(track);
+        canvas.scrollLeft = timelineRatio * track.scrollWidth - anchorX;
+    };
+
+    paint(timelineZoomByDay.get(dayId) || TIMELINE_ZOOM_MIN);
+    timelineTickResizeObserver?.observe(track);
+    input.addEventListener("input", () => paint(input.value));
+    canvas.addEventListener("wheel", (event) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const anchorX = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+        paint(Number(input.value) + (event.deltaY < 0 ? TIMELINE_ZOOM_STEP : -TIMELINE_ZOOM_STEP), anchorX);
+    }, { passive: false });
+}
+
+function updateTimelineTickLabels(track) {
+    const ticks = [...track.querySelectorAll("[data-timeline-tick-minute]")];
+    const start = Number(track.dataset.timelineBoundStart);
+    const end = Number(track.dataset.timelineBoundEnd);
+    const width = track.clientWidth;
+    if (!ticks.length || !Number.isFinite(start) || !Number.isFinite(end) || end <= start || !width)
+        return;
+
+    const pixelsPerMinute = width / (end - start);
+    const first = ticks[0];
+    const last = ticks.at(-1);
+    const lastMinute = Number(last.dataset.timelineTickMinute);
+    let previousVisibleMinute = Number(first.dataset.timelineTickMinute);
+
+    ticks.forEach((tick, index) => {
+        const label = tick.querySelector(".companion-timeline-tick-label");
+        if (!label) return;
+        const minute = Number(tick.dataset.timelineTickMinute);
+        const isFirst = index === 0;
+        const isLast = index === ticks.length - 1;
+        const enoughAfterPrevious = (minute - previousVisibleMinute) * pixelsPerMinute >= TIMELINE_TICK_LABEL_GAP;
+        const enoughBeforeLast = (lastMinute - minute) * pixelsPerMinute >= TIMELINE_TICK_LABEL_GAP;
+        const visible = isFirst || isLast || (enoughAfterPrevious && enoughBeforeLast);
+
+        label.hidden = !visible;
+        tick.classList.toggle("is-labeled", visible);
+        tick.classList.toggle("is-first", isFirst);
+        tick.classList.toggle("is-last", isLast);
+        if (visible) previousVisibleMinute = minute;
+    });
+}
+
+function wireTimelinePan(tools) {
+    const canvas = tools?.querySelector(".companion-timeline-canvas");
+    if (!canvas) return;
+    canvas.classList.add("is-drag-scroll");
+    let pointer = null;
+
+    const cleanup = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", finish);
+        window.removeEventListener("pointercancel", cancel);
+        window.removeEventListener("keydown", escape);
+        canvas.classList.remove("is-panning");
+        document.body.style.userSelect = "";
+        document.body.style.webkitUserSelect = "";
+    };
+    const move = (event) => {
+        if (!pointer || event.pointerId !== pointer.id) return;
+        const dx = event.clientX - pointer.x;
+        const dy = event.clientY - pointer.y;
+        if (!pointer.dragging) {
+            if (Math.hypot(dx, dy) <= 5) return;
+            if (Math.abs(dy) > Math.abs(dx)) {
+                cleanup();
+                pointer = null;
+                return;
+            }
+            pointer.dragging = true;
+            canvas.classList.add("is-panning");
+            document.body.style.userSelect = "none";
+            document.body.style.webkitUserSelect = "none";
+            getSelection()?.removeAllRanges();
+        }
+        event.preventDefault();
+        canvas.scrollLeft = pointer.scrollLeft - dx;
+    };
+    const finish = (event) => {
+        if (!pointer || event.pointerId !== pointer.id) return;
+        cleanup();
+        pointer = null;
+    };
+    const cancel = (event) => {
+        if (!pointer || event.pointerId !== pointer.id) return;
+        cleanup();
+        pointer = null;
+    };
+    const escape = (event) => {
+        if (event.key !== "Escape" || !pointer) return;
+        event.preventDefault();
+        canvas.scrollLeft = pointer.scrollLeft;
+        cleanup();
+        pointer = null;
+    };
+
+    canvas.addEventListener("pointerdown", (event) => {
+        if (
+            store.previewMode ||
+            event.shiftKey ||
+            event.pointerType === "touch" ||
+            (event.button !== undefined && event.button !== 0) ||
+            canvas.scrollWidth <= canvas.clientWidth ||
+            event.target.closest?.(
+                "[data-timeline-spot], [data-timeline-travel-from], a, button, input",
+            )
+        ) return;
+        pointer = {
+            id: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+            scrollLeft: canvas.scrollLeft,
+            dragging: false,
+        };
+        window.addEventListener("pointermove", move, { passive: false });
+        window.addEventListener("pointerup", finish);
+        window.addEventListener("pointercancel", cancel);
+        window.addEventListener("keydown", escape);
+    });
 }
 
 function openDurationDialog(dayId, spotId) {
@@ -1077,6 +1252,8 @@ function wireTimelineSpot(button, tools, dayId) {
 function wireDayTimeTools(el, dayId) {
     const tools = el.querySelector(".day-time-tools");
     wireTimelineTooltips(tools);
+    wireTimelineZoom(tools, dayId);
+    wireTimelinePan(tools);
     tools?.querySelectorAll("[data-day-time-tab]").forEach((button) => {
         button.addEventListener("click", () => {
             const panel = button.dataset.dayTimeTab;
@@ -2327,6 +2504,7 @@ export function render({ persist = true } = {}) {
     // Also protects long-lived tabs that reload a newer renderer while an
     // older store module remains in the browser cache.
     if (!Array.isArray(store.backlogGroups)) store.backlogGroups = [];
+    timelineTickResizeObserver?.disconnect();
     timelineTooltip.hidden = true;
     renderTags();
     const totalStops = store.backlog.length +
