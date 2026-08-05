@@ -1140,7 +1140,9 @@ function wireTimelineSpot(button, tools, dayId) {
             element.dataset.timelineStart = String(minute);
             const timing = element.querySelector("[data-timeline-timing]");
             if (timing)
-                timing.textContent = duration
+                timing.textContent = element.classList.contains("is-waypoint")
+                    ? `${minutesToTime(minute)} · solo paso`
+                    : duration
                     ? `${minutesToTime(minute)}–${minutesToTime(minute + duration)}`
                     : `${minutesToTime(minute)} · sin duración`;
             if (transfer && Number.isFinite(travelStart)) {

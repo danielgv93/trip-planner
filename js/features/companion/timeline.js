@@ -47,10 +47,21 @@ function invalidScheduleRanges(start, end, opening, closing) {
 
 function assignOverlapMetadata(items) {
     const laneEnds = [];
+    const waypointLaneEnds = [];
     [...items].sort((a, b) => a.start - b.start || a.end - b.end).forEach((item) => {
         item.overlaps = [];
         if (item.waypoint) {
             item.lane = 0;
+            // Waypoints have no duration, but their marker still needs a stable
+            // interaction target. Give markers less than 60 minutes apart
+            // separate compact lanes so hover, click and drag never mask one
+            // another. Reuse the first available lane as soon as it is clear.
+            let waypointLane = waypointLaneEnds.findIndex(
+                (end) => end <= item.start,
+            );
+            if (waypointLane === -1) waypointLane = waypointLaneEnds.length;
+            item.waypointLane = waypointLane;
+            waypointLaneEnds[waypointLane] = item.start + 60;
             return;
         }
         let lane = laneEnds.findIndex((end) => end <= item.start);
@@ -78,7 +89,10 @@ function assignOverlapMetadata(items) {
             waypoint.overlaps.push([waypoint.start, waypoint.start]);
         });
     });
-    return Math.max(1, laneEnds.length);
+    return {
+        lanes: Math.max(1, laneEnds.length),
+        waypointLanes: waypointLaneEnds.length,
+    };
 }
 
 function validVisitedAt(value) {
@@ -238,12 +252,20 @@ export function buildTimelineProjection(
         return item;
     });
 
-    const lanes = assignOverlapMetadata(items);
+    const { lanes, waypointLanes } = assignOverlapMetadata(items);
     items.forEach((item) => {
         if (item.overlaps.length)
             item.conflicts.push({ type: "visit-overlap", ranges: item.overlaps });
     });
-    return { items, lanes, isToday, current: localMinutes(now), delayMinutes, start: dayStart };
+    return {
+        items,
+        lanes,
+        waypointLanes,
+        isToday,
+        current: localMinutes(now),
+        delayMinutes,
+        start: dayStart,
+    };
 }
 
 function timelineBounds(projection, interactive = false) {
@@ -321,7 +343,7 @@ export function createTimelineView(
         const color = safeColor(categoryMeta(item.spot.category).color, "#6b6b6b");
         const widthMinutes = Math.max(item.duration, interactive ? 30 : 6);
         const hasOverlap = item.overlaps.length > 0;
-        const classes = ["companion-timeline-block", interactive ? "is-editable" : "", item.waypoint ? "is-waypoint" : "", item.spot === resolvedNext ? "is-next" : "", item.outside ? "is-outside-hours" : "", hasOverlap ? "is-overlapping" : "", item.plannedStart !== null ? "is-planned" : "", item.duration ? "" : "is-unsized", item.visited ? "is-visited" : ""].filter(Boolean).join(" ");
+        const classes = ["companion-timeline-block", interactive ? "is-editable" : "", item.waypoint ? "is-waypoint" : "", item.spot === resolvedNext ? "is-next" : "", item.outside ? "is-outside-hours" : "", hasOverlap ? "is-overlapping" : "", item.plannedStart !== null ? "is-planned" : "", !item.waypoint && !item.duration ? "is-unsized" : "", item.visited ? "is-visited" : ""].filter(Boolean).join(" ");
         const rawName = stringValue(item.spot.name, "Parada sin nombre") || "Parada sin nombre";
         const name = esc(rawName);
         const timing = item.waypoint ? `${clockLabel(item.start)} · solo paso` : item.duration ? `${clockLabel(item.start)}–${clockLabel(item.end)}` : `${clockLabel(item.start)} · sin duración`;
@@ -344,7 +366,7 @@ export function createTimelineView(
             ? ` type="button" data-timeline-spot="${esc(String(item.spot.id))}" data-timeline-start="${item.start}" data-timeline-duration="${item.duration}" data-timeline-outgoing-travel="${outgoingTravel}" data-timeline-opening="${item.opening ?? ""}" data-timeline-closing="${item.closing ?? ""}" data-timeline-tooltip="${name}" aria-haspopup="dialog"`
             : "";
         const titleAttr = interactive ? "" : ` title="${esc(aria)}"`;
-        return `<${tag} class="${classes}"${interactionAttrs} style="--timeline-start:${percent(item.start)};--timeline-width:${((widthMinutes / span) * 100).toFixed(3)}%;--timeline-color:${color};--timeline-lane:${item.lane}"${titleAttr} aria-label="${esc(aria)}">${outside}${overlaps}<span class="companion-timeline-content"><strong>${name}</strong><small data-timeline-timing>${esc(timing)}</small>${hours ? `<small class="companion-timeline-hours"><span aria-hidden="true">◷</span> ${esc(hours)}</small>` : ""}</span></${tag}>`;
+        return `<${tag} class="${classes}"${interactionAttrs} style="--timeline-start:${percent(item.start)};--timeline-width:${((widthMinutes / span) * 100).toFixed(3)}%;--timeline-color:${color};--timeline-lane:${item.lane};--timeline-waypoint-lane:${item.waypointLane ?? 0}"${titleAttr} aria-label="${esc(aria)}">${outside}${overlaps}<span class="companion-timeline-content"><strong>${name}</strong><small data-timeline-timing>${esc(timing)}</small>${hours ? `<small class="companion-timeline-hours"><span aria-hidden="true">◷</span> ${esc(hours)}</small>` : ""}</span></${tag}>`;
     });
     const nowMarker = projection.isToday && projection.current >= start && projection.current <= end
         ? `<span class="companion-now" style="--timeline-now:${percent(projection.current)}"><span>ahora</span></span>`
@@ -355,10 +377,12 @@ export function createTimelineView(
     const dragStartGuide = interactive
         ? '<span class="companion-timeline-position-guide is-start" aria-hidden="true"></span><span class="companion-timeline-position-guide is-end" aria-hidden="true"></span><span class="companion-timeline-position-guide is-travel-end" aria-hidden="true"></span><span class="companion-timeline-selection-box" aria-hidden="true"></span>'
         : "";
-    const html = `<div class="companion-timeline-track${interactive ? " is-interactive" : ""}" data-timeline-bound-start="${start}" data-timeline-bound-end="${end}" style="--timeline-lanes:${projection.lanes}"><div class="companion-timeline-axis">${ticks.join("")}</div>${dragHours}${dragStartGuide}${transfers.join("")}${blocks.join("")}${nowMarker}</div>`;
+    const html = `<div class="companion-timeline-track${interactive ? " is-interactive" : ""}${projection.waypointLanes ? " has-waypoints" : ""}" data-timeline-bound-start="${start}" data-timeline-bound-end="${end}" style="--timeline-lanes:${projection.lanes};--timeline-waypoint-lanes:${projection.waypointLanes}"><div class="companion-timeline-axis">${ticks.join("")}</div>${dragHours}${dragStartGuide}${transfers.join("")}${blocks.join("")}${nowMarker}</div>`;
 
     const outsideItems = projection.items.filter((item) => item.outside && !item.visited);
-    const missingDuration = projection.items.filter((item) => !item.duration).length;
+    const missingDuration = projection.items.filter(
+        (item) => !item.waypoint && !item.duration,
+    ).length;
     const approximateTravel = projection.items.some(
         (item) => item.travel > 0 && item.travelApproximate,
     );

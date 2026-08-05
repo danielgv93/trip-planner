@@ -211,8 +211,23 @@ body.companion-mode main {
 .companion-timeline-track {
     position: relative;
     min-width: 680px;
-    height: calc(162px + (var(--timeline-lanes, 1) - 1) * 88px);
+    height: calc(
+        162px +
+        (var(--timeline-lanes, 1) - 1) * 88px +
+        var(--timeline-waypoint-lanes, 0) * 42px
+    );
     margin-inline: 2px;
+}
+
+.companion-timeline-track.has-waypoints::before {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: calc(149px + (var(--timeline-lanes, 1) - 1) * 88px);
+    left: 0;
+    width: 100%;
+    border-top: 1px dashed color-mix(in srgb, #3f7d9c 45%, var(--line));
+    pointer-events: none;
 }
 
 .companion-timeline-track.is-interactive {
@@ -346,7 +361,11 @@ body.companion-mode main {
     top: 22px;
     left: 50%;
     width: 1px;
-    height: calc(120px + (var(--timeline-lanes, 1) - 1) * 88px);
+    height: calc(
+        120px +
+        (var(--timeline-lanes, 1) - 1) * 88px +
+        var(--timeline-waypoint-lanes, 0) * 42px
+    );
     background: color-mix(in srgb, var(--line) 65%, transparent);
 }
 

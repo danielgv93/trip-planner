@@ -2040,32 +2040,73 @@ body.preview-mode .quick-add {
 .travel-card-delete { color: var(--danger, #a33); }
 .companion-timeline-block.is-waypoint {
     z-index: 3;
-    min-width: 28px;
+    top: calc(
+        158px +
+        (var(--timeline-lanes, 1) - 1) * 88px +
+        var(--timeline-waypoint-lane, 0) * 42px
+    );
+    width: max(var(--timeline-width), 36px);
+    min-width: 36px;
+    height: 36px;
     padding: 0;
     overflow: visible;
     border: 0;
-    border-left: 2px solid var(--timeline-color);
-    border-radius: 0;
+    border-radius: 18px;
     background: transparent;
 }
 .companion-timeline-block.is-waypoint::before {
     content: "";
     position: absolute;
     z-index: 2;
-    top: 13px;
-    left: -6px;
-    width: 10px;
-    height: 10px;
+    top: 11px;
+    left: -7px;
+    width: 12px;
+    height: 12px;
     border: 2px solid var(--timeline-color);
     border-radius: 50%;
     background: var(--card);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--timeline-color) 15%, transparent);
 }
+.companion-timeline-block.is-waypoint::after {
+    content: "";
+    position: absolute;
+    top: -9px;
+    bottom: 15px;
+    left: -1px;
+    border-left: 1px solid color-mix(in srgb, var(--timeline-color) 65%, transparent);
+    pointer-events: none;
+}
+.companion-timeline-block.is-waypoint.is-editable::after {
+    inset: -9px auto 18px -1px;
+    width: 0;
+}
+.companion-timeline-block.is-waypoint.is-editable:hover,
+.companion-timeline-block.is-waypoint.is-editable:focus-visible {
+    outline: 0;
+    background: transparent;
+    box-shadow: none;
+    filter: none;
+    transform: translateY(-2px);
+}
+.companion-timeline-block.is-waypoint.is-next,
+.companion-timeline-block.is-waypoint.is-selected {
+    outline: 0;
+    box-shadow: none;
+}
+.companion-timeline-block.is-waypoint.is-next::before,
+.companion-timeline-block.is-waypoint.is-editable:hover::before,
+.companion-timeline-block.is-waypoint.is-editable:focus-visible::before {
+    background: color-mix(in srgb, var(--timeline-color) 12%, var(--card));
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--timeline-color) 24%, transparent);
+}
+.companion-timeline-block.is-waypoint.is-selected::before {
+    background: var(--timeline-color);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--timeline-color) 30%, transparent);
+}
 .companion-timeline-block.is-waypoint .companion-timeline-content {
     display: none;
 }
 .companion-timeline-block.is-waypoint.is-overlapping {
-    border-left-color: #a22e28;
     box-shadow: none;
 }
 .companion-timeline-block.is-waypoint.is-overlapping::before {
@@ -2073,7 +2114,6 @@ body.preview-mode .quick-add {
     box-shadow: 0 0 0 3px rgb(162 46 40 / .18);
 }
 .companion-timeline-block.is-waypoint.is-live-overlap {
-    border-left-color: #a22e28;
     box-shadow: none;
 }
 .companion-timeline-block.is-waypoint.is-live-overlap::before {

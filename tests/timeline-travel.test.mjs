@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 globalThis.document = { querySelector: () => null };
-const { buildTimelineProjection } = await import("../js/features/companion/timeline.js");
+const { buildTimelineProjection, createTimelineView } = await import("../js/features/companion/timeline.js");
 
 test("un waypoint es un hito sin duración de actividad", () => {
     const day = { date: "2026-07-20", startTime: "09:00", spots: [
@@ -18,6 +18,21 @@ test("un waypoint es un hito sin duración de actividad", () => {
     assert.equal(projection.items[1].start, 555);
 });
 
+test("un waypoint no hereda el patrón ni el aviso de duración pendiente", () => {
+    const day = { date: "2026-07-20", startTime: "09:00", spots: [
+        { id: "hotel", name: "Hotel", kind: "waypoint" },
+        { id: "museum", name: "Museo", kind: "activity", visitMinutes: 90 },
+    ] };
+    const view = createTimelineView(day, {
+        now: new Date("2026-07-19T12:00:00"),
+        interactive: true,
+        travelForLeg: () => ({ minutes: 15, profile: "walking" }),
+    });
+    assert.match(view.html, /is-waypoint/);
+    assert.doesNotMatch(view.html, /is-waypoint[^\"]*is-unsized/);
+    assert.doesNotMatch(view.insight, /duración estimada/);
+});
+
 test("un waypoint no reserva carril y marca conflicto si cae dentro de una visita", () => {
     const day = { date: "2026-07-20", startTime: "09:00", spots: [
         { id: "museum", name: "Museo", kind: "activity", visitMinutes: 90, plannedStart: "09:00" },
@@ -29,11 +44,30 @@ test("un waypoint no reserva carril y marca conflicto si cae dentro de una visit
     });
     const [activity, waypoint] = projection.items;
     assert.equal(projection.lanes, 1);
+    assert.equal(projection.waypointLanes, 1);
     assert.equal(activity.lane, 0);
     assert.equal(waypoint.lane, 0);
+    assert.equal(waypoint.waypointLane, 0);
     assert.deepEqual(activity.overlaps, []);
     assert.deepEqual(waypoint.overlaps, [[570, 570]]);
     assert.equal(waypoint.conflicts.some((item) => item.type === "visit-overlap"), true);
+});
+
+test("los waypoints cercanos se reparten en carriles interactivos reutilizables", () => {
+    const day = { date: "2026-07-20", startTime: "09:00", spots: [
+        { id: "a", name: "Paso A", kind: "waypoint", plannedStart: "09:00" },
+        { id: "b", name: "Paso B", kind: "waypoint", plannedStart: "09:10" },
+        { id: "c", name: "Paso C", kind: "waypoint", plannedStart: "10:05" },
+    ] };
+    const projection = buildTimelineProjection(day, {
+        now: new Date("2026-07-19T12:00:00"),
+        travelForLeg: () => ({ minutes: 0, profile: "walking" }),
+    });
+    assert.equal(projection.waypointLanes, 2);
+    assert.deepEqual(
+        projection.items.map((item) => item.waypointLane),
+        [0, 1, 0],
+    );
 });
 
 test("una salida fija espera o produce missed-departure", () => {
