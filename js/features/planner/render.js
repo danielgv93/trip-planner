@@ -69,6 +69,7 @@ const timelineZoomByDay = new Map();
 const TIMELINE_ZOOM_MIN = 1;
 const TIMELINE_ZOOM_MAX = 4;
 const TIMELINE_ZOOM_STEP = 0.25;
+const TIMELINE_MIN_BLOCK_MINUTES = 30;
 const TIMELINE_TICK_LABEL_GAP = 48;
 
 // One observer is enough for every rendered day. It is disconnected before
@@ -358,6 +359,11 @@ function wireTimelineZoom(tools, dayId) {
         // Override the shared companion minimum: at 1x the whole day fits the
         // available canvas exactly, so the minimum cannot retain any panning.
         track.style.minWidth = "0";
+        const timelineSpan = Number(track.dataset.timelineBoundEnd) - Number(track.dataset.timelineBoundStart);
+        if (timelineSpan > 0) {
+            const minimumWidth = (TIMELINE_MIN_BLOCK_MINUTES / zoom / timelineSpan) * 100;
+            track.style.setProperty("--timeline-min-block-width", `${minimumWidth.toFixed(3)}%`);
+        }
         // Leave one device-independent pixel for fractional layout rounding:
         // clientWidth is floored while scrollWidth is rounded up, which would
         // otherwise expose a one-pixel scrollbar even when both visually fit.

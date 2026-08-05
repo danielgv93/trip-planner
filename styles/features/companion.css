@@ -383,7 +383,7 @@ body.companion-mode main {
     z-index: 1;
     top: calc(59px + var(--timeline-lane, 0) * 88px);
     left: var(--timeline-start);
-    width: max(var(--timeline-width), 5px);
+    width: max(var(--timeline-width), var(--timeline-min-block-width), 5px);
     min-width: 5px;
     height: 82px;
     padding: 9px 10px;

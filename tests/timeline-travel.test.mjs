@@ -33,6 +33,21 @@ test("un waypoint no hereda el patrón ni el aviso de duración pendiente", () =
     assert.doesNotMatch(view.insight, /duración estimada/);
 });
 
+test("el timeline conserva separadas la duración real y el ancho visual mínimo", () => {
+    const day = { date: "2026-07-20", startTime: "09:00", spots: [
+        { id: "coffee", name: "Café", kind: "activity", visitMinutes: 15 },
+    ] };
+    const view = createTimelineView(day, {
+        now: new Date("2026-07-19T12:00:00"),
+        interactive: true,
+        travelForLeg: () => ({ minutes: 0, profile: "walking" }),
+    });
+    const [, spanStart, spanEnd] = view.html.match(/data-timeline-bound-start="(\d+)" data-timeline-bound-end="(\d+)"/);
+    const span = Number(spanEnd) - Number(spanStart);
+    assert.match(view.html, new RegExp(`--timeline-width:${((15 / span) * 100).toFixed(3)}%`));
+    assert.match(view.html, new RegExp(`--timeline-min-block-width:${((30 / span) * 100).toFixed(3)}%`));
+});
+
 test("un waypoint no reserva carril y marca conflicto si cae dentro de una visita", () => {
     const day = { date: "2026-07-20", startTime: "09:00", spots: [
         { id: "museum", name: "Museo", kind: "activity", visitMinutes: 90, plannedStart: "09:00" },
