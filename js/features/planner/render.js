@@ -347,9 +347,17 @@ function positionTimelineTooltip(target) {
             targetRect.left + targetRect.width / 2 - tooltipRect.width / 2,
         ),
     );
-    const above = targetRect.top - tooltipRect.height - 9;
-    const top =
-        above >= margin ? above : Math.min(window.innerHeight - tooltipRect.height - margin, targetRect.bottom + 9);
+    const timelineCanvas = target.dataset.timelineSpot
+        ? target.closest(".companion-timeline-canvas")
+        : null;
+    const verticalAnchor = timelineCanvas?.getBoundingClientRect() || targetRect;
+    const above = verticalAnchor.top - tooltipRect.height - 9;
+    const below = verticalAnchor.bottom + 9;
+    // Stop hover paints its timing labels across the track. Keep the tooltip
+    // outside the whole canvas so it cannot cover opening, start or end guides.
+    const top = above >= margin
+        ? above
+        : Math.min(window.innerHeight - tooltipRect.height - margin, below);
     timelineTooltip.style.left = `${Math.round(left)}px`;
     timelineTooltip.style.top = `${Math.round(top)}px`;
 }
@@ -864,6 +872,23 @@ function wireTimelineSelection(track, dayId) {
 function wireTimelineSpot(button, tools, dayId) {
     let pointer = null;
     let ignoreClick = false;
+
+    const paintHoverTiming = (visible) => {
+        if (tools.classList.contains("is-timeline-dragging")) return;
+        paintTimelineDragHours(tools, button, visible);
+        paintTimelinePositionGuides(
+            button,
+            Number(button.dataset.timelineStart),
+            visible,
+        );
+    };
+
+    button.addEventListener("mouseenter", () => paintHoverTiming(true));
+    button.addEventListener("mouseleave", () =>
+        paintHoverTiming(document.activeElement === button),
+    );
+    button.addEventListener("focus", () => paintHoverTiming(true));
+    button.addEventListener("blur", () => paintHoverTiming(button.matches(":hover")));
 
     const cleanup = () => {
         window.removeEventListener("pointermove", move);
