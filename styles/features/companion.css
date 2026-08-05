@@ -313,6 +313,11 @@ body.companion-mode main {
     --timeline-guide-label-top: 45px;
 }
 
+.companion-timeline-position-guide.is-label-before::before {
+    right: 6px;
+    left: auto;
+}
+
 .companion-timeline-selection-box {
     position: absolute;
     z-index: 8;

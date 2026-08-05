@@ -877,6 +877,7 @@ function paintTimelinePositionGuides(active, minute, visible) {
     const guides = [...(track?.querySelectorAll(".companion-timeline-position-guide") || [])];
     guides.forEach((guide) => {
         guide.classList.remove("is-visible");
+        guide.classList.remove("is-label-before");
         guide.removeAttribute("data-guide-label");
     });
     if (!visible || !track || !guides.length) return;
@@ -901,13 +902,23 @@ function paintTimelinePositionGuides(active, minute, visible) {
             (className === "is-travel-end" && outgoingTravel <= 0)) return;
         const guide = guides.find((candidate) => candidate.classList.contains(className));
         if (!guide) return;
+        const position = ((value - start) / (end - start)) * 100;
         guide.style.setProperty(
             "--timeline-guide-position",
-            `${(((value - start) / (end - start)) * 100).toFixed(3)}%`,
+            `${position.toFixed(3)}%`,
         );
         guide.style.setProperty("--timeline-guide-color", guideColor);
         guide.dataset.guideLabel = label;
         guide.classList.add("is-visible");
+
+        // Labels grow to the right by default. Only flip one when its rendered
+        // width would cross the timeline's right edge.
+        const labelStyle = getComputedStyle(guide, "::before");
+        const labelWidth = parseFloat(labelStyle.width) +
+            parseFloat(labelStyle.paddingLeft) +
+            parseFloat(labelStyle.paddingRight);
+        const labelRight = guide.offsetLeft + 6 + labelWidth;
+        guide.classList.toggle("is-label-before", labelRight > track.clientWidth);
     });
 }
 
