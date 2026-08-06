@@ -92,6 +92,19 @@ export function normalizeTime(value) {
         : undefined;
 }
 
+const clearableTimeInputs = [
+    ...document.querySelectorAll(".clearable-time-input"),
+];
+
+function syncClearableTimeInput(container) {
+    const input = container.querySelector('input[type="time"]');
+    container.querySelector(".clear-time-input").hidden = !input.value;
+}
+
+function syncClearableTimeInputs() {
+    clearableTimeInputs.forEach(syncClearableTimeInput);
+}
+
 function renderTagOptions(selected = []) {
     const el = $("#tagOptions");
     el.innerHTML = store.tags.length
@@ -200,6 +213,7 @@ export function openDialog(dayId, spot, prefill = {}) {
             ? spot.visitMinutes
             : "";
     $("#placePlannedStart").value = normalizeTime(spot?.plannedStart) || "";
+    syncClearableTimeInputs();
     $("#placeFixedStart").checked = spot?.fixedStart === true;
     $("#placeOptional").checked = spot?.optional === true;
     $("#placeScheduleNotApplicable").checked = spot?.scheduleNotApplicable === true;
@@ -330,10 +344,25 @@ $("#resetCost").addEventListener("click", () => {
     $("#placeCost").focus();
 });
 
+clearableTimeInputs.forEach((container) => {
+    const input = container.querySelector('input[type="time"]');
+    const clearButton = container.querySelector(".clear-time-input");
+    input.addEventListener("input", () => syncClearableTimeInput(container));
+    clearButton.addEventListener("click", () => {
+        input.value = "";
+        const uncheckId = clearButton.dataset.uncheck;
+        if (uncheckId)
+            document.getElementById(uncheckId).checked = false;
+        syncClearableTimeInput(container);
+        input.focus();
+    });
+});
+
 $("#placeScheduleNotApplicable").addEventListener("change", (event) => {
     if (!event.target.checked) return;
     $("#placeOpeningTime").value = "";
     $("#placeClosingTime").value = "";
+    syncClearableTimeInputs();
 });
 [$("#placeOpeningTime"), $("#placeClosingTime")].forEach((input) =>
     input.addEventListener("input", () => {

@@ -731,11 +731,33 @@
                             <div class="hours-input-row">
                                 <label
                                     >Apertura
-                                    <input id="placeOpeningTime" type="time" />
+                                    <span class="clearable-time-input">
+                                        <input id="placeOpeningTime" type="time" />
+                                        <button
+                                            class="clear-time-input"
+                                            type="button"
+                                            aria-label="Quitar hora de apertura"
+                                            title="Quitar hora de apertura"
+                                            hidden
+                                        >
+                                            ×
+                                        </button>
+                                    </span>
                                 </label>
                                 <label
                                     >Cierre
-                                    <input id="placeClosingTime" type="time" />
+                                    <span class="clearable-time-input">
+                                        <input id="placeClosingTime" type="time" />
+                                        <button
+                                            class="clear-time-input"
+                                            type="button"
+                                            aria-label="Quitar hora de cierre"
+                                            title="Quitar hora de cierre"
+                                            hidden
+                                        >
+                                            ×
+                                        </button>
+                                    </span>
                                 </label>
                                 <label
                                     >Tiempo de visita (min)
@@ -753,7 +775,22 @@
                         <fieldset class="hours-field" data-activity-planning>
                             <legend>Planificación</legend>
                             <div class="hours-input-row">
-                                <label>Inicio planificado<input id="placePlannedStart" type="time" /></label>
+                                <label
+                                    >Inicio planificado
+                                    <span class="clearable-time-input">
+                                        <input id="placePlannedStart" type="time" />
+                                        <button
+                                            class="clear-time-input"
+                                            type="button"
+                                            aria-label="Quitar inicio planificado"
+                                            title="Quitar inicio planificado"
+                                            data-uncheck="placeFixedStart"
+                                            hidden
+                                        >
+                                            ×
+                                        </button>
+                                    </span>
+                                </label>
                                 <label class="health-check-field"><input id="placeFixedStart" type="checkbox" /> Reserva con hora fija</label>
                                 <label class="health-check-field"><input id="placeOptional" type="checkbox" /> Parada opcional</label>
                             </div>

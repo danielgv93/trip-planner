@@ -314,6 +314,36 @@
     background: #fff;
     color: var(--ink);
 }
+.clearable-time-input {
+    display: flex;
+    align-items: stretch;
+    gap: 5px;
+}
+.clearable-time-input input {
+    flex: 1;
+}
+.clear-time-input {
+    display: grid;
+    flex: none;
+    width: 30px;
+    place-items: center;
+    border: 1px solid #d9d8d2;
+    border-radius: 4px;
+    background: #f7f5f0;
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1;
+}
+.clear-time-input[hidden] {
+    display: none;
+}
+.clear-time-input:hover,
+.clear-time-input:focus-visible {
+    border-color: var(--green);
+    background: #eaf2ef;
+    color: var(--green);
+    outline: none;
+}
 .cost-input-row {
     display: flex;
     align-items: stretch;
