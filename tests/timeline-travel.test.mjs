@@ -33,7 +33,7 @@ test("un waypoint no hereda el patrón ni el aviso de duración pendiente", () =
     assert.doesNotMatch(view.insight, /duración estimada/);
 });
 
-test("el timeline conserva separadas la duración real y el ancho visual mínimo", () => {
+test("el timeline representa únicamente la duración real de la parada", () => {
     const day = { date: "2026-07-20", startTime: "09:00", spots: [
         { id: "coffee", name: "Café", kind: "activity", visitMinutes: 15 },
     ] };
@@ -45,7 +45,33 @@ test("el timeline conserva separadas la duración real y el ancho visual mínimo
     const [, spanStart, spanEnd] = view.html.match(/data-timeline-bound-start="(\d+)" data-timeline-bound-end="(\d+)"/);
     const span = Number(spanEnd) - Number(spanStart);
     assert.match(view.html, new RegExp(`--timeline-width:${((15 / span) * 100).toFixed(3)}%`));
-    assert.match(view.html, new RegExp(`--timeline-min-block-width:${((30 / span) * 100).toFixed(3)}%`));
+    assert.doesNotMatch(view.html, /--timeline-min-block-width/);
+});
+
+test("el timeline interactivo prepara marcas de media hora sin etiquetas", () => {
+    const day = { date: "2026-07-20", startTime: "09:00", spots: [
+        { id: "coffee", name: "Café", kind: "activity", visitMinutes: 15 },
+    ] };
+    const view = createTimelineView(day, {
+        now: new Date("2026-07-19T12:00:00"),
+        interactive: true,
+        travelForLeg: () => ({ minutes: 0, profile: "walking" }),
+    });
+    assert.match(view.html, /class="companion-timeline-half-hour" style="left:[^"]+" aria-hidden="true"><\/span>/);
+    assert.doesNotMatch(view.html, /companion-timeline-half-hour[^>]*>[^<]+/);
+});
+
+test("las paradas sin solapamiento real comparten carril", () => {
+    const day = { date: "2026-07-20", spots: [
+        { id: "short", name: "Parada corta", kind: "activity", visitMinutes: 15, plannedStart: "17:35" },
+        { id: "gion", name: "Gion Corner", kind: "activity", visitMinutes: 60, plannedStart: "18:00" },
+    ] };
+    const projection = buildTimelineProjection(day, {
+        now: new Date("2026-07-19T12:00:00"),
+        travelForLeg: () => ({ minutes: 0, profile: "walking" }),
+    });
+    assert.equal(projection.lanes, 1);
+    assert.deepEqual(projection.items.map((item) => item.lane), [0, 0]);
 });
 
 test("un waypoint no reserva carril y marca conflicto si cae dentro de una visita", () => {

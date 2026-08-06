@@ -45,8 +45,21 @@ function invalidScheduleRanges(start, end, opening, closing) {
     return ranges.filter(([from, to]) => to > from);
 }
 
-function assignOverlapMetadata(items) {
+function assignTimelineLanes(items) {
     const laneEnds = [];
+    [...items]
+        .filter((item) => !item.waypoint)
+        .sort((a, b) => a.start - b.start || a.end - b.end)
+        .forEach((item) => {
+            let lane = laneEnds.findIndex((end) => end <= item.start);
+            if (lane === -1) lane = laneEnds.length;
+            item.lane = lane;
+            laneEnds[lane] = Math.max(laneEnds[lane] ?? 0, item.end);
+        });
+    return Math.max(1, laneEnds.length);
+}
+
+function assignOverlapMetadata(items) {
     const waypointLaneEnds = [];
     [...items].sort((a, b) => a.start - b.start || a.end - b.end).forEach((item) => {
         item.overlaps = [];
@@ -64,11 +77,8 @@ function assignOverlapMetadata(items) {
             waypointLaneEnds[waypointLane] = item.start + 60;
             return;
         }
-        let lane = laneEnds.findIndex((end) => end <= item.start);
-        if (lane === -1) lane = laneEnds.length;
-        item.lane = lane;
-        laneEnds[lane] = Math.max(laneEnds[lane] ?? 0, item.end, item.start + 30);
     });
+    const lanes = assignTimelineLanes(items);
     items.forEach((item, index) => {
         items.slice(index + 1).forEach((other) => {
             const start = Math.max(item.start, other.start);
@@ -90,7 +100,7 @@ function assignOverlapMetadata(items) {
         });
     });
     return {
-        lanes: Math.max(1, laneEnds.length),
+        lanes,
         waypointLanes: waypointLaneEnds.length,
     };
 }
@@ -309,12 +319,15 @@ export function createTimelineView(
 
     const { start, end } = timelineBounds(projection, interactive);
     const span = end - start;
-    const minimumBlockMinutes = interactive ? 30 : 6;
-    const minimumBlockWidth = `${((minimumBlockMinutes / span) * 100).toFixed(3)}%`;
     const percent = (value) => `${Math.max(0, Math.min(100, ((value - start) / span) * 100)).toFixed(3)}%`;
     const ticks = [];
     for (let minute = Math.ceil(start / 60) * 60; minute <= end; minute += 60)
         ticks.push(`<span class="companion-timeline-tick" data-timeline-tick-minute="${minute}" style="left:${percent(minute)}"><span class="companion-timeline-tick-label">${clockLabel(minute)}</span></span>`);
+    const halfHourTicks = [];
+    if (interactive) {
+        for (let minute = Math.ceil((start - 30) / 60) * 60 + 30; minute <= end; minute += 60)
+            halfHourTicks.push(`<span class="companion-timeline-half-hour" style="left:${percent(minute)}" aria-hidden="true"></span>`);
+    }
 
     const transfers = projection.items.filter((item) => item.travel > 0 && item.fromSpot).map((item) => {
         const from = stringValue(item.fromSpot.name, "la parada anterior") || "la parada anterior";
@@ -378,7 +391,7 @@ export function createTimelineView(
     const dragStartGuide = interactive
         ? '<span class="companion-timeline-position-guide is-start" aria-hidden="true"></span><span class="companion-timeline-position-guide is-end" aria-hidden="true"></span><span class="companion-timeline-position-guide is-travel-end" aria-hidden="true"></span><span class="companion-timeline-selection-box" aria-hidden="true"></span>'
         : "";
-    const html = `<div class="companion-timeline-track${interactive ? " is-interactive" : ""}${projection.waypointLanes ? " has-waypoints" : ""}" data-timeline-bound-start="${start}" data-timeline-bound-end="${end}" style="--timeline-lanes:${projection.lanes};--timeline-waypoint-lanes:${projection.waypointLanes};--timeline-min-block-width:${minimumBlockWidth}"><div class="companion-timeline-axis">${ticks.join("")}</div>${dragHours}${dragStartGuide}${transfers.join("")}${blocks.join("")}${nowMarker}</div>`;
+    const html = `<div class="companion-timeline-track${interactive ? " is-interactive" : ""}${projection.waypointLanes ? " has-waypoints" : ""}" data-timeline-bound-start="${start}" data-timeline-bound-end="${end}" style="--timeline-lanes:${projection.lanes};--timeline-waypoint-lanes:${projection.waypointLanes}"><div class="companion-timeline-axis">${ticks.join("")}${halfHourTicks.join("")}</div>${dragHours}${dragStartGuide}${transfers.join("")}${blocks.join("")}${nowMarker}</div>`;
 
     const outsideItems = projection.items.filter((item) => item.outside && !item.visited);
     const missingDuration = projection.items.filter(

@@ -205,7 +205,11 @@ body.companion-mode main {
     margin-top: 20px;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
-    scrollbar-width: thin;
+    scrollbar-width: auto;
+}
+
+.companion-timeline-canvas::-webkit-scrollbar {
+    height: 16px;
 }
 
 .companion-timeline-track {
@@ -378,15 +382,45 @@ body.companion-mode main {
     background: color-mix(in srgb, var(--line) 82%, transparent);
 }
 
+.companion-timeline-half-hour {
+    position: absolute;
+    bottom: 6px;
+    display: none;
+    width: 0;
+}
+
+.companion-timeline-track.shows-half-hour-grid .companion-timeline-half-hour {
+    display: block;
+}
+
+.companion-timeline-half-hour::after {
+    content: "";
+    position: absolute;
+    top: 22px;
+    left: 50%;
+    width: 1px;
+    height: calc(
+        120px +
+        (var(--timeline-lanes, 1) - 1) * 88px +
+        var(--timeline-waypoint-lanes, 0) * 42px
+    );
+    background: repeating-linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--line) 72%, transparent) 0 3px,
+        transparent 3px 7px
+    );
+    pointer-events: none;
+}
+
 .companion-timeline-block {
     position: absolute;
     z-index: 1;
     top: calc(59px + var(--timeline-lane, 0) * 88px);
     left: var(--timeline-start);
-    width: max(var(--timeline-width), var(--timeline-min-block-width), 5px);
-    min-width: 5px;
+    width: var(--timeline-width);
+    min-width: 0;
     height: 82px;
-    padding: 9px 10px;
+    padding: 0;
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--timeline-color) 70%, #000);
     border-left: 4px solid var(--timeline-color);
@@ -598,6 +632,9 @@ html.is-timeline-select-modifier
 .companion-timeline-content {
     position: relative;
     z-index: 1;
+    display: block;
+    height: 100%;
+    padding: 9px 10px;
 }
 
 .companion-timeline-block strong,

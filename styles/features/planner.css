@@ -890,6 +890,7 @@ body.preview-mode .quick-add {
 .day-time-tools .companion-timeline-canvas {
     min-height: 150px;
     margin-top: 8px;
+    overflow-anchor: none;
 }
 .day-time-tools .companion-timeline-canvas.is-drag-scroll {
     cursor: grab;

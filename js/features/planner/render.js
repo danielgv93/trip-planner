@@ -43,6 +43,10 @@ import { dayWorkload as calculateDayWorkload } from "./workload.js";
 import { healthBadgeMarkup } from "../health/session.js";
 import { relocateSpot, relocateTravelCard } from "./move-spot.js";
 import { buildTimelineProjection, createTimelineView, estimatedTravelMinutes } from "../companion/timeline.js";
+import {
+    timelineScrollForCenter,
+    timelineViewportCenter,
+} from "../companion/timeline-viewport.js";
 import { timeToMinutes, minutesToTime } from "../../core/time.js";
 import {
     openingHourSegments,
@@ -67,10 +71,60 @@ const selectedTimelineSpots = new Map();
 // leaking a personal display preference into the portable trip plan.
 const timelineZoomByDay = new Map();
 const TIMELINE_ZOOM_MIN = 1;
-const TIMELINE_ZOOM_MAX = 4;
+const TIMELINE_ZOOM_MAX = 10;
 const TIMELINE_ZOOM_STEP = 0.25;
-const TIMELINE_MIN_BLOCK_MINUTES = 30;
+const TIMELINE_HALF_HOUR_ZOOM = 4;
 const TIMELINE_TICK_LABEL_GAP = 48;
+let timelineViewportRestoreToken = 0;
+const pendingTimelineViewportCenters = new Map();
+const timelineViewportCentersByDay = new Map();
+
+function timelineCenterForCanvas(canvas) {
+    const track = canvas?.querySelector(".companion-timeline-track");
+    if (!canvas || !track) return null;
+    return timelineViewportCenter({
+        boundStart: Number(track.dataset.timelineBoundStart),
+        boundEnd: Number(track.dataset.timelineBoundEnd),
+        scrollLeft: canvas.scrollLeft,
+        viewportWidth: canvas.clientWidth,
+        trackWidth: track.scrollWidth,
+    });
+}
+
+function captureTimelineViewports() {
+    const viewports = new Map();
+    daysEl.querySelectorAll(".day[data-day]").forEach((dayElement) => {
+        const canvas = dayElement.querySelector(".companion-timeline-canvas");
+        const centerMinute = timelineCenterForCanvas(canvas);
+        if (centerMinute !== null)
+            viewports.set(String(dayElement.dataset.day), centerMinute);
+    });
+    // Pointer focus can nudge a scroll container before pointerup. A timeline
+    // drag therefore gets priority over the last DOM measurement so the view
+    // returns to exactly what the user saw when the gesture began.
+    pendingTimelineViewportCenters.forEach((centerMinute, dayId) =>
+        viewports.set(String(dayId), centerMinute),
+    );
+    return viewports;
+}
+
+function restoreTimelineViewports(viewports) {
+    if (!viewports.size) return;
+    daysEl.querySelectorAll(".day[data-day]").forEach((dayElement) => {
+        const centerMinute = viewports.get(String(dayElement.dataset.day));
+        if (centerMinute === undefined) return;
+        const canvas = dayElement.querySelector(".companion-timeline-canvas");
+        const track = canvas?.querySelector(".companion-timeline-track");
+        if (!canvas || !track) return;
+        canvas.scrollLeft = timelineScrollForCenter({
+            boundStart: Number(track.dataset.timelineBoundStart),
+            boundEnd: Number(track.dataset.timelineBoundEnd),
+            centerMinute,
+            viewportWidth: canvas.clientWidth,
+            trackWidth: track.scrollWidth,
+        });
+    });
+}
 
 // One observer is enough for every rendered day. It is disconnected before
 // the destructive render replaces the cards, avoiding references to old DOM.
@@ -372,6 +426,11 @@ function wireTimelineZoom(tools, dayId) {
         TIMELINE_ZOOM_MAX,
         Math.max(TIMELINE_ZOOM_MIN, Number(value) || TIMELINE_ZOOM_MIN),
     );
+    const rememberViewportCenter = () => {
+        const centerMinute = timelineCenterForCanvas(canvas);
+        if (centerMinute !== null)
+            timelineViewportCentersByDay.set(String(dayId), centerMinute);
+    };
     const paint = (value, anchorX = canvas.clientWidth / 2) => {
         const zoom = clampZoom(value);
         const previousWidth = track.scrollWidth || 1;
@@ -386,20 +445,23 @@ function wireTimelineZoom(tools, dayId) {
         // Override the shared companion minimum: at 1x the whole day fits the
         // available canvas exactly, so the minimum cannot retain any panning.
         track.style.minWidth = "0";
-        const timelineSpan = Number(track.dataset.timelineBoundEnd) - Number(track.dataset.timelineBoundStart);
-        if (timelineSpan > 0) {
-            const minimumWidth = (TIMELINE_MIN_BLOCK_MINUTES / zoom / timelineSpan) * 100;
-            track.style.setProperty("--timeline-min-block-width", `${minimumWidth.toFixed(3)}%`);
-        }
         // Leave one device-independent pixel for fractional layout rounding:
         // clientWidth is floored while scrollWidth is rounded up, which would
         // otherwise expose a one-pixel scrollbar even when both visually fit.
         track.style.width = `calc(${zoom * 100}% - 1px)`;
+        track.classList.toggle("shows-half-hour-grid", zoom >= TIMELINE_HALF_HOUR_ZOOM);
         updateTimelineTickLabels(track);
         canvas.scrollLeft = timelineRatio * track.scrollWidth - anchorX;
+        rememberViewportCenter();
     };
 
     paint(timelineZoomByDay.get(dayId) || TIMELINE_ZOOM_MIN);
+    // Day cards are wired before they are appended. Capture again once layout
+    // exists so the very first drag also has a stable viewport to restore.
+    requestAnimationFrame(() => {
+        if (canvas.isConnected) rememberViewportCenter();
+    });
+    canvas.addEventListener("scroll", rememberViewportCenter, { passive: true });
     timelineTickResizeObserver?.observe(track);
     input.addEventListener("input", () => paint(input.value));
     canvas.addEventListener("wheel", (event) => {
@@ -1141,6 +1203,7 @@ function wireTimelineSpot(button, tools, dayId) {
                 ignoreClick = true;
                 cleanup();
                 pointer = null;
+                pendingTimelineViewportCenters.delete(String(dayId));
                 return;
             }
             if (Math.abs(dx) <= Math.abs(dy) * 1.15) return;
@@ -1206,10 +1269,16 @@ function wireTimelineSpot(button, tools, dayId) {
     const finish = (event) => {
         if (!pointer || event.pointerId !== pointer.id) return;
         const dragged = pointer.dragging;
+        const viewportCenter = pointer.viewportCenter;
         const starts = new Map(pointer.members.map(({ id, minute }) => [id, minute + pointer.delta]));
         cleanup();
         pointer = null;
-        if (dragged) commitTimelineStarts(dayId, starts);
+        if (dragged) {
+            if (viewportCenter !== null)
+                pendingTimelineViewportCenters.set(String(dayId), viewportCenter);
+            commitTimelineStarts(dayId, starts);
+        }
+        pendingTimelineViewportCenters.delete(String(dayId));
     };
 
     const cancel = (event) => {
@@ -1218,6 +1287,7 @@ function wireTimelineSpot(button, tools, dayId) {
         cleanup();
         pointer = null;
         render({ persist: false });
+        pendingTimelineViewportCenters.delete(String(dayId));
     };
 
     const escape = (event) => {
@@ -1227,15 +1297,27 @@ function wireTimelineSpot(button, tools, dayId) {
         cleanup();
         pointer = null;
         render({ persist: false });
+        pendingTimelineViewportCenters.delete(String(dayId));
     };
 
     button.addEventListener("pointerdown", (event) => {
         if (store.previewMode || event.shiftKey || (event.button !== undefined && event.button !== 0)) return;
+        // Focusing a partially visible timeline button may pan its scroll
+        // container before the drag begins. Focus it explicitly without
+        // scrolling so only the user's own pan changes the visible hours.
+        if (event.pointerType !== "touch") {
+            event.preventDefault();
+            button.focus({ preventScroll: true });
+        }
         const track = button.closest(".companion-timeline-track");
         if (!track) return;
         const rect = track.getBoundingClientRect();
         const start = Number(track.dataset.timelineBoundStart);
         const end = Number(track.dataset.timelineBoundEnd);
+        const centerMinute = timelineViewportCentersByDay.get(String(dayId)) ??
+            timelineCenterForCanvas(track.closest(".companion-timeline-canvas"));
+        if (centerMinute !== null)
+            pendingTimelineViewportCenters.set(String(dayId), centerMinute);
         const buttons = [...track.querySelectorAll("[data-timeline-spot]")];
         const selected = timelineSelection(dayId, buttons);
         if (!selected.has(button.dataset.timelineSpot)) {
@@ -1267,6 +1349,7 @@ function wireTimelineSpot(button, tools, dayId) {
             end,
             span: end - start,
             trackWidth: rect.width,
+            viewportCenter: centerMinute,
             members,
             delta: 0,
             dragging: false,
@@ -2550,6 +2633,8 @@ export function render({ persist = true } = {}) {
     // Also protects long-lived tabs that reload a newer renderer while an
     // older store module remains in the browser cache.
     if (!Array.isArray(store.backlogGroups)) store.backlogGroups = [];
+    const timelineViewports = captureTimelineViewports();
+    const viewportRestoreToken = ++timelineViewportRestoreToken;
     timelineTickResizeObserver?.disconnect();
     timelineTooltip.hidden = true;
     renderTags();
@@ -2733,6 +2818,20 @@ export function render({ persist = true } = {}) {
     budgetTotal.textContent = `Total: ${store.exchangeRate ? localAmount(tripTotal) : foreignAmount(tripTotal)}`;
     budgetTotal.title = fullBudgetTotal;
     budgetTotal.setAttribute("aria-label", `Ver presupuesto. Total del viaje: ${fullBudgetTotal}`);
+    restoreTimelineViewports(timelineViewports);
+    if (timelineViewports.size) {
+        const restoreAfterLayout = () => {
+            if (viewportRestoreToken !== timelineViewportRestoreToken) return false;
+            restoreTimelineViewports(timelineViewports);
+            return true;
+        };
+        // Scroll anchoring and focus corrections are applied during layout.
+        // Restore on the following two frames so neither the first layout nor
+        // its resulting scrollbar adjustment can move the visible hours.
+        requestAnimationFrame(() => {
+            if (restoreAfterLayout()) requestAnimationFrame(restoreAfterLayout);
+        });
+    }
     if (persist) save();
 }
 
