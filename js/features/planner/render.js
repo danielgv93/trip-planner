@@ -124,6 +124,33 @@ timelineTooltip.setAttribute("role", "tooltip");
 timelineTooltip.hidden = true;
 document.body.append(timelineTooltip);
 
+// Modifier keys change what dragging or scrolling does in the day timeline.
+// Reflect that mode in the cursor before the pointer action begins. Keeping the
+// state on the root element also survives the destructive itinerary render.
+const timelineModifierRoot = document.documentElement;
+function syncTimelineModifierCursor(event) {
+    timelineModifierRoot.classList.toggle(
+        "is-timeline-zoom-modifier",
+        event.ctrlKey || event.metaKey,
+    );
+    timelineModifierRoot.classList.toggle(
+        "is-timeline-select-modifier",
+        event.shiftKey,
+    );
+}
+function clearTimelineModifierCursor() {
+    timelineModifierRoot.classList.remove(
+        "is-timeline-zoom-modifier",
+        "is-timeline-select-modifier",
+    );
+}
+window.addEventListener("keydown", syncTimelineModifierCursor);
+window.addEventListener("keyup", syncTimelineModifierCursor);
+window.addEventListener("blur", clearTimelineModifierCursor);
+document.addEventListener("visibilitychange", () => {
+    if (document.hidden) clearTimelineModifierCursor();
+});
+
 export function sumCosts(spots) {
     return spots.reduce(
         (total, spot) =>

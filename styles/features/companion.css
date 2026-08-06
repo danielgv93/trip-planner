@@ -539,6 +539,25 @@ body.companion-mode main {
     pointer-events: none;
 }
 
+/* Preview the mouse interaction selected by the keyboard modifier. */
+html.is-timeline-zoom-modifier
+    .day-time-tools:not(.is-timeline-dragging)
+    .companion-timeline-canvas:not(.is-panning),
+html.is-timeline-zoom-modifier
+    .day-time-tools:not(.is-timeline-dragging)
+    .companion-timeline-canvas:not(.is-panning) * {
+    cursor: zoom-in !important;
+}
+
+html.is-timeline-select-modifier
+    .day-time-tools:not(.is-timeline-dragging)
+    .companion-timeline-canvas:not(.is-panning),
+html.is-timeline-select-modifier
+    .day-time-tools:not(.is-timeline-dragging)
+    .companion-timeline-canvas:not(.is-panning) * {
+    cursor: crosshair !important;
+}
+
 .timeline-tooltip[hidden] {
     display: none;
 }
