@@ -404,7 +404,10 @@
 }
 
 .duration-dialog {
-    width: min(390px, calc(100% - 32px));
+    width: min(440px, calc(100% - 32px));
+    max-height: calc(100dvh - 32px);
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 .duration-form {
     gap: 16px;
@@ -417,6 +420,16 @@
 .duration-stop-name strong {
     color: var(--ink);
 }
+.duration-kind-option { margin: 0; }
+.duration-activity-fields {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+.duration-activity-fields[hidden] { display: none; }
 .duration-field input {
     width: 100%;
     font: 600 18px "DM Mono";
@@ -439,6 +452,29 @@
     border-color: var(--green);
     background: #eaf2ef;
     outline: none;
+}
+.duration-schedule-field {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+    margin: 0;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--surface) 96%, var(--green));
+}
+.duration-schedule-field legend {
+    padding: 0 5px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+.duration-schedule-field .hours-input-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.duration-schedule-field input[type="time"] {
+    width: 100%;
+    font-family: "DM Mono";
 }
 .form-actions .duration-remove {
     margin-right: auto;

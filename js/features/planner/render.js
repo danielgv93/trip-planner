@@ -143,6 +143,11 @@ let quickAddDraft = "";
 const durationDialog = $("#durationDialog");
 const durationForm = $("#durationForm");
 const durationInput = $("#durationMinutes");
+const durationIsWaypoint = $("#durationIsWaypoint");
+const durationActivityFields = $("#durationActivityFields");
+const durationOpeningTime = $("#durationOpeningTime");
+const durationClosingTime = $("#durationClosingTime");
+const durationScheduleNotApplicable = $("#durationScheduleNotApplicable");
 const removeDurationButton = $("#removeDuration");
 let durationEditing = null;
 
@@ -587,20 +592,27 @@ function openDurationDialog(dayId, spotId) {
     const day = dayBy(dayId);
     const spot = day?.spots.find((candidate) => String(candidate.id) === spotId);
     if (!spot) return;
-    if (isWaypoint(spot)) {
-        openDialog(dayId, spot);
-        return;
-    }
     durationEditing = { dayId, spot };
     $("#durationSpotName").textContent = spot.name || "Parada sin nombre";
     durationInput.value =
         Number.isInteger(spot.visitMinutes) && spot.visitMinutes > 0
             ? spot.visitMinutes
             : "";
-    removeDurationButton.hidden = !durationInput.value;
+    durationOpeningTime.value = timeToMinutes(spot.openingTime) === null
+        ? ""
+        : spot.openingTime;
+    durationClosingTime.value = timeToMinutes(spot.closingTime) === null
+        ? ""
+        : spot.closingTime;
+    durationScheduleNotApplicable.checked = spot.scheduleNotApplicable === true;
+    durationIsWaypoint.checked = isWaypoint(spot);
+    syncDurationKind();
     durationDialog.showModal();
-    durationInput.focus();
-    durationInput.select();
+    const focusTarget = durationIsWaypoint.checked
+        ? durationIsWaypoint
+        : durationInput;
+    focusTarget.focus();
+    focusTarget.select?.();
 }
 
 function positionTimelineTooltip(target) {
@@ -1453,22 +1465,74 @@ function wireDayTimeTools(el, dayId) {
     });
 }
 
+function syncDurationKind() {
+    const waypoint = durationIsWaypoint.checked;
+    durationDialog.classList.toggle("is-waypoint", waypoint);
+    durationActivityFields.hidden = waypoint;
+    durationActivityFields.querySelectorAll("input, button").forEach((control) => {
+        control.disabled = waypoint;
+    });
+    removeDurationButton.hidden = waypoint || !durationInput.value;
+}
+
+durationIsWaypoint.addEventListener("change", syncDurationKind);
+durationInput.addEventListener("input", syncDurationKind);
+durationScheduleNotApplicable.addEventListener("change", () => {
+    if (!durationScheduleNotApplicable.checked) return;
+    durationOpeningTime.value = "";
+    durationClosingTime.value = "";
+});
+[durationOpeningTime, durationClosingTime].forEach((input) => {
+    input.addEventListener("input", () => {
+        if (input.value) durationScheduleNotApplicable.checked = false;
+    });
+});
+
 durationForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (!durationEditing || !durationInput.reportValidity()) return;
-    const minutes = Number(durationInput.value);
-    if (!Number.isInteger(minutes) || minutes <= 0) return;
-    if (durationEditing.spot.visitMinutes === minutes) {
+    if (!durationEditing) return;
+    const waypoint = durationIsWaypoint.checked;
+    if (!waypoint && !durationInput.reportValidity()) return;
+    const minutesValue = durationInput.value.trim();
+    const parsedMinutes = Number(minutesValue);
+    const minutes = minutesValue !== "" &&
+        Number.isInteger(parsedMinutes) && parsedMinutes > 0
+        ? parsedMinutes
+        : undefined;
+    if (!waypoint && minutesValue !== "" && minutes === undefined) return;
+
+    const spot = durationEditing.spot;
+    const openingTime = durationOpeningTime.value || undefined;
+    const closingTime = durationClosingTime.value || undefined;
+    const scheduleNotApplicable = durationScheduleNotApplicable.checked;
+    const changed = isWaypoint(spot) !== waypoint || (!waypoint && (
+        spot.visitMinutes !== minutes ||
+        spot.openingTime !== openingTime ||
+        spot.closingTime !== closingTime ||
+        (spot.scheduleNotApplicable === true) !== scheduleNotApplicable
+    ));
+    if (!changed) {
         durationDialog.close();
         return;
     }
+
     pushUndo();
-    durationEditing.spot.visitMinutes = minutes;
+    spot.kind = waypoint ? "waypoint" : "activity";
+    if (!waypoint) {
+        if (minutes === undefined) delete spot.visitMinutes;
+        else spot.visitMinutes = minutes;
+        if (openingTime === undefined) delete spot.openingTime;
+        else spot.openingTime = openingTime;
+        if (closingTime === undefined) delete spot.closingTime;
+        else spot.closingTime = closingTime;
+        if (scheduleNotApplicable) spot.scheduleNotApplicable = true;
+        else delete spot.scheduleNotApplicable;
+    }
     durationDialog.close();
     save();
     render();
     drawMap();
-    toast("Duración de la parada actualizada.", "success");
+    toast("Parada del timeline actualizada.", "success");
 });
 
 durationDialog.querySelectorAll("[data-duration-preset]").forEach((button) => {
@@ -1479,15 +1543,9 @@ durationDialog.querySelectorAll("[data-duration-preset]").forEach((button) => {
 });
 
 removeDurationButton.addEventListener("click", () => {
-    if (!durationEditing || durationEditing.spot.visitMinutes === undefined)
-        return;
-    pushUndo();
-    delete durationEditing.spot.visitMinutes;
-    durationDialog.close();
-    save();
-    render();
-    drawMap();
-    toast("Estimación de duración eliminada.", "info");
+    durationInput.value = "";
+    syncDurationKind();
+    durationInput.focus();
 });
 
 durationDialog.querySelector(".close").addEventListener("click", () =>

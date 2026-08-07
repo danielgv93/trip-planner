@@ -518,22 +518,41 @@
         </dialog>
         <dialog id="durationDialog" class="duration-dialog" aria-labelledby="durationDialogTitle">
             <div class="modal-head">
-                <h3 id="durationDialogTitle">Duración de la parada</h3>
+                <h3 id="durationDialogTitle">Editar parada del timeline</h3>
                 <button class="close" type="button" aria-label="Cerrar">×</button>
             </div>
             <form class="form duration-form" id="durationForm">
                 <p class="duration-stop-name">Parada: <strong id="durationSpotName"></strong></p>
-                <label class="duration-field">
-                    Tiempo de visita (minutos)
-                    <input id="durationMinutes" type="number" min="1" step="1" inputmode="numeric" required />
-                </label>
-                <div class="duration-presets" aria-label="Duraciones rápidas">
-                    <button type="button" data-duration-preset="15">15 min</button>
-                    <button type="button" data-duration-preset="30">30 min</button>
-                    <button type="button" data-duration-preset="45">45 min</button>
-                    <button type="button" data-duration-preset="60">1 h</button>
-                    <button type="button" data-duration-preset="90">1 h 30</button>
-                    <button type="button" data-duration-preset="120">2 h</button>
+                <div class="spot-kind-option duration-kind-option">
+                    <label>
+                        <input id="durationIsWaypoint" type="checkbox" aria-describedby="durationKindHint" />
+                        <span>
+                            <strong>Solo punto de paso</strong>
+                            <small id="durationKindHint">Aparecerá en la ruta, pero no ocupará tiempo de visita ni necesitará horario.</small>
+                        </span>
+                    </label>
+                </div>
+                <div id="durationActivityFields" class="duration-activity-fields">
+                    <label class="duration-field">
+                        Tiempo de visita (minutos)
+                        <input id="durationMinutes" type="number" min="1" step="1" inputmode="numeric" />
+                    </label>
+                    <div class="duration-presets" aria-label="Duraciones rápidas">
+                        <button type="button" data-duration-preset="15">15 min</button>
+                        <button type="button" data-duration-preset="30">30 min</button>
+                        <button type="button" data-duration-preset="45">45 min</button>
+                        <button type="button" data-duration-preset="60">1 h</button>
+                        <button type="button" data-duration-preset="90">1 h 30</button>
+                        <button type="button" data-duration-preset="120">2 h</button>
+                    </div>
+                    <fieldset class="duration-schedule-field">
+                        <legend>Horario (opcional)</legend>
+                        <div class="hours-input-row">
+                            <label>Apertura <input id="durationOpeningTime" type="time" /></label>
+                            <label>Cierre <input id="durationClosingTime" type="time" /></label>
+                        </div>
+                        <label class="health-check-field"><input id="durationScheduleNotApplicable" type="checkbox" /> Sin horario aplicable</label>
+                    </fieldset>
                 </div>
                 <p class="form-hint">El timeline y las paradas siguientes se recalcularán al guardar.</p>
                 <div class="form-actions">
