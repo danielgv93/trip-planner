@@ -4,7 +4,7 @@
 // binding.
 
 import { store } from "../core/store.js";
-import "../shared/modal-scroll.js";
+import "../shared/modal.js";
 import "../features/planner/dialogs.js";
 import "../features/planner/dnd.js";
 import "../features/planner/undo-controls.js";

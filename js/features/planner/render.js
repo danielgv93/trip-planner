@@ -26,6 +26,7 @@ import {
     visibleConsecutiveTravelLegs,
 } from "../../core/travel-leg-presentation.js";
 import { $, esc, safeColor, fmt, daysEl, id } from "../../shared/dom.js";
+import { openModal } from "../../shared/modal.js";
 import { toast, confirmAction } from "../../shared/notify.js";
 import {
     drawMap,
@@ -417,7 +418,7 @@ function renderDayTimeTools(day) {
     const zoomLabel = `${Number(timelineZoom.toFixed(2))}×`;
     const zoomControls = timeline.empty ? "" : `<label class="day-timeline-zoom"><span>Zoom</span><input type="range" min="${TIMELINE_ZOOM_MIN}" max="${TIMELINE_ZOOM_MAX}" step="${TIMELINE_ZOOM_STEP}" value="${timelineZoom}" data-timeline-zoom aria-label="Nivel de zoom del timeline"><output data-timeline-zoom-output aria-live="polite">${zoomLabel}</output></label>`;
     const baseId = `day-time-${esc(String(day.id))}`;
-    return `<section class="day-time-tools" aria-label="Planificación horaria"><div class="day-time-tabs" role="group" aria-label="Vista horaria"><button id="${baseId}-schedule-tab" class="day-time-tab" type="button" data-day-time-tab="schedule" aria-expanded="${scheduleSelected}" aria-controls="${baseId}-schedule-panel" ${scheduled.length ? "" : "disabled"}><span class="day-schedule-summary-icon" aria-hidden="true">◷</span><span>Horarios</span><span class="day-schedule-count">${scheduled.length}</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></button><button id="${baseId}-timeline-tab" class="day-time-tab" type="button" data-day-time-tab="timeline" aria-expanded="${timelineSelected}" aria-controls="${baseId}-timeline-panel"><span aria-hidden="true">↝</span><span>Timeline</span><span class="day-schedule-chevron" aria-hidden="true">⌄</span></button></div><div id="${baseId}-schedule-panel" class="day-schedule-body" role="region" aria-label="Horarios del día" ${scheduleSelected ? "" : "hidden"}><span class="day-schedule-guide" aria-hidden="true"></span><div class="day-schedule-axis" aria-hidden="true"><span></span><span class="day-schedule-axis-hours"><i>00</i><i>06</i><i>12</i><i>18</i><i>24</i></span></div>${rows}</div><div id="${baseId}-timeline-panel" class="day-timeline-panel" role="region" aria-label="Timeline del día" ${timelineSelected ? "" : "hidden"}><div class="day-timeline-toolbar"><p class="day-timeline-summary">${esc(timeline.summary)} Pulsa para editar, arrastra para planificar o usa Mayús + arrastre para seleccionar varias paradas.</p>${zoomControls}</div><div class="companion-timeline-canvas" role="group" aria-label="${esc(timeline.aria)}">${timeline.html}</div>${timeline.empty ? "" : `<div class="companion-timeline-insight${timeline.warning ? " is-warning" : ""}" role="status">${esc(timeline.insight)}</div>`}</div></section>`;
+    return `<section class="day-time-tools" aria-label="Planificación horaria"><div class="day-time-tabs" role="group" aria-label="Vista horaria"><button id="${baseId}-schedule-tab" class="day-time-tab" type="button" data-day-time-tab="schedule" aria-expanded="${scheduleSelected}" aria-controls="${baseId}-schedule-panel" ${scheduled.length ? "" : "disabled"}><svg class="day-time-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 1.9"/></svg><span>Horarios</span><span class="day-schedule-count">${scheduled.length}</span><svg class="day-time-tab-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><button id="${baseId}-timeline-tab" class="day-time-tab" type="button" data-day-time-tab="timeline" aria-expanded="${timelineSelected}" aria-controls="${baseId}-timeline-panel"><svg class="day-time-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h7M9 12h11M6 16.5h8"/></svg><span>Timeline</span><svg class="day-time-tab-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div><div id="${baseId}-schedule-panel" class="day-schedule-body" role="region" aria-label="Horarios del día" ${scheduleSelected ? "" : "hidden"}><span class="day-schedule-guide" aria-hidden="true"></span><div class="day-schedule-axis" aria-hidden="true"><span></span><span class="day-schedule-axis-hours"><i>00</i><i>06</i><i>12</i><i>18</i><i>24</i></span></div>${rows}</div><div id="${baseId}-timeline-panel" class="day-timeline-panel" role="region" aria-label="Timeline del día" ${timelineSelected ? "" : "hidden"}><div class="day-timeline-toolbar"><p class="day-timeline-summary">${esc(timeline.summary)} Pulsa para editar, arrastra para planificar o usa Mayús + arrastre para seleccionar varias paradas.</p>${zoomControls}</div><div class="companion-timeline-canvas" role="group" aria-label="${esc(timeline.aria)}">${timeline.html}</div>${timeline.empty ? "" : `<div class="companion-timeline-insight${timeline.warning ? " is-warning" : ""}" role="status">${esc(timeline.insight)}</div>`}</div></section>`;
 }
 
 function wireTimelineZoom(tools, dayId) {
@@ -607,7 +608,7 @@ function openDurationDialog(dayId, spotId) {
     durationScheduleNotApplicable.checked = spot.scheduleNotApplicable === true;
     durationIsWaypoint.checked = isWaypoint(spot);
     syncDurationKind();
-    durationDialog.showModal();
+    openModal(durationDialog);
     const focusTarget = durationIsWaypoint.checked
         ? durationIsWaypoint
         : durationInput;
@@ -811,7 +812,7 @@ async function openTravelTimeDialog(dayId, button, { returnFocus = null } = {}) 
     paintEndpointOptions();
     travelAdvanced.open = Boolean(configured?.embeddedEndpoints?.length);
     paintTravelDialogValues();
-    if (!travelDialog.open) travelDialog.showModal();
+    openModal(travelDialog);
     travelMode.focus();
     const requestToken = ++travelEditing.requestToken;
     if (AUTOMATIC_TRAVEL_MODES.includes(mode))
@@ -1548,15 +1549,6 @@ removeDurationButton.addEventListener("click", () => {
     durationInput.focus();
 });
 
-durationDialog.querySelector(".close").addEventListener("click", () =>
-    durationDialog.close(),
-);
-durationDialog.querySelector(".cancel").addEventListener("click", () =>
-    durationDialog.close(),
-);
-durationDialog.addEventListener("click", (event) => {
-    if (event.target === durationDialog) durationDialog.close();
-});
 durationDialog.addEventListener("close", () => {
     durationEditing = null;
 });
@@ -1706,15 +1698,6 @@ async function removeTravelConfiguration() {
 
 deleteTravelLegButton.addEventListener("click", removeTravelConfiguration);
 
-travelDialog.querySelector(".close").addEventListener("click", () =>
-    travelDialog.close(),
-);
-travelDialog.querySelector(".cancel").addEventListener("click", () =>
-    travelDialog.close(),
-);
-travelDialog.addEventListener("click", (event) => {
-    if (event.target === travelDialog) travelDialog.close();
-});
 travelDialog.addEventListener("close", () => {
     const returnTarget = travelReturnFocus;
     travelEditing = null;

@@ -3,6 +3,7 @@
 
 import { store, save, dayBy } from "../../core/store.js";
 import { $, esc, slug, id } from "../../shared/dom.js";
+import { openModal } from "../../shared/modal.js";
 import { toast, confirmAction } from "../../shared/notify.js";
 import { render } from "./render.js";
 import { pushUndo } from "./history.js";
@@ -225,7 +226,7 @@ export function openDialog(dayId, spot, prefill = {}) {
     $("#searchStatus").textContent = store.selectedLocation
         ? "Ubicación actual: " + store.selectedLocation.display_name
         : "Busca un lugar o pega coordenadas en formato latitud, longitud.";
-    dialog.showModal();
+    openModal(dialog);
     openPreview(store.selectedLocation);
     const focusTargets = {
         duration: "#placeVisitMinutes",
@@ -458,18 +459,7 @@ $("#placeForm").addEventListener("submit", async (e) => {
     onSave?.();
 });
 
-dialog.querySelector(".close").onclick = dialog.querySelector(
-    ".cancel",
-).onclick = () => dialog.close();
 dialog.addEventListener("close", cancelPendingSearch);
-
-// A click whose target is the <dialog> itself happened on its backdrop, rather
-// than on the dialog content. Keep clicks inside forms and managers untouched.
-[dialog, tagDialog, categoryDialog].forEach((modal) => {
-    modal.addEventListener("click", (event) => {
-        if (event.target === modal) modal.close();
-    });
-});
 
 function renderManagerTags() {
     const list = $("#managerTags");
@@ -585,9 +575,8 @@ function renderManagerTags() {
 
 $("#manageTags").onclick = () => {
     renderManagerTags();
-    tagDialog.showModal();
+    openModal(tagDialog);
 };
-tagDialog.querySelector(".close").onclick = () => tagDialog.close();
 $("#addTag").onclick = () => {
     const value = $("#newTag").value.trim().replace(/^#/, "").toLowerCase();
     if (value && !store.tags.includes(value)) {
@@ -725,9 +714,8 @@ function renderManagerCategories() {
 
 $("#manageCategories").onclick = () => {
     renderManagerCategories();
-    categoryDialog.showModal();
+    openModal(categoryDialog);
 };
-categoryDialog.querySelector(".close").onclick = () => categoryDialog.close();
 $("#addCategory").onclick = () => {
     const name = $("#newCategoryName").value.trim();
     if (!name) return;

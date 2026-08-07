@@ -160,7 +160,7 @@
 .health-day.is-impossible { --health-tone: #a14039; --health-soft: #f9e6e3; }
 .health-day.is-incomplete { --health-tone: #356b8c; --health-soft: #e3eff6; }
 .health-day:focus { outline: 3px solid color-mix(in srgb, var(--health-tone) 24%, transparent); outline-offset: 2px; }
-.health-day > summary {
+.health-day-summary {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -169,9 +169,9 @@
     border-top: 3px solid var(--health-tone);
     border-bottom: 1px solid #ecebe6;
     background: linear-gradient(100deg, color-mix(in srgb, var(--health-soft) 62%, #fff), #fff 52%);
-    cursor: pointer;
     list-style: none;
 }
+.health-day > summary { cursor: pointer; }
 .health-day > summary::-webkit-details-marker { display: none; }
 .health-day > summary:hover { background: linear-gradient(100deg, var(--health-soft), #fff 60%); }
 .health-day > summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--health-tone) 24%, transparent); outline-offset: -3px; }
@@ -377,7 +377,7 @@
     .health-progress { min-height: 27px; padding: 8px 16px 0; }
     .health-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 9px 12px 2px; }
     .health-results { max-height: calc(100dvh - 330px); padding: 10px 12px 20px; }
-    .health-day > summary { gap: 10px; }
+    .health-day-summary { gap: 10px; }
     .health-day-controls { justify-content: space-between; }
     .health-day-options { align-items: stretch; flex-direction: column; }
     .health-day-start input { width: 100%; }

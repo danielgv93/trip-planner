@@ -3,6 +3,7 @@
 
 import { store, save, clearTagFilter } from "../../core/store.js";
 import { $, slug, id } from "../../shared/dom.js";
+import { openModal } from "../../shared/modal.js";
 import { render, applyTitle } from "./render.js";
 import { drawMap, syncRouteVisualizationControl } from "../map/map.js";
 import { toast, confirmAction } from "../../shared/notify.js";
@@ -47,11 +48,7 @@ function syncCurrencyUi() {
 syncCurrencyUi();
 
 const currencyDialog = $("#currencyDialog");
-$("#currencyConfigBtn").onclick = () => currencyDialog.showModal();
-currencyDialog.querySelector(".close").onclick = () => currencyDialog.close();
-currencyDialog.addEventListener("click", (event) => {
-    if (event.target === currencyDialog) currencyDialog.close();
-});
+$("#currencyConfigBtn").onclick = () => openModal(currencyDialog);
 
 function syncItineraryDensity() {
     const density = store.itineraryDensity === "compact"

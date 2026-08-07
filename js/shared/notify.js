@@ -1,6 +1,7 @@
 // Transient UI feedback: toasts and the styled confirm() replacement.
 
 import { $ } from "./dom.js";
+import { openModal } from "./modal.js";
 
 const confirmDialog = $("#confirmDialog");
 
@@ -113,7 +114,7 @@ export function confirmAction({ title, message, confirmLabel = "Eliminar" }) {
             confirmDialog.onclose = null;
             resolve(result);
         };
-        confirmDialog.showModal();
+        openModal(confirmDialog);
     });
 }
 
@@ -157,13 +158,7 @@ export function promptAction({
             renderChangePreview(null);
             resolve(result);
         };
-        confirmDialog.showModal();
+        openModal(confirmDialog);
         input.focus();
     });
 }
-
-$("#confirmCancel").onclick = $("#confirmClose").onclick = () =>
-    confirmDialog.close();
-confirmDialog.addEventListener("click", (event) => {
-    if (event.target === confirmDialog) confirmDialog.close();
-});

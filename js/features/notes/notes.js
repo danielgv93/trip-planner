@@ -1,6 +1,7 @@
 import { store, save } from "../../core/store.js";
 import { activeTripNotePage } from "../../core/note-pages.js";
 import { $, id } from "../../shared/dom.js";
+import { openModal } from "../../shared/modal.js";
 import { confirmAction, promptAction } from "../../shared/notify.js";
 import { extractNoteLinks, inlineMarkdown } from "./markdown.js";
 
@@ -213,13 +214,8 @@ export function syncTripNotes() {
 
 toggle.addEventListener("click", () => {
     showMode("write");
-    dialog.showModal();
+    openModal(dialog);
     notes.focus();
-});
-
-dialog.querySelector(".close").addEventListener("click", () => dialog.close());
-dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) dialog.close();
 });
 
 tabs.addEventListener("click", (event) => {

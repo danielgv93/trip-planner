@@ -152,8 +152,14 @@ body.compact-itinerary .title-line { line-height: 1.1; }
 body.compact-itinerary .day-title > small { font-size: 10px; }
 body.compact-itinerary .day-title-edit { width: 26px; height: 26px; }
 body.compact-itinerary .day-load-meter { margin-top: 2px; }
-body.compact-itinerary .day-time-tabs { padding-inline: 5px; }
-body.compact-itinerary .day-time-tab { padding: 4px 9px; font-size: 10px; }
+body.compact-itinerary .day-time-tabs { margin: 6px 12px; }
+body.compact-itinerary .day-time-tab {
+    min-height: 24px;
+    padding: 3px 9px;
+    gap: 6px;
+    font-size: 10px;
+}
+body.compact-itinerary .day-time-tab-icon { width: 13px; height: 13px; }
 body.compact-itinerary .day-schedule-body,
 body.compact-itinerary .day-timeline-panel { padding-bottom: 8px; }
 body.compact-itinerary .spots { padding: 3px 5px; }
@@ -751,65 +757,91 @@ body.preview-mode .quick-add {
     border-bottom: 1px solid var(--line);
     background: #fbfaf7;
 }
+/* Same segmented-control language as .density-switch: an inset track whose
+   active segment lifts to the card surface. */
 .day-time-tabs {
-    display: flex;
+    display: inline-flex;
     align-items: stretch;
-    gap: 2px;
-    padding-inline: 8px;
+    gap: 3px;
+    margin: 9px 15px;
+    padding: 3px;
+    border: 1px solid #dcd8ce;
+    border-radius: 9px;
+    background: #edeae3;
 }
 .day-time-tab {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    width: fit-content;
-    padding: 7px 15px;
+    gap: 7px;
+    min-height: 28px;
+    padding: 4px 11px;
     border: 0;
-    border-bottom: 2px solid transparent;
-    border-radius: 0;
+    border-radius: 6px;
     background: transparent;
-    color: var(--muted);
+    color: #737b7d;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    transition: color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
 }
-.day-time-tab:hover,
-.day-time-tab:focus-visible,
-.day-time-tab[aria-expanded="true"] {
-    color: var(--green);
+.day-time-tab-icon,
+.day-time-tab-chevron {
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.day-time-tab-icon {
+    width: 15px;
+    height: 15px;
+    stroke-width: 1.8;
+}
+.day-time-tab-chevron {
+    width: 13px;
+    height: 13px;
+    stroke-width: 2;
+    opacity: 0.5;
+    transition: transform 0.18s ease, opacity 0.16s ease;
+}
+.day-time-tab:hover:not(:disabled),
+.day-time-tab:focus-visible {
+    color: var(--ink);
+    outline: none;
 }
 .day-time-tab:focus-visible {
-    outline: 2px solid var(--green);
-    outline-offset: -2px;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 35%, transparent);
 }
 .day-time-tab[aria-expanded="true"] {
-    border-bottom-color: var(--green);
-    background: #edf4f1;
+    background: var(--card);
+    color: var(--green);
+    box-shadow: 0 1px 5px #24323a18;
+}
+.day-time-tab[aria-expanded="true"] .day-time-tab-chevron {
+    opacity: 1;
+    transform: rotate(180deg);
 }
 .day-time-tab:disabled {
     cursor: default;
     opacity: 0.45;
 }
-.day-schedule-summary-icon {
-    font-size: 14px;
-}
 .day-schedule-count {
     display: grid;
     min-width: 17px;
-    height: 17px;
+    height: 16px;
     place-items: center;
-    padding: 0 4px;
+    padding: 0 5px;
     border-radius: 999px;
-    background: #e9e7e0;
-    color: #737a79;
+    background: #ffffffbf;
+    box-shadow: inset 0 0 0 1px #24323a14;
+    color: #7d8482;
     font: 10px "DM Mono";
+    transition: color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
 }
-.day-schedule-chevron {
-    font-size: 13px;
-    transition: transform 0.15s ease;
-}
-.day-time-tab[aria-expanded="true"] .day-schedule-chevron {
-    transform: rotate(180deg);
+.day-time-tab[aria-expanded="true"] .day-schedule-count {
+    background: color-mix(in srgb, var(--green) 11%, #fff);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green) 24%, transparent);
+    color: var(--green);
 }
 .day-schedule-body {
     position: relative;

@@ -1,6 +1,7 @@
 import { store, save, dayBy, routeTimeProfile, routeTimeOverride, travelLeg } from "../../core/store.js";
 import { AUTOMATIC_TRAVEL_MODES, disconnectedTravelLegs, parseTravelLegKey } from "../../core/travel-legs.js";
 import { $, esc } from "../../shared/dom.js";
+import { openModal } from "../../shared/modal.js";
 import { toast } from "../../shared/notify.js";
 import { buildTimelineProjection } from "../companion/timeline.js";
 import { cachedRouteTravelMinutes, drawMap } from "../map/map.js";
@@ -16,6 +17,7 @@ const dialog = $("#healthDialog");
 const resultsEl = $("#healthResults");
 let runToken = 0;
 let busy = false;
+let activeDayId = null;
 
 function healthDateLabel(value) {
     if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value))
@@ -48,11 +50,17 @@ function actionMarkup(issue, day) {
 }
 
 function renderCenter(focusDayId) {
-    const states = store.state.map((day) => getHealthResult(day).state);
-    const checked = store.state.filter((day) => getHealthResult(day).checked).length;
-    $("#healthSummary").textContent = checked
-        ? `${checked} de ${store.state.length} días tienen un resultado vigente.`
-        : "Comprueba el plan para revisar horarios, carga y trayectos.";
+    const scopedDays = focusDayId ? store.state.filter((day) => day.id === focusDayId) : store.state;
+    const states = scopedDays.map((day) => getHealthResult(day).state);
+    const checked = scopedDays.filter((day) => getHealthResult(day).checked).length;
+    $("#healthRunBtn").innerHTML = focusDayId
+        ? '<span aria-hidden="true">↻</span> Comprobar este día'
+        : '<span aria-hidden="true">↻</span> Comprobar ahora';
+    $("#healthSummary").textContent = focusDayId
+        ? (checked ? "Este día tiene un resultado vigente." : "Comprueba este día para revisar horarios, carga y trayectos.")
+        : (checked
+            ? `${checked} de ${store.state.length} días tienen un resultado vigente.`
+            : "Comprueba el plan para revisar horarios, carga y trayectos.");
     const overviewStates = ["solid", "tight", "impossible", "incomplete", "unchecked"];
     $("#healthOverview").innerHTML = overviewStates.map((state) => {
         const meta = HEALTH_STATES[state];
@@ -62,44 +70,51 @@ function renderCenter(focusDayId) {
     const allSpots = [...store.state.flatMap((day) => day.spots), ...store.backlog];
     const names = new Map(allSpots.map((spot) => [spot.id, spot.name || "Parada sin nombre"]));
     const disconnected = disconnectedTravelLegs(store.travelLegs, store.state);
-    const disconnectedMarkup = disconnected.length ? `<section class="health-disconnected"><div class="health-section-head"><span>Trayectos pendientes de reenlace</span><small>${disconnected.length}</small></div><ul class="health-issues">${disconnected.map(([key, leg]) => { const pair = parseTravelLegKey(key); return `<li class="is-missing"><span class="health-issue-icon" aria-hidden="true">↝</span><div class="health-issue-copy"><strong>${esc(names.get(pair.fromId) || pair.fromId)} → ${esc(names.get(pair.toId) || pair.toId)}</strong><small>${esc(leg.mode)} · extremos no consecutivos</small></div></li>`; }).join("")}</ul></section>` : "";
-    resultsEl.innerHTML = disconnectedMarkup + store.state.map((day, dayIndex) => {
+    const disconnectedMarkup = !focusDayId && disconnected.length ? `<section class="health-disconnected"><div class="health-section-head"><span>Trayectos pendientes de reenlace</span><small>${disconnected.length}</small></div><ul class="health-issues">${disconnected.map(([key, leg]) => { const pair = parseTravelLegKey(key); return `<li class="is-missing"><span class="health-issue-icon" aria-hidden="true">↝</span><div class="health-issue-copy"><strong>${esc(names.get(pair.fromId) || pair.fromId)} → ${esc(names.get(pair.toId) || pair.toId)}</strong><small>${esc(leg.mode)} · extremos no consecutivos</small></div></li>`; }).join("")}</ul></section>` : "";
+    resultsEl.innerHTML = disconnectedMarkup + scopedDays.map((day, dayIndex) => {
         const result = getHealthResult(day);
         const meta = HEALTH_STATES[result.state];
         const issues = result.issues.length
             ? `<div class="health-section-head"><span>Qué revisar</span><small>${result.issues.length} ${result.issues.length === 1 ? "incidencia" : "incidencias"}</small></div><ul class="health-issues">${result.issues.map((item) => { const icon = item.severity === "hard" ? "×" : item.severity === "warning" ? "!" : "+"; return `<li class="is-${item.severity}"><span class="health-issue-icon" aria-hidden="true">${icon}</span><div class="health-issue-copy"><strong>${esc(item.message)}</strong>${item.evidence?.minutes != null ? `<small>${item.evidence.minutes} min</small>` : ""}</div><div class="health-actions">${actionMarkup(item, day)}</div></li>`; }).join("")}</ul>`
-            : `<p class="health-ok">${result.state === "solid" ? "No se detectan conflictos ni avisos." : "Pulsa Comprobar ahora para analizar este día."}</p>`;
+            : `<p class="health-ok">${result.state === "solid" ? "No se detectan conflictos ni avisos." : `Pulsa ${focusDayId ? "Comprobar este día" : "Comprobar ahora"} para analizar este día.`}</p>`;
         const metrics = result.metrics ? `<dl class="health-metrics"><div><dt>Visitas</dt><dd>${result.metrics.activity}<small> min</small></dd></div><div><dt>Trayectos</dt><dd>${result.approximate ? "≈" : ""}${result.metrics.travel}<small> min</small></dd></div><div><dt>Caminata</dt><dd>${result.metrics.walking}<small> min</small></dd></div>${result.metrics.minMargin == null ? "" : `<div><dt>Margen mínimo</dt><dd>${result.metrics.minMargin}<small> min</small></dd></div>`}</dl>` : "";
         const suggestions = !["unchecked", "incomplete"].includes(result.state) ? generateSuggestions(day, result, evaluate, store.state) : [];
         const suggestionHtml = suggestions.length ? `<div class="health-suggestions"><div><span class="health-suggestion-icon" aria-hidden="true">✦</span><strong>Mejoras simuladas</strong></div><div class="health-suggestion-list">${suggestions.map((item) => `<button type="button" data-health-action="suggestion" data-day="${esc(day.id)}" data-suggestion="${esc(item.id)}" data-signature="${esc(healthSignature(day, result.routeContext))}"><span>${esc(item.label)}</span><small>${esc(item.impact)}</small></button>`).join("")}</div></div>` : "";
-        const opened = focusDayId ? day.id === focusDayId : dayIndex === 0;
-        return `<details class="health-day is-${result.state}" data-health-result="${esc(day.id)}"${opened ? " open" : ""}><summary><div class="health-day-heading"><span class="health-date">${esc(healthDateLabel(day.date))}</span><h4>${esc(day.title || "Día sin título")}</h4></div><div class="health-day-controls"><span class="health-state"><span aria-hidden="true">${meta.icon}</span>${meta.label}</span><span class="health-day-chevron" aria-hidden="true">⌄</span></div></summary><div class="health-day-body"><div class="health-day-options"><div><strong>Hora de salida</strong><small>Fija el inicio de la simulación de este día.</small></div><label class="health-day-start"><input type="time" data-health-start="${esc(day.id)}" value="${esc(day.startTime || "")}" aria-label="Hora de inicio de ${esc(day.title || "este día")}" /></label></div>${metrics}${issues}${suggestionHtml}</div></details>`;
+        const heading = `<div class="health-day-heading"><span class="health-date">${esc(healthDateLabel(day.date))}</span><h4>${esc(day.title || "Día sin título")}</h4></div><div class="health-day-controls"><span class="health-state"><span aria-hidden="true">${meta.icon}</span>${meta.label}</span>${focusDayId ? "" : '<span class="health-day-chevron" aria-hidden="true">⌄</span>'}</div>`;
+        const body = `<div class="health-day-body"><div class="health-day-options"><div><strong>Hora de salida</strong><small>Fija el inicio de la simulación de este día.</small></div><label class="health-day-start"><input type="time" data-health-start="${esc(day.id)}" value="${esc(day.startTime || "")}" aria-label="Hora de inicio de ${esc(day.title || "este día")}" /></label></div>${metrics}${issues}${suggestionHtml}</div>`;
+        if (focusDayId)
+            return `<section class="health-day is-static is-${result.state}" data-health-result="${esc(day.id)}" tabindex="-1"><div class="health-day-summary">${heading}</div>${body}</section>`;
+        return `<details class="health-day is-${result.state}" data-health-result="${esc(day.id)}"${dayIndex === 0 ? " open" : ""}><summary class="health-day-summary">${heading}</summary>${body}</details>`;
     }).join("");
-    if (focusDayId) requestAnimationFrame(() => resultsEl.querySelector(`[data-health-result="${CSS.escape(focusDayId)}"] summary`)?.focus());
+    if (focusDayId) requestAnimationFrame(() => resultsEl.querySelector(`[data-health-result="${CSS.escape(focusDayId)}"]`)?.focus());
 }
 
 export async function checkPlan({ focusDayId } = {}) {
     const token = ++runToken;
     busy = true;
     $("#healthRunBtn").disabled = true;
-    const days = [...store.state];
+    const focusedDay = focusDayId ? dayBy(focusDayId) : null;
+    const days = focusedDay ? [focusedDay] : [...store.state];
     for (let index = 0; index < days.length; index += 1) {
         if (token !== runToken) return;
-        $("#healthProgress").textContent = `Comprobando ${index + 1} de ${days.length} días…`;
+        $("#healthProgress").textContent = focusDayId
+            ? "Comprobando este día…"
+            : `Comprobando ${index + 1} de ${days.length} días…`;
         setHealthResult(days[index], evaluate(days[index]));
     }
     if (token !== runToken) return;
     busy = false;
     $("#healthRunBtn").disabled = false;
-    $("#healthProgress").textContent = store.state.length ? "Comprobación terminada." : "Añade un día para comprobar el plan.";
+    $("#healthProgress").textContent = days.length ? "Comprobación terminada." : "Añade un día para comprobar el plan.";
     render({ persist: false });
     renderCenter(focusDayId);
 }
 
 function openHealth(dayId, run = false) {
-    if (!dialog.open) dialog.showModal();
-    renderCenter(dayId);
-    if (run && !busy) checkPlan({ focusDayId: dayId });
+    activeDayId = dayBy(dayId)?.id || null;
+    openModal(dialog);
+    renderCenter(activeDayId);
+    if (run && !busy) checkPlan({ focusDayId: activeDayId });
 }
 
 function currentSuggestion(day, id) {
@@ -126,8 +141,7 @@ async function applySuggestion(button) {
 }
 
 $("#healthCheckBtn").addEventListener("click", () => openHealth(undefined, true));
-$("#healthRunBtn").addEventListener("click", () => checkPlan());
-dialog.querySelector(".close").addEventListener("click", () => dialog.close());
+$("#healthRunBtn").addEventListener("click", () => checkPlan({ focusDayId: activeDayId }));
 document.addEventListener("click", (event) => {
     const badge = event.target.closest("[data-health-day]");
     if (badge) { event.stopPropagation(); openHealth(badge.dataset.healthDay); }

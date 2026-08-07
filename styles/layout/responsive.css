@@ -293,11 +293,11 @@ body.preview-mode .spot {
         padding-inline: 12px;
     }
     .day-time-tabs {
-        padding-inline: 4px;
+        margin-inline: 12px;
     }
     .day-time-tab {
-        min-height: 42px;
-        padding-inline: 10px;
+        min-height: 38px;
+        padding-inline: 13px;
     }
     .day-timeline-panel {
         padding-inline: 12px;

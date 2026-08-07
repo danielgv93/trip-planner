@@ -3,6 +3,7 @@
  * add new imports deliberately instead of relying on directory traversal.
  */
 @import url("./foundation/base.css");
+@import url("./foundation/modal.css");
 @import url("./features/search.css");
 @import url("./features/planner.css");
 @import url("./layout/workspace-resize.css");

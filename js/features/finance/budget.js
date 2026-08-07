@@ -3,6 +3,7 @@
 
 import { store, spotIsEnabled } from "../../core/store.js";
 import { $, esc } from "../../shared/dom.js";
+import { openModal } from "../../shared/modal.js";
 import { sumCosts, sumTravelCosts } from "../planner/render.js";
 import { travelLeg } from "../../core/store.js";
 import { foreignAmount, localAmount } from "./currency.js";
@@ -56,10 +57,5 @@ function renderBudget() {
 
 $("#tripBudgetTotal").onclick = () => {
     renderBudget();
-    dialog.showModal();
+    openModal(dialog);
 };
-
-dialog.querySelector(".close").onclick = () => dialog.close();
-dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) dialog.close();
-});

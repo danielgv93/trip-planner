@@ -1,6 +1,10 @@
-// Keep wheel gestures inside a native dialog from reaching the page without
-// changing the document's layout or scroll state. A gesture is allowed only
-// while an internal scroll container can consume it in the requested direction.
+// Shared behavior for every native dialog in the application. Feature modules
+// own each modal's content and business actions; this module owns the common
+// shell interactions so close buttons, cancel buttons, backdrops and scrolling
+// behave consistently.
+
+const initialized = new WeakSet();
+const closeControlSelector = ".close, .cancel, [data-modal-close]";
 
 function canScroll(element, modal, deltaY) {
     for (let current = element; current && current !== modal; current = current.parentElement) {
@@ -14,7 +18,22 @@ function canScroll(element, modal, deltaY) {
     return false;
 }
 
-document.querySelectorAll("dialog").forEach((modal) => {
+export function setupModal(modal) {
+    if (initialized.has(modal)) return;
+    initialized.add(modal);
+
+    modal.addEventListener("click", (event) => {
+        const closeControl = event.target.closest?.(closeControlSelector);
+        if (closeControl && modal.contains(closeControl)) {
+            event.preventDefault();
+            modal.close();
+            return;
+        }
+
+        // Native dialog backdrop clicks are retargeted to the dialog itself.
+        if (event.target === modal) modal.close();
+    });
+
     modal.addEventListener(
         "wheel",
         (event) => {
@@ -32,4 +51,15 @@ document.querySelectorAll("dialog").forEach((modal) => {
         },
         { passive: false },
     );
-});
+}
+
+export function setupModals(root = document) {
+    root.querySelectorAll("dialog").forEach(setupModal);
+}
+
+export function openModal(modal) {
+    setupModal(modal);
+    if (!modal.open) modal.showModal();
+}
+
+setupModals();

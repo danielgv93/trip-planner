@@ -1,0 +1,21 @@
+/* Shared native-dialog shell. Feature styles only change dimensions and the
+   content inside this common frame. */
+dialog {
+    border: 0;
+    border-radius: 9px;
+    padding: 0;
+    box-shadow: 0 20px 60px #1a23284d;
+    width: min(450px, calc(100% - 32px));
+    max-height: calc(100dvh - 32px);
+    overflow: hidden;
+}
+
+/* A closed native dialog must keep the user-agent display:none. */
+dialog[open] {
+    display: flex;
+    flex-direction: column;
+}
+
+dialog::backdrop {
+    background: #15232b70;
+}

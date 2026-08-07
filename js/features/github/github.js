@@ -4,6 +4,7 @@
 
 import { store } from "../../core/store.js";
 import { $ } from "../../shared/dom.js";
+import { openModal } from "../../shared/modal.js";
 import { parsePlanJson, serializePlan } from "../../core/plan-json.js";
 import { applyImportedPlan } from "../planner/import-plan.js";
 import { confirmAction, promptAction, toast } from "../../shared/notify.js";
@@ -656,7 +657,7 @@ function openGithubDialog({ focusToken = false } = {}) {
     tokenInput.value = "";
     tokenInput.placeholder = getGithubToken() ? "Token guardado en esta sesión" : "github_pat_…";
     tokenInput.closest("label")?.classList.toggle("github-token-required", focusToken);
-    githubDialog.showModal();
+    openModal(githubDialog);
     if (focusToken) requestAnimationFrame(() => tokenInput.focus());
 }
 
@@ -670,7 +671,6 @@ githubOpenBtn.onclick = (event) => {
     githubOpenBtn.setAttribute("aria-expanded", "true");
     githubMenu.querySelector("button:not(:disabled)")?.focus();
 };
-githubDialog.querySelector(".close").onclick = () => githubDialog.close();
 githubDialog.addEventListener("close", () => {
     ownerAutocomplete.hide();
     repoAutocomplete.hide();
@@ -678,10 +678,6 @@ githubDialog.addEventListener("close", () => {
     pathAutocomplete.hide();
     tokenInput.closest("label")?.classList.remove("github-token-required");
 });
-githubDialog.addEventListener("click", (event) => {
-    if (event.target === githubDialog) githubDialog.close();
-});
-
 githubForm.addEventListener("submit", (event) => {
     event.preventDefault();
     try {
