@@ -1,6 +1,6 @@
 // Leaflet maps: the main #map (active day's route or the global preview) and the
 // small #previewMap inside the add/edit dialog. Also owns real-distance routing
-// (OSRM) with an in-memory cache. Depends on the Leaflet global `L` (loaded via a
+// (OSRM) with a bounded persistent cache. Depends on the Leaflet global `L` (loaded via a
 // classic <script> before this deferred module runs).
 //
 import {
@@ -20,6 +20,7 @@ import { DAY_COLORS } from "../../core/constants.js";
 import { distanceMeters } from "../../core/geo.js";
 import { fetchSpotImage } from "./images.js";
 import { registerBasemapMap } from "./basemap.js";
+import { createRouteCache } from "./route-cache.js";
 
 const usesCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
 const map = L.map("map", {
@@ -61,10 +62,9 @@ export function invalidateMainMap() {
     map.invalidateSize({ pan: false, animate: false });
 }
 
-// In-memory only, keyed by `fromCoord|toCoord|profile`. Derived data: never
-// persisted, rebuilt on load, survives the destructive render.
-const routeCache = new Map();
-const routeRequests = new Map();
+// Keyed by `fromCoord|toCoord|profile`. Successful OSRM responses survive page
+// reloads in a bounded device-local cache; approximate fallbacks stay in memory.
+const routeCache = createRouteCache();
 let routeCacheRevision = 0;
 
 export function routeTravelRevision() { return routeCacheRevision; }
@@ -277,19 +277,11 @@ async function fetchLeg(from, to, profile) {
 // at the same time. Share that work and cache it as soon as it settles.
 function fetchLegOnce(from, to, profile) {
     const key = keyFor(from, to, profile);
-    if (routeCache.has(key)) return Promise.resolve(routeCache.get(key));
-    if (routeRequests.has(key)) return routeRequests.get(key);
-    const request = fetchLeg(from, to, profile)
-        .then((leg) => {
-            routeCache.set(key, leg);
-            routeCacheRevision += 1;
-            return leg;
-        })
-        .finally(() => {
-            if (routeRequests.get(key) === request) routeRequests.delete(key);
-        });
-    routeRequests.set(key, request);
-    return request;
+    return routeCache.getOrLoad(key, async () => {
+        const leg = await fetchLeg(from, to, profile);
+        routeCacheRevision += 1;
+        return leg;
+    });
 }
 
 // The routing legs MUST follow the drawn polyline, not "all located spots": a
