@@ -11,6 +11,7 @@ import "../features/planner/undo-controls.js";
 import "../features/planner/actions.js";
 import "../features/planner/spot-search.js";
 import "../features/planner/sticky-days.js";
+import "../features/guide/onboarding.js";
 import "../features/health/health.js";
 import "../features/github/github.js";
 import "../features/finance/budget.js";
