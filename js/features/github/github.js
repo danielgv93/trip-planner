@@ -310,6 +310,7 @@ function buildChangesPreview() {
         { label: "Cierre", read: (spot) => spot.closingTime },
         { label: "Opcional", read: (spot) => spot.optional, format: (value) => value ? "Sí" : "No" },
         { label: "Reserva fija", read: (spot) => spot.fixedStart, format: (value) => value ? "Sí" : "No" },
+        { label: "Posición", read: (spot) => spot.positionConstraint, format: (value) => ({ first: "Primera", last: "Última", locked: "Fija" }[value] || "Flexible") },
         { label: "Horario", read: (spot) => spot.scheduleNotApplicable, format: (value) => value ? "No aplicable" : "Aplicable" },
         { label: "Cierre", read: (spot) => spot.closingTime },
         { label: "Ubicación", read: (spot) => Number.isFinite(spot.lat) && Number.isFinite(spot.lng) ? `${spot.lat.toFixed(5)}, ${spot.lng.toFixed(5)}` : "", },

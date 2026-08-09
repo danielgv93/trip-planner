@@ -1,4 +1,8 @@
 import { minutesToTime, timeToMinutes } from "../../core/time.js";
+import {
+    dayPositionConstraintViolation,
+    spotPositionConstraint,
+} from "../../core/itinerary.js";
 import { stateRank } from "./diagnostics.js";
 
 function cloneDay(day) { return structuredClone(day); }
@@ -34,10 +38,10 @@ export function generateSuggestions(day, baseline, evaluate, allDays = []) {
         }
     }
 
-    for (const spot of day.spots.filter((item) => item.optional === true && item.mapEnabled !== false)) {
+    for (const spot of day.spots.filter((item) => item.optional === true && item.mapEnabled !== false && !spotPositionConstraint(item))) {
         const candidate = cloneDay(day);
         candidate.spots = candidate.spots.filter((item) => item.id !== spot.id);
-        if (improves(candidate))
+        if (!dayPositionConstraintViolation(day.spots, candidate.spots) && improves(candidate))
             suggestions.push(suggestion("remove-optional", day.id, { spotId: spot.id }, `Quitar la parada opcional “${spot.name}”`, "Se moverá al backlog"));
     }
 
@@ -51,25 +55,33 @@ export function generateSuggestions(day, baseline, evaluate, allDays = []) {
             const fixedBefore = day.spots.filter((item) => item.fixedStart).map((item) => item.id).join("|");
             const fixedAfter = candidate.spots.filter((item) => item.fixedStart).map((item) => item.id).join("|");
             if (fixedBefore !== fixedAfter) continue;
+            if (dayPositionConstraintViolation(day.spots, candidate.spots)) continue;
             const result = evaluate(candidate);
             const saved = (baseline.metrics?.travel || 0) - (result.metrics?.travel || 0);
             if (saved >= 10 && result.state !== "impossible" && stateRank(result.state) >= stateRank(baseline.state) && (!best || saved > best.saved))
                 best = { order: candidate.spots.map((item) => item.id), saved, approximate: baseline.approximate || result.approximate };
         }
-        if (best) suggestions.push(suggestion("reorder", day.id, { order: best.order }, `Cambiar el orden ahorra ${best.saved} minutos`, `${best.approximate ? "≈" : ""}${best.saved} min`, best.approximate));
+        if (best) suggestions.push(suggestion("reorder", day.id, {
+            order: best.order,
+            savedMinutes: best.saved,
+            travelBefore: baseline.metrics?.travel || 0,
+            travelAfter: (baseline.metrics?.travel || 0) - best.saved,
+        }, `Cambiar el orden ahorra ${best.saved} minutos`, `${best.approximate ? "≈" : ""}${best.saved} min`, best.approximate));
     }
 
     const problematic = baseline.issues.map((item) => item.spotId).filter(Boolean);
     for (const spotId of [...new Set(problematic)].slice(0, 1)) {
         const spot = day.spots.find((item) => item.id === spotId);
-        if (!spot) continue;
+        if (!spot || spotPositionConstraint(spot)) continue;
         for (const receiver of allDays) {
             if (receiver.id === day.id) continue;
             const sourceCandidate = cloneDay(day);
             sourceCandidate.spots = sourceCandidate.spots.filter((item) => item.id !== spotId);
+            if (dayPositionConstraintViolation(day.spots, sourceCandidate.spots)) continue;
             for (let at = 0; at <= receiver.spots.length; at += 1) {
                 const receiverCandidate = cloneDay(receiver);
                 receiverCandidate.spots.splice(at, 0, { ...structuredClone(spot), plannedStart: undefined, fixedStart: undefined });
+                if (dayPositionConstraintViolation(receiver.spots, receiverCandidate.spots)) continue;
                 const receiverResult = evaluate(receiverCandidate);
                 const receiverBaseline = evaluate(receiver);
                 if (receiverResult.state === "impossible" || stateRank(receiverResult.state) < stateRank(receiverBaseline.state)) continue;

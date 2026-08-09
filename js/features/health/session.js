@@ -1,5 +1,5 @@
 import { store, routeTimeProfile, routeTimeOverride, travelLeg } from "../../core/store.js";
-import { spotKind } from "../../core/itinerary.js";
+import { spotKind, spotPositionConstraint } from "../../core/itinerary.js";
 
 const results = new Map();
 
@@ -27,6 +27,7 @@ export function healthSignature(day, routeContext = {}) {
             plannedStart: spot.plannedStart || null,
             optional: spot.optional === true,
             fixedStart: spot.fixedStart === true,
+            positionConstraint: spotPositionConstraint(spot),
             scheduleNotApplicable: spot.scheduleNotApplicable === true,
         })),
         routeContext,

@@ -19,7 +19,7 @@ import {
     routeTimeProfile,
     travelLeg,
 } from "../../core/store.js";
-import { isWaypoint } from "../../core/itinerary.js";
+import { isWaypoint, positionConstraintInsertionIndex, spotPositionConstraint } from "../../core/itinerary.js";
 import { AUTOMATIC_TRAVEL_MODES, normalizeTravelLeg, parseTravelLegKey, travelLegKey } from "../../core/travel-legs.js";
 import {
     travelLegPresentation,
@@ -42,7 +42,7 @@ import { foreignAmount, localAmount } from "../finance/currency.js";
 import { DAY_LOAD_WARNING_MINUTES } from "../../core/constants.js";
 import { dayWorkload as calculateDayWorkload } from "./workload.js";
 import { healthBadgeMarkup } from "../health/session.js";
-import { relocateSpot, relocateTravelCard } from "./move-spot.js";
+import { relocateSpot, relocateTravelCard, relocationConstraintViolation } from "./move-spot.js";
 import { buildTimelineProjection, createTimelineView, estimatedTravelMinutes } from "../companion/timeline.js";
 import {
     timelineScrollForCenter,
@@ -1863,8 +1863,16 @@ export function duplicateSpot(spotId, listId) {
         id: id(),
         tags: [...(arr[idx].tags || [])],
     };
+    delete clone.positionConstraint;
+    const insertAt = listId === "backlog"
+        ? idx + 1
+        : positionConstraintInsertionIndex(arr, clone, idx + 1);
+    if (insertAt === null) {
+        toast("No hay una posición compatible con los anclajes actuales.", "info");
+        return;
+    }
     pushUndo();
-    arr.splice(idx + 1, 0, clone);
+    arr.splice(insertAt, 0, clone);
     save();
     render();
     drawMap();
@@ -1998,6 +2006,7 @@ function renderList(list, spots, isBacklog = false) {
             : "";
         const enabled = spotIsEnabled(s);
         const waypoint = isWaypoint(s);
+        const positionConstraint = spotPositionConstraint(s);
         const spotHours = waypoint
             ? ""
             : renderSpotHours(s, cat.color, enabled);
@@ -2013,6 +2022,8 @@ function renderList(list, spots, isBacklog = false) {
               : '<span class="number number-placeholder" aria-hidden="true">−</span>';
         spot.classList.toggle("spot-disabled", !enabled);
         spot.classList.toggle("spot-waypoint", waypoint);
+        spot.classList.toggle("spot-position-anchored", Boolean(positionConstraint));
+        if (positionConstraint) spot.dataset.positionConstraint = positionConstraint;
         const waypointTime =
             waypoint && timeToMinutes(s.plannedStart) !== null
                 ? ` · ${esc(s.plannedStart)}`
@@ -2020,7 +2031,12 @@ function renderList(list, spots, isBacklog = false) {
         const kindBadge = waypoint
             ? `<span class="spot-kind-badge" title="Forma parte de la ruta sin duración de visita"><span aria-hidden="true">◇</span> Solo paso${waypointTime}</span>`
             : "";
-        spot.innerHTML = `<button class="handle" type="button" title="Reordenar parada" aria-label="Reordenar ${esc(s.name || "parada")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number}<span class="spot-name-label">${esc(s.name)}</span></span>${kindBadge}${spotNote}${spotTiming}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="spot-overflow-control"><button type="button" class="spot-overflow-button" data-act="overflow" title="Más acciones" aria-label="Más acciones para ${esc(s.name || "parada")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></span>`;
+        const positionLabels = { first: "Primera parada", last: "Última parada", locked: "Posición fija" };
+        const positionBadge = positionConstraint
+            ? `<span class="spot-position-badge" title="Las mejoras y los movimientos respetarán este anclaje"><span aria-hidden="true">⌖</span> ${positionLabels[positionConstraint]}</span>`
+            : "";
+        const handleTitle = positionConstraint ? "Parada anclada; edítala para hacerla flexible" : "Reordenar parada";
+        spot.innerHTML = `<button class="handle${positionConstraint ? " is-anchored" : ""}" type="button" title="${handleTitle}" aria-label="${positionConstraint ? "Parada anclada" : "Reordenar"} ${esc(s.name || "parada")}"${positionConstraint ? ' aria-disabled="true"' : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number}<span class="spot-name-label">${esc(s.name)}</span></span>${kindBadge}${positionBadge}${spotNote}${spotTiming}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="spot-overflow-control"><button type="button" class="spot-overflow-button" data-act="overflow" title="Más acciones" aria-label="Más acciones para ${esc(s.name || "parada")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></span>`;
         if (!hiddenAsEndpoint) {
             wireMapSpotHighlight(spot, s.id);
             list.append(spot);
@@ -2036,7 +2052,7 @@ function renderList(list, spots, isBacklog = false) {
                 : "";
             const price = Number.isFinite(outgoing.cost) && outgoing.cost > 0
                 ? `<span class="spot-cost"><strong>${esc(foreignAmount(outgoing.cost))}</strong><small>${esc(localAmount(outgoing.cost))}</small></span>` : "";
-            const draggable = outgoing.embeddedEndpoints?.includes("from") && outgoing.embeddedEndpoints?.includes("to");
+            const draggable = outgoing.embeddedEndpoints?.includes("from") && outgoing.embeddedEndpoints?.includes("to") && !spotPositionConstraint(s) && !spotPositionConstraint(next);
             travelCard.innerHTML = `${draggable ? `<button class="handle travel-card-handle" type="button" title="Reordenar viaje" aria-label="Reordenar viaje ${esc(s.name)} a ${esc(next.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button>` : ""}<span class="travel-card-icon" aria-hidden="true">${modeIcons[outgoing.mode] || "↝"}</span><span class="spot-content"><span class="spot-name">${esc(s.name || "Origen")} → ${esc(next.name || "Destino")}</span><span class="spot-meta">${esc(outgoing.line || presentation.modeLabel)} · ${presentation.minutes ? `${presentation.minutes} min` : "Duración pendiente"}</span>${outgoing.departureTime ? `<span class="spot-timing">Salida ${esc(outgoing.departureTime)}${arrival ? ` · llegada ${esc(arrival)}` : ""}</span>` : ""}${outgoing.note ? `<span class="spot-meta">${esc(outgoing.note)}</span>` : ""}</span>${price}<span class="travel-card-actions"><button type="button" class="travel-card-edit" aria-label="Editar trayecto">Editar</button><button type="button" class="travel-card-delete" aria-label="Eliminar trayecto">×</button></span>`;
             travelCard.querySelector(".travel-card-edit").addEventListener("click", () => {
                 openTravelTimeDialog(list.closest(".day")?.dataset.day, { dataset: { timelineTravelFrom: String(s.id), timelineTravelTo: String(next.id), timelineTravelMinutes: String(outgoing.durationMinutes || "") } });
@@ -2420,11 +2436,12 @@ function openOverflowMenu(button, spot, currentDay) {
         "aria-label",
         `Acciones para ${spot.name || "parada"}`,
     );
+    const anchored = Boolean(spotPositionConstraint(spot));
     menu.innerHTML = `${
         mapsLink
             ? `<a class="spot-overflow-item" href="${mapsLink}" target="_blank" rel="noopener" role="menuitem" data-act="overflow-maps"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-9 9"/><path d="M19 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h4"/></svg><span>Abrir en Google Maps</span></a>`
             : ""
-    }<span class="move-control spot-overflow-move-control"><button type="button" class="move-button spot-overflow-item" data-act="move" role="menuitem" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M14 8l4 4-4 4"/><path d="M8 7V5M8 19v-2"/></svg><span>Mover a otro día</span><span class="spot-overflow-arrow" aria-hidden="true">›</span></button></span><button type="button" class="spot-overflow-item" data-act="duplicate" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Duplicar parada</span></button><button type="button" class="spot-overflow-item" data-act="edit" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg><span>Editar parada</span></button><button type="button" class="spot-overflow-item spot-overflow-danger" data-act="delete" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M9 7l1-3h4l1 3M6 7l1 14h10l1-14"/></svg><span>Borrar parada</span></button>`;
+    }<span class="move-control spot-overflow-move-control"><button type="button" class="move-button spot-overflow-item"${anchored ? ' disabled title="Haz flexible la posición para moverla a otro día"' : ' data-act="move"'} role="menuitem" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M14 8l4 4-4 4"/><path d="M8 7V5M8 19v-2"/></svg><span>${anchored ? "Anclada a este día" : "Mover a otro día"}</span><span class="spot-overflow-arrow" aria-hidden="true">›</span></button></span><button type="button" class="spot-overflow-item" data-act="duplicate" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Duplicar parada</span></button><button type="button" class="spot-overflow-item" data-act="edit" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg><span>Editar parada</span></button><button type="button" class="spot-overflow-item spot-overflow-danger" data-act="delete" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M9 7l1-3h4l1 3M6 7l1 14h10l1-14"/></svg><span>Borrar parada</span></button>`;
     control.append(menu);
     control.closest(".day")?.classList.add("menu-open");
     button.setAttribute("aria-expanded", "true");
@@ -2559,11 +2576,18 @@ function wireQuickAdd(card, dayId, backlogGroupId) {
             const target =
                 dayId === "backlog" ? store.backlog : dayBy(dayId)?.spots;
             if (!target) return;
-            pushUndo();
             const spot = { id: id(), name, address: "", note: "", tags: [], kind: "activity" };
             if (dayId === "backlog" && backlogGroupId)
                 spot.backlogGroupId = backlogGroupId;
-            target.push(spot);
+            const insertAt = dayId === "backlog"
+                ? target.length
+                : positionConstraintInsertionIndex(target, spot, target.length);
+            if (insertAt === null) {
+                toast("No hay una posición compatible con los anclajes actuales.", "info");
+                return;
+            }
+            pushUndo();
+            target.splice(insertAt, 0, spot);
             quickAddDraft = "";
             store.active = dayId;
             save();
@@ -2830,7 +2854,11 @@ export function render({ persist = true } = {}) {
             }).then((ok) => {
                 if (!ok) return;
                 pushUndo();
-                store.backlog.push(...day.spots);
+                store.backlog.push(...day.spots.map((spot) => {
+                    const moved = { ...spot };
+                    delete moved.positionConstraint;
+                    return moved;
+                }));
                 store.state = store.state.filter((d) => d.id !== day.id);
                 store.active = "backlog";
                 save();
@@ -2914,12 +2942,19 @@ function editTitle(day, el) {
 
 // Single source of truth for relocating a spot between backlog and any day.
 export function moveSpot(spotId, toDay, at, backlogGroupId) {
+    const violation = relocationConstraintViolation(store, spotId, toDay, at);
+    if (violation) {
+        toast(violation, "info");
+        render({ persist: false });
+        return false;
+    }
     pushUndo();
-    if (!relocateSpot(store, spotId, toDay, at, backlogGroupId)) return;
+    if (!relocateSpot(store, spotId, toDay, at, backlogGroupId)) return false;
     store.active = toDay;
     save();
     render();
     drawMap();
+    return true;
 }
 
 export function moveTravelCard(key, toDay, beforeSpotId = null) {
@@ -2930,6 +2965,16 @@ export function moveTravelCard(key, toDay, beforeSpotId = null) {
     }
     const targetDay = dayBy(toDay);
     if (!targetDay) {
+        render({ persist: false });
+        return false;
+    }
+    const preview = {
+        state: structuredClone(store.state),
+        backlog: structuredClone(store.backlog),
+        travelLegs: structuredClone(store.travelLegs),
+    };
+    if (!relocateTravelCard(preview, key, toDay, beforeSpotId)) {
+        toast("El viaje no puede cruzar ni mover una parada anclada.", "info");
         render({ persist: false });
         return false;
     }
@@ -3011,8 +3056,14 @@ daysEl.addEventListener("click", (e) => {
                                         group.id === spot.backlogGroupId,
                                 ),
                       ).length
-                    : target?.length;
+                    : target
+                      ? positionConstraintInsertionIndex(target, items[i], target.length)
+                      : null;
         if (!target) return;
+        if (targetLength === null) {
+            toast("No hay una posición compatible con los anclajes de ese día.", "info");
+            return;
+        }
         moveSpot(spotEl.dataset.spot, destination, targetLength, backlogGroupId);
     } else if (b.dataset.act === "edit") openDialog(dayId, items[i]);
     else if (b.dataset.act === "delete") {

@@ -361,10 +361,79 @@
 }
 .health-suggestions > div:first-child { display: flex; align-items: center; gap: 7px; }
 .health-suggestions > div:first-child strong { font-size: 11px; text-transform: uppercase; letter-spacing: .35px; }
+.health-suggestions > div:first-child small { margin-left: auto; color: var(--muted); font-size: 9px; }
 .health-suggestion-icon { color: #b47b20; }
-.health-suggestion-list { display: flex; flex-wrap: wrap; gap: 6px; }
-.health-suggestion-list button { display: grid; gap: 1px; padding: 7px 9px; text-align: left; }
+.health-suggestion-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.health-suggestion-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-width: 0; align-content: start; }
+.health-suggestion-list button { padding: 8px 10px; }
+.health-suggestion-apply { display: grid; gap: 1px; min-width: 0; text-align: left; border-radius: 6px 0 0 6px !important; }
 .health-suggestion-list button small { color: var(--muted); font-size: 9px; font-weight: 500; }
+.health-suggestion-preview-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-left: 0 !important;
+    border-radius: 0 6px 6px 0 !important;
+    color: #54726c !important;
+    white-space: nowrap;
+}
+.health-suggestion-dialog {
+    width: min(620px, calc(100vw - 32px));
+    max-height: min(82dvh, 720px);
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 14px;
+    background: #f8f7f3;
+    box-shadow: 0 26px 80px #0c171d4d;
+}
+.health-suggestion-dialog::backdrop { background: #12212a80; backdrop-filter: blur(2px); }
+.health-suggestion-dialog-title { display: grid; gap: 2px; }
+.health-suggestion-dialog-title p { margin: 1px 0 0; color: #bdc8c9; font-size: 11px; }
+.health-suggestion-preview-body { display: grid; gap: 16px; padding: 20px; overflow-y: auto; overscroll-behavior: contain; color: var(--ink); }
+.health-suggestion-preview-summary { margin: 0; font-size: 14px; line-height: 1.5; }
+.health-suggestion-preview-details { display: grid; gap: 12px; padding: 14px; border: 1px solid #dedfd9; border-radius: 9px; background: #fff; }
+.health-suggestion-preview-details p { margin: 0; font-size: 12px; line-height: 1.5; }
+.health-suggestion-preview-note { margin: 0; padding: 10px 12px; border-radius: 7px; background: #edf3f1; color: #3f625c; font-size: 10px; }
+.health-suggestion-dialog-actions { display: flex; justify-content: flex-end; gap: 9px; padding: 13px 20px; border-top: 1px solid #dedfd9; background: #fff; }
+.health-suggestion-dialog-actions button { padding: 9px 14px; border: 1px solid #d7d7d2; border-radius: 5px; background: #fff; }
+.health-suggestion-dialog-actions .is-primary { border-color: var(--green); background: var(--green); color: #fff; font-weight: 700; }
+.health-suggestion-change {
+    display: grid;
+    grid-template-columns: minmax(70px, .7fr) minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 6px;
+    align-items: center;
+    font-size: 12px;
+}
+.health-suggestion-change > span { color: var(--muted); font-weight: 700; }
+.health-suggestion-change del,
+.health-suggestion-change ins {
+    overflow: hidden;
+    padding: 4px 6px;
+    border-radius: 5px;
+    text-decoration: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.health-suggestion-change del { background: #f6e9e6; color: #87423d; }
+.health-suggestion-change ins { background: #e5f2e9; color: #2f7653; }
+.health-suggestion-change i { color: var(--muted); font-style: normal; }
+.health-suggestion-flow { display: grid; gap: 6px; }
+.health-suggestion-flow > span { color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.health-suggestion-flow ol { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.health-suggestion-flow li {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px 4px 4px;
+    border: 1px solid #e2e3df;
+    border-radius: 999px;
+    font-size: 10px;
+}
+.health-suggestion-flow li.is-changed { border-color: #b9d5cd; background: #eef6f3; }
+.health-suggestion-flow b { display: grid; width: 18px; height: 18px; place-items: center; border-radius: 50%; background: #edf0ee; font: 700 9px "DM Mono"; }
+.health-suggestion-flow li.is-changed b { background: var(--green); color: #fff; }
 .health-check-field { display: flex !important; grid-template-columns: auto 1fr; align-items: center; gap: 8px !important; }
 .health-check-field input { width: auto; }
 
@@ -385,8 +454,12 @@
     .health-issues li { grid-template-columns: 26px minmax(0, 1fr); align-items: start; padding-block: 10px; }
     .health-actions { grid-column: 2; justify-content: flex-start; }
     .health-actions .health-action { min-height: 34px; }
-    .health-suggestion-list { display: grid; }
-    .health-suggestion-list button { width: 100%; }
+    .health-suggestion-list { grid-template-columns: minmax(0, 1fr); }
+    .health-suggestions > div:first-child small { display: none; }
+    .health-suggestion-dialog { width: 100vw; max-width: none; max-height: 100dvh; margin: 0; border-radius: 0; }
+    .health-suggestion-preview-body { padding: 16px; }
+    .health-suggestion-dialog-actions { padding: 12px 16px; }
+    .health-suggestion-change { grid-template-columns: minmax(62px, .6fr) minmax(0, 1fr) auto minmax(0, 1fr); }
     .day-actions .health-badge { width: 28px; padding: 4px; justify-content: center; font-size: 0; }
     .day-actions .health-badge > span { font-size: 10px; }
 }

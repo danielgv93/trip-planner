@@ -3,6 +3,7 @@
 
 import { normalizePlan } from "../../core/plan-json.js";
 import { isTime } from "../../core/time.js";
+import { dayPositionConstraintViolation, spotPositionConstraint } from "../../core/itinerary.js";
 import { normalizeTravelLeg, travelLegKey, TRAVEL_MODES } from "../../core/travel-legs.js";
 
 const MAX_ACTIONS = 30;
@@ -108,6 +109,14 @@ function cleanSpotPatch(patch, plan, { requireName = false } = {}) {
     if (Object.hasOwn(patch, "kind")) {
         assert(["activity", "waypoint"].includes(patch.kind), "La función de la parada no es válida.");
         result.kind = patch.kind;
+    }
+    if (Object.hasOwn(patch, "positionConstraint")) {
+        if (patch.positionConstraint === null || patch.positionConstraint === "")
+            result.positionConstraint = null;
+        else {
+            assert(["first", "last", "locked"].includes(patch.positionConstraint), "La posición de la parada no es válida.");
+            result.positionConstraint = patch.positionConstraint;
+        }
     }
     return result;
 }
@@ -221,6 +230,7 @@ export function buildProposedPlan(currentPlan, actions) {
                 plan.backlog.push(...day.spots.map((spot) => {
                     const copy = { ...spot };
                     delete copy.plannedStart;
+                    delete copy.positionConstraint;
                     return copy;
                 }));
                 summaries.push(`Eliminar “${day.title || day.date}” y mover sus paradas a ideas`);
@@ -241,20 +251,45 @@ export function buildProposedPlan(currentPlan, actions) {
                 const dayId = resolveDayId(plan, action.dayId, tempIds);
                 const spot = { id: crypto.randomUUID(), ...cleanSpotPatch(action.spot, plan, { requireName: true }) };
                 assert(!spot.fixedStart || spot.plannedStart, "Una reserva fija necesita una hora planificada.");
+                assert(dayId !== "backlog" || !spotPositionConstraint(spot), "Una parada del backlog no puede estar anclada.");
+                assert(!spotPositionConstraint(spot) || !spot.optional, "Una parada anclada no puede ser opcional.");
                 tempIds.set(tempId, spot.id);
                 const list = targetList(plan, dayId);
-                list.splice(clampIndex(action.at, list.length), 0, spot);
+                const before = [...list];
+                const position = spotPositionConstraint(spot);
+                const at = position === "first" ? 0 : position === "last" ? list.length : clampIndex(action.at, list.length);
+                list.splice(at, 0, spot);
+                if (dayId !== "backlog")
+                    assert(!dayPositionConstraintViolation(before, list), dayPositionConstraintViolation(before, list));
                 summaries.push(`Añadir “${spot.name}” a ${dayId === "backlog" ? "ideas pendientes" : "un día"}`);
                 break;
             }
             case "update_spot": {
                 const match = findSpot(plan, action.spotId);
                 assert(match, `No existe la parada “${action.spotId}”.`);
+                const before = [...match.list];
+                before[match.index] = { ...before[match.index] };
+                delete before[match.index].positionConstraint;
                 const patch = cleanSpotPatch(action.patch, plan);
                 assert(Object.keys(patch).length, "La actualización de la parada está vacía.");
                 applyPatch(match.list[match.index], patch);
                 assert(!match.list[match.index].fixedStart || match.list[match.index].plannedStart, "Una reserva fija necesita una hora planificada.");
                 assert(match.list[match.index].name, "La parada no puede quedarse sin nombre.");
+                const updated = match.list[match.index];
+                assert(match.listId !== "backlog" || !spotPositionConstraint(updated), "Una parada del backlog no puede estar anclada.");
+                assert(!spotPositionConstraint(updated) || !updated.optional, "Una parada anclada no puede ser opcional.");
+                if (match.listId !== "backlog") {
+                    const position = spotPositionConstraint(updated);
+                    if (position === "first" && match.index > 0) {
+                        match.list.splice(match.index, 1);
+                        match.list.unshift(updated);
+                    } else if (position === "last" && match.index < match.list.length - 1) {
+                        match.list.splice(match.index, 1);
+                        match.list.push(updated);
+                    }
+                    const violation = dayPositionConstraintViolation(before, match.list);
+                    assert(!violation, violation);
+                }
                 summaries.push(`Actualizar “${match.list[match.index].name}”`);
                 break;
             }
@@ -262,11 +297,23 @@ export function buildProposedPlan(currentPlan, actions) {
                 const match = findSpot(plan, action.spotId);
                 assert(match, `No existe la parada “${action.spotId}”.`);
                 const dayId = resolveDayId(plan, action.dayId, tempIds);
+                const sourceBefore = [...match.list];
+                const targetBefore = [...targetList(plan, dayId)];
+                assert(!spotPositionConstraint(match.list[match.index]) || match.listId === dayId, "Una parada anclada no puede moverse a otro día ni al backlog.");
                 const [spot] = match.list.splice(match.index, 1);
                 if (match.listId !== dayId) delete spot.plannedStart;
                 if (dayId !== "backlog") delete spot.backlogGroupId;
                 const list = targetList(plan, dayId);
                 list.splice(clampIndex(action.at, list.length), 0, spot);
+                if (match.listId !== "backlog") {
+                    const sourceAfter = match.listId === dayId ? list : match.list;
+                    const violation = dayPositionConstraintViolation(sourceBefore, sourceAfter);
+                    assert(!violation, violation);
+                }
+                if (dayId !== "backlog" && match.listId !== dayId) {
+                    const violation = dayPositionConstraintViolation(targetBefore, list);
+                    assert(!violation, violation);
+                }
                 summaries.push(`Mover “${spot.name}”`);
                 break;
             }

@@ -112,6 +112,14 @@ function onMove(e) {
     if (!dragEl || e.pointerId !== dragPointerId) return;
     if (!dragging) {
         if (Math.hypot(e.clientX - startX, e.clientY - startY) <= 5) return;
+        if (dragEl.dataset.positionConstraint) {
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+            window.removeEventListener("pointercancel", onCancel);
+            toast("Esta parada está anclada. Edítala y elige “Flexible” para moverla.", "info");
+            endCleanup();
+            return;
+        }
         ghost = dragEl.cloneNode(true);
         ghost.classList.add("spot-ghost");
         ghost.style.width = cardW + "px";

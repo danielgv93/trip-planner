@@ -15,7 +15,7 @@ import {
     normalizeTripNotePages,
 } from "./note-pages.js";
 
-export const PLAN_VERSION = 26;
+export const PLAN_VERSION = 27;
 
 export function serializePlan({ exportedAt = true } = {}) {
     const plan = {
@@ -95,7 +95,11 @@ export function normalizePlan(value) {
 
     const days = value.days.map(normalizeDay);
     const backlog = Array.isArray(value.backlog)
-        ? value.backlog.map(normalizeSpot)
+        ? value.backlog.map((spot) => {
+              const normalized = normalizeSpot(spot);
+              delete normalized.positionConstraint;
+              return normalized;
+          })
         : [];
     const backlogGroups = Array.isArray(value.backlogGroups)
         ? value.backlogGroups.map((group) => {

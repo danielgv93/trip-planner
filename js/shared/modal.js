@@ -5,17 +5,43 @@
 
 const initialized = new WeakSet();
 const closeControlSelector = ".close, .cancel, [data-modal-close]";
+const openModals = [];
 
 function canScroll(element, modal, deltaY) {
-    for (let current = element; current && current !== modal; current = current.parentElement) {
-        const { overflowY } = getComputedStyle(current);
-        if (!/(auto|scroll)/.test(overflowY) || current.scrollHeight <= current.clientHeight) continue;
+    if (element !== modal && !modal.contains(element)) return false;
 
-        const atTop = current.scrollTop <= 0;
-        const atBottom = current.scrollTop + current.clientHeight >= current.scrollHeight - 1;
-        if ((deltaY < 0 && !atTop) || (deltaY > 0 && !atBottom)) return true;
+    for (let current = element; current; current = current.parentElement) {
+        const { overflowY } = getComputedStyle(current);
+        if (/(auto|scroll)/.test(overflowY) && current.scrollHeight > current.clientHeight) {
+            const atTop = current.scrollTop <= 0;
+            const atBottom = current.scrollTop + current.clientHeight >= current.scrollHeight - 1;
+            if ((deltaY < 0 && !atTop) || (deltaY > 0 && !atBottom)) return true;
+        }
+        if (current === modal) break;
     }
     return false;
+}
+
+function activeModal() {
+    while (openModals.length && !openModals.at(-1).open) openModals.pop();
+    return openModals.at(-1) || [...document.querySelectorAll("dialog[open]")].at(-1) || null;
+}
+
+function blockBackgroundScroll(event) {
+    const modal = activeModal();
+    if (!modal) return;
+
+    const bounds = modal.getBoundingClientRect();
+    const isOverContent =
+        event.clientX >= bounds.left &&
+        event.clientX <= bounds.right &&
+        event.clientY >= bounds.top &&
+        event.clientY <= bounds.bottom;
+    const isVerticalGesture = Math.abs(event.deltaY) >= Math.abs(event.deltaX);
+
+    if (!isOverContent || (isVerticalGesture && !canScroll(event.target, modal, event.deltaY))) {
+        event.preventDefault();
+    }
 }
 
 export function setupModal(modal) {
@@ -34,23 +60,10 @@ export function setupModal(modal) {
         if (event.target === modal) modal.close();
     });
 
-    modal.addEventListener(
-        "wheel",
-        (event) => {
-            const bounds = modal.getBoundingClientRect();
-            const isOverContent =
-                event.clientX >= bounds.left &&
-                event.clientX <= bounds.right &&
-                event.clientY >= bounds.top &&
-                event.clientY <= bounds.bottom;
-
-            const isVerticalGesture = Math.abs(event.deltaY) >= Math.abs(event.deltaX);
-            if (!isOverContent || (isVerticalGesture && !canScroll(event.target, modal, event.deltaY))) {
-                event.preventDefault();
-            }
-        },
-        { passive: false },
-    );
+    modal.addEventListener("close", () => {
+        const index = openModals.lastIndexOf(modal);
+        if (index !== -1) openModals.splice(index, 1);
+    });
 }
 
 export function setupModals(root = document) {
@@ -59,7 +72,11 @@ export function setupModals(root = document) {
 
 export function openModal(modal) {
     setupModal(modal);
-    if (!modal.open) modal.showModal();
+    if (!modal.open) {
+        modal.showModal();
+        openModals.push(modal);
+    }
 }
 
+document.addEventListener("wheel", blockBackgroundScroll, { capture: true, passive: false });
 setupModals();

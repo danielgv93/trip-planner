@@ -158,3 +158,14 @@ test("normalizePlan no deduce el tipo de parada a partir del identificador de ca
     assert.equal(normalized.categories[0].defaultSpotKind, "activity");
     assert.equal(normalized.categories[1].defaultSpotKind, "waypoint");
 });
+
+test("normalizePlan conserva anclajes válidos y limpia valores desconocidos o de backlog", () => {
+    const value = plan();
+    value.days[0].spots[0].positionConstraint = "first";
+    value.days[0].spots.push({ id: "s2", name: "Libre", positionConstraint: "desconocido" });
+    value.backlog.push({ id: "s3", name: "Idea", positionConstraint: "last" });
+    const normalized = normalizePlan(value);
+    assert.equal(normalized.days[0].spots[0].positionConstraint, "first");
+    assert.equal(normalized.days[0].spots[1].positionConstraint, undefined);
+    assert.equal(normalized.backlog[0].positionConstraint, undefined);
+});

@@ -23,7 +23,7 @@ import {
     normalizeTripNotePages,
 } from "./note-pages.js";
 
-export const STORAGE_VERSION = 29;
+export const STORAGE_VERSION = 30;
 
 function loadSavedState() {
     const raw =
@@ -74,7 +74,11 @@ export const store = {
         ? saved
         : saved?.days || structuredClone(sample)).map(normalizeSavedDay),
     backlog: Array.isArray(saved?.backlog)
-        ? saved.backlog.map((spot) => normalizeSpotKind(normalizeHealthSpot(spot)))
+        ? saved.backlog.map((spot) => {
+              const normalized = normalizeSpotKind(normalizeHealthSpot(spot));
+              delete normalized.positionConstraint;
+              return normalized;
+          })
         : [],
     backlogCollapsed: saved?.backlogCollapsed === true,
     backlogGroups: Array.isArray(saved?.backlogGroups)

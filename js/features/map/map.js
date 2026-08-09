@@ -75,6 +75,7 @@ let routeToken = 0;
 
 // Dialog preview-map instances (created lazily on first openPreview/setPreview).
 let previewMap, previewLayer;
+let readPreviewMap, readPreviewNode;
 
 function encodedCoordinates(spot) {
     if (!Number.isFinite(spot?.lat) || !Number.isFinite(spot?.lng)) return null;
@@ -604,6 +605,43 @@ export function openPreview(loc) {
     }
 }
 
+export function openReadPreview(spot) {
+    const node = $("#placeReadMap");
+    if (!node || !Number.isFinite(spot?.lat) || !Number.isFinite(spot?.lng))
+        return;
+    if (readPreviewNode !== node) {
+        readPreviewMap?.remove();
+        readPreviewNode = node;
+        readPreviewMap = L.map(node, {
+            dragging: false,
+            touchZoom: false,
+            scrollWheelZoom: false,
+            doubleClickZoom: false,
+            boxZoom: false,
+            keyboard: false,
+            zoomControl: false,
+            attributionControl: false,
+        });
+        L.tileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            { maxZoom: 19 },
+        ).addTo(readPreviewMap);
+    }
+    readPreviewMap.setView([spot.lat, spot.lng], 14, { animate: false });
+    readPreviewMap.eachLayer((layer) => {
+        if (layer instanceof L.Marker || layer instanceof L.CircleMarker)
+            layer.remove();
+    });
+    L.circleMarker([spot.lat, spot.lng], {
+        radius: 7,
+        weight: 3,
+        color: "#fff",
+        fillColor: "#c55347",
+        fillOpacity: 1,
+    }).addTo(readPreviewMap);
+    setTimeout(() => readPreviewMap?.invalidateSize({ animate: false }), 0);
+}
+
 export function clearPreviewMarker() {
     previewLayer?.remove();
     previewLayer = null;
@@ -611,8 +649,10 @@ export function clearPreviewMarker() {
 
 export function setPreview(loc) {
     store.selectedLocation = loc;
-    initPreview(loc.lat, loc.lng, 14);
-    addPreviewMarker(loc);
     $("#searchStatus").textContent =
         "Ubicación seleccionada: " + loc.display_name;
+    document.dispatchEvent(new CustomEvent("place-preview-change"));
+    if ($("#previewWrap").hidden) return;
+    initPreview(loc.lat, loc.lng, 14);
+    addPreviewMarker(loc);
 }

@@ -1,14 +1,54 @@
-export function relocateSpot(plan, spotId, toDay, at, backlogGroupId) {
-    let source = plan.backlog;
-    let sourceIndex = source.findIndex((spot) => spot.id === spotId);
-    let fromDay = "backlog";
-    if (sourceIndex === -1) {
-        const sourceDay = plan.state.find((day) => day.spots.some((spot) => spot.id === spotId));
-        if (!sourceDay) return null;
-        source = sourceDay.spots;
-        sourceIndex = source.findIndex((spot) => spot.id === spotId);
-        fromDay = sourceDay.id;
+import {
+    dayPositionConstraintViolation,
+    spotPositionConstraint,
+} from "../../core/itinerary.js";
+
+function locateSpot(plan, spotId) {
+    const backlogIndex = plan.backlog.findIndex((spot) => spot.id === spotId);
+    if (backlogIndex >= 0)
+        return { list: plan.backlog, index: backlogIndex, dayId: "backlog" };
+    const day = plan.state.find((candidate) => candidate.spots.some((spot) => spot.id === spotId));
+    if (!day) return null;
+    return { list: day.spots, index: day.spots.findIndex((spot) => spot.id === spotId), dayId: day.id };
+}
+
+export function relocationConstraintViolation(plan, spotId, toDay, at) {
+    const source = locateSpot(plan, spotId);
+    const target = toDay === "backlog"
+        ? plan.backlog
+        : plan.state.find((day) => day.id === toDay)?.spots;
+    if (!source || !target) return "No se encontró el destino del movimiento.";
+    const spot = source.list[source.index];
+    if (spotPositionConstraint(spot) && source.dayId !== toDay)
+        return "Esta parada está anclada al día. Hazla flexible antes de moverla.";
+
+    const sourceBefore = [...source.list];
+    const sourceAfter = sourceBefore.filter((candidate) => candidate.id !== spotId);
+    const targetBefore = target === source.list ? sourceBefore : [...target];
+    const targetAfter = target === source.list ? sourceAfter : [...target];
+    targetAfter.splice(Math.max(0, Math.min(at, targetAfter.length)), 0, spot);
+
+    if (source.dayId !== "backlog") {
+        const sourceViolation = dayPositionConstraintViolation(
+            sourceBefore,
+            target === source.list ? targetAfter : sourceAfter,
+        );
+        if (sourceViolation) return sourceViolation;
     }
+    if (toDay !== "backlog" && target !== source.list) {
+        const targetViolation = dayPositionConstraintViolation(targetBefore, targetAfter);
+        if (targetViolation) return targetViolation;
+    }
+    return null;
+}
+
+export function relocateSpot(plan, spotId, toDay, at, backlogGroupId) {
+    if (relocationConstraintViolation(plan, spotId, toDay, at)) return null;
+    const located = locateSpot(plan, spotId);
+    if (!located) return null;
+    const source = located.list;
+    const sourceIndex = located.index;
+    const fromDay = located.dayId;
     const target = toDay === "backlog" ? plan.backlog : plan.state.find((day) => day.id === toDay)?.spots;
     if (!target) return null;
     const [spot] = source.splice(sourceIndex, 1);
@@ -54,19 +94,35 @@ export function relocateTravelCard(plan, key, toDay, beforeSpotId = null) {
     const sourceIndex = sourceDay.spots.findIndex(
         (spot) => String(spot.id) === fromId,
     );
-    const endpoints = sourceDay.spots.splice(sourceIndex, 2);
+    const endpoints = sourceDay.spots.slice(sourceIndex, sourceIndex + 2);
+    if (endpoints.some(spotPositionConstraint)) return null;
+
+    const sourceBefore = [...sourceDay.spots];
+    const sourceAfter = sourceBefore.filter(
+        (spot) => !endpoints.some((endpoint) => endpoint.id === spot.id),
+    );
+    const targetBefore = targetDay === sourceDay ? sourceBefore : [...targetDay.spots];
+    const targetAfter = targetDay === sourceDay ? sourceAfter : [...targetDay.spots];
+    let previewIndex = beforeSpotId
+        ? targetAfter.findIndex((spot) => String(spot.id) === String(beforeSpotId))
+        : targetAfter.length;
+    if (previewIndex < 0) previewIndex = targetAfter.length;
+    targetAfter.splice(previewIndex, 0, ...endpoints);
+    const sourceViolation = dayPositionConstraintViolation(
+        sourceBefore,
+        targetDay === sourceDay ? targetAfter : sourceAfter,
+    );
+    if (sourceViolation) return null;
+    if (targetDay !== sourceDay && dayPositionConstraintViolation(targetBefore, targetAfter))
+        return null;
+
+    sourceDay.spots.splice(sourceIndex, 2);
     if (sourceDay !== targetDay) {
         endpoints.forEach((spot) => {
             delete spot.plannedStart;
             delete spot.fixedStart;
         });
     }
-    let targetIndex = beforeSpotId
-        ? targetDay.spots.findIndex(
-              (spot) => String(spot.id) === String(beforeSpotId),
-          )
-        : targetDay.spots.length;
-    if (targetIndex < 0) targetIndex = targetDay.spots.length;
-    targetDay.spots.splice(targetIndex, 0, ...endpoints);
+    targetDay.spots.splice(previewIndex, 0, ...endpoints);
     return { endpoints, fromDay: sourceDay.id, toDay: targetDay.id };
 }

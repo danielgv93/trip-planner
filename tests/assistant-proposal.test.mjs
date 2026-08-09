@@ -53,3 +53,26 @@ test("una propuesta puede configurar el inicio explícito del día", () => {
     const result = buildProposedPlan(currentPlan(), [{ type: "update_day", dayId: "d1", startTime: "08:30" }]).plan;
     assert.equal(result.days[0].startTime, "08:30");
 });
+
+test("las propuestas pueden anclar extremos y no moverlos fuera del día", () => {
+    const original = currentPlan();
+    original.days[0].spots.push({ id: "s2", name: "Hotel", tags: [] });
+    original.days.push({ id: "d2", date: "2026-07-19", title: "Día 2", spots: [] });
+    const anchored = buildProposedPlan(original, [
+        { type: "update_spot", spotId: "s2", patch: { positionConstraint: "first" } },
+    ]).plan;
+    assert.deepEqual(anchored.days[0].spots.map(({ id }) => id), ["s2", "s1"]);
+    assert.throws(
+        () => buildProposedPlan(anchored, [{ type: "move_spot", spotId: "s2", dayId: "d2", at: 0 }]),
+        /anclada no puede moverse/,
+    );
+});
+
+test("las propuestas rechazan dos anclajes para el mismo extremo", () => {
+    const original = currentPlan();
+    original.days[0].spots.push({ id: "s2", name: "Hotel", tags: [], positionConstraint: "first" });
+    assert.throws(
+        () => buildProposedPlan(original, [{ type: "update_spot", spotId: "s1", patch: { positionConstraint: "first" } }]),
+        /primera parada anclada/,
+    );
+});

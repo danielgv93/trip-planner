@@ -1343,6 +1343,15 @@ body.preview-mode .quick-add {
     color: var(--red);
     outline: none;
 }
+.handle.is-anchored {
+    color: #98712e;
+    cursor: not-allowed;
+}
+.handle.is-anchored:hover,
+.handle.is-anchored:focus-visible {
+    background: #b47b2012;
+    color: #805b20;
+}
 .number {
     background: var(--green);
     color: white;
@@ -2063,6 +2072,16 @@ body.preview-mode .quick-add {
     font-size: 11px;
     font-weight: 700;
 }
+.spot-position-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: fit-content;
+    color: #805b20;
+    font-size: 11px;
+    font-weight: 700;
+}
+.spot-position-anchored { border-color: color-mix(in srgb, #b47b20 48%, var(--line)); }
 .spot-waypoint { border-style: dashed; }
 .travel-card {
     border-color: color-mix(in srgb, #3f7d9c 45%, var(--line));

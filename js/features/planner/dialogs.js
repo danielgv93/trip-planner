@@ -2,16 +2,25 @@
 // manager dialogs. Wires its own listeners on module load.
 
 import { store, save, dayBy } from "../../core/store.js";
-import { $, esc, slug, id } from "../../shared/dom.js";
+import { $, esc, safeColor, slug, id } from "../../shared/dom.js";
 import { openModal } from "../../shared/modal.js";
 import { toast, confirmAction } from "../../shared/notify.js";
 import { render } from "./render.js";
 import { pushUndo } from "./history.js";
-import { categoryDefaultSpotKind, spotKind } from "../../core/itinerary.js";
+import { categoryDefaultSpotKind, dayPositionConstraintViolation, positionConstraintInsertionIndex, spotKind, spotPositionConstraint } from "../../core/itinerary.js";
+import { buildTimelineProjection } from "../companion/timeline.js";
+import {
+    PLACE_FOCUS_TARGETS,
+    buildPlaceSummary,
+    findTimelineItem,
+    normalizePlaceDraft,
+    placeDraftChanged,
+} from "./place-inspector.js";
 import {
     drawMap,
     setPreview,
     openPreview,
+    openReadPreview,
     clearPreviewMarker,
 } from "../map/map.js";
 
@@ -23,6 +32,9 @@ const categoryDialog = $("#categoryDialog");
 // touches it, so it stays a module-local rather than living in the store.
 let editing = null;
 let kindTouched = false;
+let placeMode = "read";
+let initialDraft = null;
+let returnFocus = null;
 let searchTimer;
 let searchController;
 
@@ -117,7 +129,12 @@ function renderTagOptions(selected = []) {
         b.className =
             "tag-option " + (selected.includes(tag) ? "selected" : "");
         b.textContent = "#" + tag;
-        b.onclick = () => b.classList.toggle("selected");
+        b.setAttribute("aria-pressed", selected.includes(tag) ? "true" : "false");
+        b.onclick = () => {
+            b.classList.toggle("selected");
+            b.setAttribute("aria-pressed", b.classList.contains("selected") ? "true" : "false");
+            updatePlaceEditorState();
+        };
         el.append(b);
     });
 }
@@ -137,18 +154,24 @@ function renderCategoryOptions(selected = []) {
         b.className =
             "category-option " + (selected.includes(c.id) ? "selected" : "");
         b.dataset.category = c.id;
-        b.style.setProperty("--category-color", c.color);
+        b.style.setProperty("--category-color", safeColor(c.color));
         b.textContent = c.label;
+        b.setAttribute("role", "radio");
+        b.setAttribute("aria-checked", selected.includes(c.id) ? "true" : "false");
         b.onclick = () => {
             const wasSelected = b.classList.contains("selected");
             el.querySelectorAll(".category-option").forEach((x) =>
                 x.classList.remove("selected"),
             );
             if (!wasSelected) b.classList.add("selected");
+            el.querySelectorAll(".category-option").forEach((option) =>
+                option.setAttribute("aria-checked", option.classList.contains("selected") ? "true" : "false"),
+            );
             if (!editing?.spot && !kindTouched && !wasSelected) {
                 const category = store.categories.find((item) => item.id === c.id);
                 setPlaceKind(categoryDefaultSpotKind(category));
             }
+            updatePlaceEditorState();
         };
         el.append(b);
     });
@@ -158,6 +181,7 @@ function setPlaceKind(kind) {
     const resolved = kind === "waypoint" ? "waypoint" : "activity";
     const waypoint = resolved === "waypoint";
     $("#placeIsWaypoint").checked = waypoint;
+    dialog.querySelector('input[name="placeKind"][value="activity"]').checked = !waypoint;
     dialog.classList.toggle("is-waypoint", waypoint);
     dialog.querySelectorAll("[data-activity-only]").forEach((field) => {
         field.hidden = waypoint;
@@ -165,84 +189,234 @@ function setPlaceKind(kind) {
     });
     const state = dialog.querySelector(".spot-kind-state");
     state.textContent = waypoint
-        ? "Se tratará como un hito de duración cero. Los datos de visita se conservarán por si cambias de opción."
-        : "";
+        ? "Punto de paso: conserva llegada, ubicación y ruta. Los datos de visita se mantienen mientras editas."
+        : "Actividad: puede incluir duración, horario y reserva.";
+    $("#placeDialogStatus").textContent = state.textContent;
+    updateGroupSummaries();
 }
 
-$("#placeIsWaypoint").addEventListener("change", (event) => {
-    kindTouched = true;
-    setPlaceKind(event.target.checked ? "waypoint" : "activity");
-});
+dialog.querySelectorAll('input[name="placeKind"]').forEach((input) =>
+    input.addEventListener("change", (event) => {
+        if (!event.target.checked) return;
+        kindTouched = true;
+        setPlaceKind(event.target.value);
+        updatePlaceEditorState();
+    }),
+);
 
 function selectedCategory() {
     const el = $("#categoryOptions .selected");
     return el ? el.dataset.category : undefined;
 }
 
+function positionConstraintValue() {
+    return dialog.querySelector('input[name="placePositionConstraint"]:checked')?.value || "";
+}
+
+function setPositionConstraint(value) {
+    const resolved = spotPositionConstraint({ positionConstraint: value }) || "";
+    const input = dialog.querySelector(`input[name="placePositionConstraint"][value="${resolved}"]`);
+    if (input) input.checked = true;
+}
+
+function focusPositionConstraint() {
+    dialog.querySelector('input[name="placePositionConstraint"]:checked')?.focus();
+}
+
+function syncPositionConstraint() {
+    const control = $("#placePositionConstraint");
+    const backlog = editing?.dayId === "backlog";
+    control.disabled = backlog;
+    if (backlog) setPositionConstraint("");
+    const constrained = !backlog && Boolean(positionConstraintValue());
+    const optional = $("#placeOptional");
+    if (constrained) optional.checked = false;
+    optional.disabled = constrained;
+    $("#placePositionConstraintHint").textContent = backlog
+        ? "Mueve la parada a un día para poder anclarla."
+        : constrained
+          ? "Esta parada será obligatoria y no podrá moverse de día ni al backlog."
+          : "Las mejoras y los movimientos podrán cambiar su posición.";
+}
+
+$("#placePositionConstraint").addEventListener("change", syncPositionConstraint);
+
+function placeFormDraft() {
+    const location = store.selectedLocation;
+    return {
+        name: $("#placeName").value, address: $("#placeAddress").value, note: $("#placeNote").value,
+        tags: selectedTags(), category: selectedCategory(),
+        kind: $("#placeIsWaypoint").checked ? "waypoint" : "activity",
+        lat: location?.lat, lng: location?.lng, cost: $("#placeCost").value,
+        visitMinutes: $("#placeVisitMinutes").value, openingTime: $("#placeOpeningTime").value,
+        closingTime: $("#placeClosingTime").value, plannedStart: $("#placePlannedStart").value,
+        fixedStart: $("#placeFixedStart").checked, optional: $("#placeOptional").checked,
+        scheduleNotApplicable: $("#placeScheduleNotApplicable").checked,
+        positionConstraint: positionConstraintValue(), mapEnabled: editing?.spot?.mapEnabled !== false,
+    };
+}
+
+function openPlaceGroup(name) {
+    dialog.querySelectorAll(".place-editor-group").forEach((group) => {
+        group.open = group.dataset.placeGroup === name;
+    });
+}
+
+function updateGroupSummaries() {
+    if (!editing) return;
+    const draft = normalizePlaceDraft(placeFormDraft());
+    $("#placeLocationSummary").textContent = store.selectedLocation
+        ? `Ubicación confirmada · ${Number(store.selectedLocation.lat).toFixed(4)}, ${Number(store.selectedLocation.lng).toFixed(4)}`
+        : draft.address || "Añadir ubicación";
+    const schedule = [];
+    if (draft.kind === "waypoint") schedule.push(draft.plannedStart ? `Llegada ${draft.plannedStart}` : "Añadir llegada");
+    else {
+        if (draft.scheduleNotApplicable) schedule.push("Sin horario aplicable");
+        else if (draft.openingTime || draft.closingTime) schedule.push([draft.openingTime, draft.closingTime].filter(Boolean).join("–"));
+        if (draft.visitMinutes) schedule.push(`${draft.visitMinutes} min`);
+        if (draft.plannedStart) schedule.push(`${draft.fixedStart ? "Reserva" : "Inicio"} ${draft.plannedStart}`);
+    }
+    $("#placeScheduleSummary").textContent = schedule.join(" · ") || "Añadir horario o duración";
+    const additional = [];
+    if (draft.tags.length) additional.push(`${draft.tags.length} etiqueta${draft.tags.length === 1 ? "" : "s"}`);
+    if (draft.cost) additional.push(`${draft.cost} ${store.foreignCurrency}`);
+    if (draft.note) additional.push("Con nota");
+    if (draft.positionConstraint) additional.push({ first: "Primera", locked: "Posición fija", last: "Última" }[draft.positionConstraint]);
+    $("#placeAdditionalSummary").textContent = additional.filter(Boolean).join(" · ") || "Añadir coste, etiquetas o nota";
+}
+
+function clearPlaceErrors() {
+    dialog.querySelectorAll(".place-field-error").forEach((error) => (error.textContent = ""));
+    dialog.querySelectorAll("[aria-invalid]").forEach((control) => control.removeAttribute("aria-invalid"));
+}
+
+function placeValidation({ reveal = false, focus = true } = {}) {
+    clearPlaceErrors();
+    const errors = [];
+    const add = (selector, group, errorId, message) => errors.push({ selector, group, errorId, message });
+    if (!$("#placeName").value.trim()) add("#placeName", "essential", "placeNameError", "Escribe un nombre para guardar la parada.");
+    const duration = $("#placeVisitMinutes").value.trim();
+    if (duration && (!Number.isInteger(Number(duration)) || Number(duration) <= 0)) add("#placeVisitMinutes", "schedule", "placeVisitMinutesError", "La duración debe ser un número entero positivo.");
+    const cost = $("#placeCost").value.trim();
+    if (cost && (!Number.isFinite(Number(cost)) || Number(cost) < 0)) add("#placeCost", "additional", "placeCostError", "El coste debe ser cero o un número positivo.");
+    if ($("#placeFixedStart").checked && !$("#placePlannedStart").value) add("#placePlannedStart", "schedule", "placePlannedStartError", "Añade una hora antes de fijar la reserva.");
+    if (reveal && errors.length) {
+        errors.forEach(({ selector, errorId, message }) => { $(selector).setAttribute("aria-invalid", "true"); $("#" + errorId).textContent = message; });
+        if (focus) {
+            openPlaceGroup(errors[0].group);
+            $(errors[0].selector).focus();
+        }
+    }
+    return errors;
+}
+
+function updatePlaceEditorState() {
+    if (!editing || placeMode === "read") return;
+    updateGroupSummaries();
+    const dirty = initialDraft ? placeDraftChanged(initialDraft, placeFormDraft()) : false;
+    const errors = placeValidation({ reveal: true, focus: false });
+    $("#placeSaveButton").disabled = !dirty || errors.length > 0;
+    $("#placeSaveButton").title = !dirty ? "No hay cambios que guardar" : errors.length ? "Corrige los campos indicados" : "Guardar cambios";
+    dialog.classList.toggle("is-dirty", dirty);
+}
+
+function renderPlaceReadPanel(spot) {
+    const day = editing?.dayId === "backlog" ? null : dayBy(editing?.dayId);
+    const projection = day ? buildTimelineProjection(day) : null;
+    const summary = buildPlaceSummary(spot, { categories: store.categories, currency: store.foreignCurrency, timelineItem: findTimelineItem(projection, spot?.id) });
+    const category = summary.identity.category
+        ? `<span class="place-read-chip is-category" style="--category-color:${safeColor(summary.identity.category.color)}">${esc(summary.identity.category.label)}</span>`
+        : '<span class="place-read-empty">Sin categoría</span>';
+    const tags = summary.identity.tags.length ? summary.identity.tags.map((tag) => `<span class="place-read-chip">#${esc(tag)}</span>`).join("") : '<span class="place-read-empty">Sin etiquetas</span>';
+    const temporalStart = summary.temporal.plannedStart || summary.temporal.projectedStart;
+    const temporalItems = [
+        temporalStart
+            ? {
+                  label: summary.identity.kind === "waypoint"
+                      ? summary.temporal.plannedStart ? "Llegada planificada" : "Llegada estimada"
+                      : summary.temporal.fixedStart ? "Reserva" : summary.temporal.plannedStart ? "Inicio planificado" : "Inicio estimado",
+                  value: temporalStart,
+              }
+            : null,
+        summary.identity.kind !== "waypoint" && summary.temporal.duration !== "Sin duración"
+            ? { label: "Duración", value: summary.temporal.duration }
+            : null,
+        summary.identity.kind !== "waypoint" && summary.temporal.projectedEnd
+            ? { label: "Salida prevista", value: summary.temporal.projectedEnd }
+            : null,
+    ].filter(Boolean);
+    const temporalPlan = temporalItems.length
+        ? `<div class="place-read-plan" style="--plan-columns:${temporalItems.length}">${temporalItems.map((item) => `<span><small>${esc(item.label)}</small><b>${esc(item.value)}</b></span>`).join("")}</div>`
+        : '<p class="place-read-plan-empty">Todavía no hay una hora ni una duración planificadas.</p>';
+    $("#placeReadPanel").innerHTML = `<div class="place-read-hero"><span class="place-read-kicker">${esc(summary.identity.kindLabel)}</span><h4>${esc(summary.identity.name)}</h4><div class="place-read-chips">${category}${tags}<span class="place-read-chip ${summary.enabled ? "" : "is-off"}">${esc(summary.enabledLabel)}</span></div></div>
+    <section class="place-read-card place-read-location"><div class="place-read-card-head"><span>Ubicación</span><b>${esc(summary.location.status)}</b></div><div class="place-read-location-layout ${summary.location.coordinates ? "" : "is-mapless"}"><div class="place-read-location-copy"><p>${esc(summary.location.address || "Todavía no hay una dirección guardada.")}</p>${summary.location.coordinates ? `<small>${esc(summary.location.coordinates)}</small>` : ""}<button type="button" data-read-edit="location">${summary.location.hasCoordinates ? "Editar ubicación" : "Añadir ubicación"}</button></div>${summary.location.coordinates ? `<div id="placeReadMap" class="place-read-map" role="img" aria-label="Miniatura del mapa de ${esc(summary.identity.name)}"></div>` : ""}</div></section>
+    <section class="place-read-card place-read-schedule"><div class="place-read-card-head"><span>Plan y horarios</span><b>${summary.temporal.fixedStart ? "Reserva fija" : esc(summary.temporal.schedule)}</b></div>${temporalPlan}<button type="button" data-read-edit="schedule">Editar planificación</button></section>
+    <section class="place-read-card"><div class="place-read-card-head"><span>Información adicional</span><b>${esc(summary.position.label)}</b></div><div class="place-read-rows"><span>Coste <b>${esc(summary.cost?.label || "Sin coste")}</b></span><span>Nota <b>${summary.note ? "Añadida" : "Sin nota"}</b></span></div>${summary.note ? `<p class="place-read-note">${esc(summary.note)}</p>` : ""}<button type="button" data-read-edit="additional">Editar información</button></section>`;
+    if (summary.location.hasCoordinates)
+        requestAnimationFrame(() => openReadPreview(spot));
+}
+
+function setPlaceMode(mode, { focus = true } = {}) {
+    placeMode = mode;
+    const read = mode === "read";
+    $("#placeReadPanel").hidden = !read; $("#placeForm").hidden = read;
+    $("#placeReadActions").hidden = !read; $("#placeEditActions").hidden = read;
+    $("#dialogTitle").textContent = read ? "Parada" : mode === "create" ? "Añadir una parada" : "Editar parada";
+    $("#placeDialogEyebrow").textContent = read ? "Ficha de parada" : mode === "create" ? "Nueva parada" : "Edición de parada";
+    $("#placeSaveButton").textContent = mode === "create" ? "Añadir parada" : "Guardar cambios";
+    dialog.dataset.mode = mode;
+    $("#placeDialogStatus").textContent = read ? "Modo lectura" : mode === "create" ? "Modo creación" : "Modo edición";
+    if (read) { renderPlaceReadPanel(editing.spot); if (focus) $("#placeEditButton").focus(); }
+    else {
+        openPlaceGroup("essential");
+        initialDraft = mode === "create" ? normalizePlaceDraft({}) : normalizePlaceDraft(placeFormDraft());
+        updatePlaceEditorState();
+        if (focus) $("#placeName").focus();
+    }
+}
+
+async function confirmDiscardIfNeeded() {
+    if (placeMode === "read" || !initialDraft || !placeDraftChanged(initialDraft, placeFormDraft())) return true;
+    return confirmAction({ title: "Descartar cambios", message: "Hay cambios sin guardar. ¿Quieres descartarlos?" });
+}
+
+async function requestPlaceClose({ discardToRead = false } = {}) {
+    if (!(await confirmDiscardIfNeeded())) return;
+    if (discardToRead && editing?.spot) { populatePlaceForm(editing.spot, {}); setPlaceMode("read"); return; }
+    dialog.close();
+}
+
+function populatePlaceForm(spot, prefill) {
+    kindTouched = Boolean(spot); setPlaceKind(spotKind(spot));
+    store.selectedLocation = Number.isFinite(spot?.lat) && Number.isFinite(spot?.lng) ? { lat: spot.lat, lng: spot.lng, display_name: spot.address || spot.name } : null;
+    $("#placeName").value = spot ? spot.name || "" : typeof prefill?.name === "string" ? prefill.name : "";
+    $("#placeAddress").value = spot?.address || ""; $("#placeNote").value = spot?.note || "";
+    $("#placeCost").value = Number.isFinite(spot?.cost) ? spot.cost : ""; $("#placeCostCurrency").textContent = store.foreignCurrency;
+    $("#placeOpeningTime").value = normalizeTime(spot?.openingTime) || ""; $("#placeClosingTime").value = normalizeTime(spot?.closingTime) || "";
+    $("#placeVisitMinutes").value = Number.isInteger(spot?.visitMinutes) && spot.visitMinutes > 0 ? spot.visitMinutes : "";
+    $("#placePlannedStart").value = normalizeTime(spot?.plannedStart) || ""; $("#placeFixedStart").checked = spot?.fixedStart === true;
+    $("#placeOptional").checked = spot?.optional === true; $("#placeScheduleNotApplicable").checked = spot?.scheduleNotApplicable === true;
+    setPositionConstraint(spotPositionConstraint(spot)); syncPositionConstraint(); syncClearableTimeInputs();
+    renderTagOptions(spot?.tags || []); renderCategoryOptions(spot?.category ? [spot.category] : []);
+    $("#suggestions").hidden = true;
+    $("#searchStatus").textContent = store.selectedLocation ? "Ubicación actual: " + store.selectedLocation.display_name : "Busca un lugar o pega coordenadas en formato latitud, longitud.";
+    updateGroupSummaries(); initialDraft = normalizePlaceDraft(placeFormDraft());
+}
+
 export function openDialog(dayId, spot, prefill = {}) {
     cancelPendingSearch();
-    editing = {
-        dayId,
-        spot,
-        backlogGroupId: prefill.backlogGroupId,
-        onSave: typeof prefill.onSave === "function" ? prefill.onSave : null,
-    };
-    kindTouched = Boolean(spot);
-    setPlaceKind(spotKind(spot));
-    store.selectedLocation =
-        Number.isFinite(spot?.lat) && Number.isFinite(spot?.lng)
-            ? {
-                  lat: spot.lat,
-                  lng: spot.lng,
-                  display_name: spot.address || spot.name,
-              }
-            : null;
-    $("#dialogTitle").textContent = spot ? "Editar parada" : "Añadir una parada";
-    $("#placeName").value = spot
-        ? spot.name || ""
-        : typeof prefill?.name === "string"
-          ? prefill.name
-          : "";
-    $("#placeAddress").value = spot?.address || "";
-    $("#placeNote").value = spot?.note || "";
-    $("#placeCost").value = Number.isFinite(spot?.cost) ? spot.cost : "";
-    $("#placeCostCurrency").textContent = store.foreignCurrency;
-    $("#placeOpeningTime").value = normalizeTime(spot?.openingTime) || "";
-    $("#placeClosingTime").value = normalizeTime(spot?.closingTime) || "";
-    $("#placeVisitMinutes").value =
-        Number.isInteger(spot?.visitMinutes) && spot.visitMinutes > 0
-            ? spot.visitMinutes
-            : "";
-    $("#placePlannedStart").value = normalizeTime(spot?.plannedStart) || "";
-    syncClearableTimeInputs();
-    $("#placeFixedStart").checked = spot?.fixedStart === true;
-    $("#placeOptional").checked = spot?.optional === true;
-    $("#placeScheduleNotApplicable").checked = spot?.scheduleNotApplicable === true;
-    $("#placeDetails").open = !!spot;
-    $("#resetCost").hidden = !spot;
-    renderTagOptions(spot?.tags || []);
-    renderCategoryOptions(spot?.category ? [spot.category] : []);
-    $("#suggestions").hidden = true;
-    $("#searchStatus").textContent = store.selectedLocation
-        ? "Ubicación actual: " + store.selectedLocation.display_name
-        : "Busca un lugar o pega coordenadas en formato latitud, longitud.";
+    returnFocus = document.activeElement;
+    editing = { dayId, spot, backlogGroupId: prefill.backlogGroupId, onSave: typeof prefill.onSave === "function" ? prefill.onSave : null };
+    populatePlaceForm(spot, prefill);
+    const focusTarget = PLACE_FOCUS_TARGETS[prefill.focus];
+    const mode = spot && !focusTarget ? "read" : spot ? "edit" : "create";
+    setPlaceMode(mode, { focus: false });
     openModal(dialog);
-    openPreview(store.selectedLocation);
-    const focusTargets = {
-        duration: "#placeVisitMinutes",
-        location: "#placeAddress",
-        schedule: "#placeOpeningTime",
-        reservation: "#placePlannedStart",
-    };
-    const focusTarget = focusTargets[prefill.focus];
     if (focusTarget) {
-        $("#placeDetails").open = true;
-        $(focusTarget).focus();
-    } else $("#placeName").focus();
-    const prefilledName =
-        !spot &&
-        typeof prefill?.name === "string" &&
-        prefill.name.trim();
+        openPlaceGroup(focusTarget.group);
+        requestAnimationFrame(() => dialog.querySelector(focusTarget.selector)?.focus());
+    } else requestAnimationFrame(() => (mode === "read" ? $("#placeEditButton") : $("#placeName")).focus());
+    const prefilledName = !spot && typeof prefill?.name === "string" && prefill.name.trim();
     if (prefilledName) queueSearch(prefilledName, { clearsLocation: false });
 }
 
@@ -288,6 +462,7 @@ async function searchPlaces(q) {
                     lng: +place.lon,
                     display_name: displayName,
                 });
+                updatePlaceEditorState();
             };
             box.append(b);
         });
@@ -338,11 +513,64 @@ $("#placeAddress").addEventListener("input", (e) => {
         return;
     }
     setPreview(coordinates);
+    updatePlaceEditorState();
 });
 
 $("#resetCost").addEventListener("click", () => {
-    $("#placeCost").value = "0";
+    $("#placeCost").value = "";
     $("#placeCost").focus();
+    updatePlaceEditorState();
+});
+
+dialog.querySelectorAll(".place-editor-group").forEach((group) =>
+    group.addEventListener("toggle", () => {
+        if (!group.open) return;
+        dialog.querySelectorAll(".place-editor-group").forEach((other) => {
+            if (other !== group) other.open = false;
+        });
+        if (group.dataset.placeGroup === "location")
+            requestAnimationFrame(() => openPreview(store.selectedLocation));
+    }),
+);
+
+dialog.querySelectorAll("[data-duration]").forEach((button) =>
+    button.addEventListener("click", () => {
+        $("#placeVisitMinutes").value = button.dataset.duration;
+        $("#placeVisitMinutes").focus();
+        updatePlaceEditorState();
+    }),
+);
+
+$("#placeEditButton").addEventListener("click", () => setPlaceMode("edit"));
+$("#placeDiscardButton").addEventListener("click", () => requestPlaceClose({ discardToRead: true }));
+$("#placeReadPanel").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-read-edit]");
+    if (!button) return;
+    setPlaceMode("edit", { focus: false });
+    openPlaceGroup(button.dataset.readEdit);
+    const selector = button.dataset.readEdit === "location" ? "#placeAddress" : button.dataset.readEdit === "schedule" ? "#placePlannedStart" : "#placeCost";
+    requestAnimationFrame(() => $(selector).focus());
+});
+
+$("#placeForm").addEventListener("input", updatePlaceEditorState);
+$("#placeForm").addEventListener("change", updatePlaceEditorState);
+document.addEventListener("place-preview-change", updatePlaceEditorState);
+
+dialog.addEventListener("click", (event) => {
+    if (!(event.target === dialog || event.target.closest?.(".close"))) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    requestPlaceClose();
+}, true);
+dialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    requestPlaceClose();
+});
+dialog.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    requestPlaceClose();
 });
 
 clearableTimeInputs.forEach((container) => {
@@ -356,6 +584,7 @@ clearableTimeInputs.forEach((container) => {
             document.getElementById(uncheckId).checked = false;
         syncClearableTimeInput(container);
         input.focus();
+        updatePlaceEditorState();
     });
 });
 
@@ -364,6 +593,7 @@ $("#placeScheduleNotApplicable").addEventListener("change", (event) => {
     $("#placeOpeningTime").value = "";
     $("#placeClosingTime").value = "";
     syncClearableTimeInputs();
+    updatePlaceEditorState();
 });
 [$("#placeOpeningTime"), $("#placeClosingTime")].forEach((input) =>
     input.addEventListener("input", () => {
@@ -373,6 +603,7 @@ $("#placeScheduleNotApplicable").addEventListener("change", (event) => {
 
 $("#placeForm").addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (placeValidation({ reveal: true }).length) return;
     const name = $("#placeName").value.trim(),
         address = $("#placeAddress").value.trim(),
         note = $("#placeNote").value.trim(),
@@ -400,6 +631,9 @@ $("#placeForm").addEventListener("submit", async (e) => {
         optional = $("#placeOptional").checked,
         scheduleNotApplicable = $("#placeScheduleNotApplicable").checked;
     const kind = $("#placeIsWaypoint").checked ? "waypoint" : "activity";
+    const positionConstraint = editing.dayId === "backlog"
+        ? null
+        : spotPositionConstraint({ positionConstraint: positionConstraintValue() });
     if (fixedStart && !plannedStart) {
         toast("Añade una hora planificada antes de marcar la reserva como fija.", "error");
         $("#placePlannedStart").focus();
@@ -408,6 +642,45 @@ $("#placeForm").addEventListener("submit", async (e) => {
     const target =
         editing.dayId === "backlog" ? store.backlog : dayBy(editing.dayId).spots;
     let spot = editing.spot;
+    if (
+        ["first", "last"].includes(positionConstraint) &&
+        target.some((candidate) => candidate !== spot && spotPositionConstraint(candidate) === positionConstraint)
+    ) {
+        toast(`Este día ya tiene una ${positionConstraint === "first" ? "primera" : "última"} parada anclada.`, "error");
+        focusPositionConstraint();
+        return;
+    }
+    if (spot && editing.dayId !== "backlog") {
+        const before = target.map((candidate) => candidate === spot
+            ? { ...candidate, positionConstraint: undefined }
+            : candidate);
+        const candidate = target.map((item) => item === spot
+            ? { ...item, ...(positionConstraint ? { positionConstraint } : {}) }
+            : item);
+        if (!positionConstraint) delete candidate[target.indexOf(spot)].positionConstraint;
+        const candidateIndex = candidate.findIndex((item) => item.id === spot.id);
+        if (positionConstraint === "first" && candidateIndex > 0)
+            candidate.unshift(...candidate.splice(candidateIndex, 1));
+        else if (positionConstraint === "last" && candidateIndex < candidate.length - 1)
+            candidate.push(...candidate.splice(candidateIndex, 1));
+        const violation = dayPositionConstraintViolation(before, candidate);
+        if (violation) {
+            toast(violation, "error");
+            focusPositionConstraint();
+            return;
+        }
+    }
+    const newSpotInsertAt = (spot || editing.dayId === "backlog")
+        ? target.length
+        : positionConstraintInsertionIndex(
+              target,
+              { id: "__new__", name, ...(positionConstraint ? { positionConstraint } : {}) },
+              positionConstraint === "first" ? 0 : target.length,
+          );
+    if (!spot && newSpotInsertAt === null) {
+        toast("No hay una posición compatible con los anclajes actuales.", "error");
+        return;
+    }
     pushUndo();
     if (spot) {
         Object.assign(spot, {
@@ -435,7 +708,7 @@ $("#placeForm").addEventListener("submit", async (e) => {
                 lng: coordinates.lng,
             });
         if (category) spot.category = category;
-        target.push(spot);
+        target.splice(newSpotInsertAt, 0, spot);
     }
     if (cost === undefined) delete spot.cost;
     else spot.cost = cost;
@@ -449,17 +722,37 @@ $("#placeForm").addEventListener("submit", async (e) => {
     else spot.plannedStart = plannedStart;
     if (fixedStart) spot.fixedStart = true; else delete spot.fixedStart;
     if (optional) spot.optional = true; else delete spot.optional;
+    if (positionConstraint) spot.positionConstraint = positionConstraint;
+    else delete spot.positionConstraint;
     if (scheduleNotApplicable) spot.scheduleNotApplicable = true; else delete spot.scheduleNotApplicable;
+    const currentIndex = target.indexOf(spot);
+    if (positionConstraint === "first" && currentIndex > 0) {
+        target.splice(currentIndex, 1);
+        target.unshift(spot);
+    } else if (positionConstraint === "last" && currentIndex >= 0 && currentIndex < target.length - 1) {
+        target.splice(currentIndex, 1);
+        target.push(spot);
+    }
     const onSave = editing.onSave;
     store.active = editing.dayId;
-    dialog.close();
     save();
     render();
     drawMap();
-    onSave?.();
+    editing.spot = spot;
+    populatePlaceForm(spot, {});
+    if (onSave) {
+        dialog.close();
+        onSave();
+    } else setPlaceMode("read");
 });
 
-dialog.addEventListener("close", cancelPendingSearch);
+dialog.addEventListener("close", () => {
+    cancelPendingSearch();
+    dialog.classList.remove("is-dirty");
+    const focusTarget = returnFocus;
+    returnFocus = null;
+    if (focusTarget?.isConnected) requestAnimationFrame(() => focusTarget.focus({ preventScroll: true }));
+});
 
 function renderManagerTags() {
     const list = $("#managerTags");

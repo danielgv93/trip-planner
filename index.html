@@ -657,170 +657,108 @@
             <div id="healthOverview" class="health-overview" aria-label="Resumen de estados"></div>
             <div id="healthResults" class="health-results"></div>
         </dialog>
-        <dialog id="placeDialog">
+        <dialog id="healthSuggestionDialog" class="health-suggestion-dialog" aria-labelledby="healthSuggestionDialogTitle">
             <div class="modal-head">
-                <h3 id="dialogTitle">Añadir una parada</h3>
-                <button class="close" aria-label="Cerrar">×</button>
+                <div class="health-suggestion-dialog-title">
+                    <span class="modal-eyebrow">Mejora simulada</span>
+                    <h3 id="healthSuggestionDialogTitle">Vista previa del cambio</h3>
+                    <p id="healthSuggestionDialogDay"></p>
+                </div>
+                <button class="close" type="button" aria-label="Cerrar">×</button>
             </div>
-            <form class="form" id="placeForm">
-                <label
-                    >Lugar<input
-                        required
-                        id="placeName"
-                        placeholder="Ej. Fushimi Inari Taisha" /></label
-                >
-                <label class="location-field"
-                    >Zona o dirección
-                    <input
-                        autocomplete="off"
-                        id="placeAddress"
-                        placeholder="Dirección o 35.0046, 135.7673" />
-                    <div id="suggestions" class="suggestions" hidden></div
-                ></label>
-                <div id="searchStatus" class="searching">
-                    Busca un lugar o pega coordenadas en formato latitud,
-                    longitud.
-                </div>
-                <div id="previewWrap">
-                    <p class="form-hint map-picker-hint">
-                        Busca un lugar o pega coordenadas de Google Maps en
-                        formato latitud, longitud. También puedes hacer clic en
-                        el mapa para colocar la chincheta; vuelve a hacer clic o
-                        arrástrala para moverla.
-                    </p>
-                    <div id="previewMap" class="preview-map"></div>
-                </div>
-                <details id="placeDetails">
-                    <summary>
-                        <span>Más detalles</span>
-                        <span class="place-details-chevron" aria-hidden="true">⌄</span>
-                    </summary>
-                    <div class="place-details-body">
-                        <label
-                            >Categoría
-                            <div id="categoryOptions" class="category-options"></div
-                        ></label>
-                        <label
-                            >Etiquetas
-                            <div id="tagOptions" class="tag-options"></div></label
-                        ><label
-                            >Nota
-                            <textarea
-                                id="placeNote"
-                                placeholder="Reserva, horario, idea de comida…"
-                            ></textarea>
-                        </label>
-                        <div class="spot-kind-option">
-                            <label>
-                                <input
-                                    id="placeIsWaypoint"
-                                    type="checkbox"
-                                    aria-describedby="placeKindHint"
-                                />
-                                <span>
-                                    <strong>Solo punto de paso</strong>
-                                    <small id="placeKindHint">Se incluirá en el mapa y la ruta, pero no ocupará tiempo ni necesitará horario. Útil para hoteles, estaciones, aeropuertos o puntos de recogida.</small>
-                                </span>
-                            </label>
-                            <p class="spot-kind-state" role="status" aria-live="polite"></p>
+            <div id="healthSuggestionPreview" class="health-suggestion-preview-body"></div>
+            <div class="health-suggestion-dialog-actions">
+                <button type="button" data-modal-close>Cerrar</button>
+                <button id="healthSuggestionApply" class="is-primary" type="button">Aplicar mejora</button>
+            </div>
+        </dialog>
+        <dialog id="placeDialog" class="place-inspector" aria-labelledby="dialogTitle" aria-describedby="placeDialogStatus">
+            <header class="place-inspector-head">
+                <div><span id="placeDialogEyebrow" class="modal-eyebrow">Ficha de parada</span><h3 id="dialogTitle">Parada</h3></div>
+                <button class="close" type="button" aria-label="Cerrar ficha">×</button>
+            </header>
+            <div class="place-inspector-body">
+                <section id="placeReadPanel" class="place-read-panel" aria-label="Resumen de la parada"></section>
+                <form class="place-editor" id="placeForm" novalidate>
+                    <details id="placeGroupEssential" class="place-editor-group" data-place-group="essential" open>
+                        <summary><span class="place-group-index">01</span><span class="place-group-copy"><b>Esencial</b><small>Identidad, función y categoría</small></span><span class="place-group-chevron" aria-hidden="true">⌄</span></summary>
+                        <div class="place-group-body">
+                            <label class="place-field" for="placeName"><span>Nombre</span><input required id="placeName" maxlength="240" placeholder="Ej. Fushimi Inari Taisha" aria-describedby="placeNameError" /><small id="placeNameError" class="place-field-error"></small></label>
+                            <fieldset class="place-kind-field" aria-describedby="placeKindHint">
+                                <legend>Función</legend>
+                                <div class="place-segmented">
+                                    <label><input type="radio" name="placeKind" value="activity" checked /><span>Actividad</span></label>
+                                    <label><input id="placeIsWaypoint" type="radio" name="placeKind" value="waypoint" /><span>Punto de paso</span></label>
+                                </div>
+                                <small id="placeKindHint">Las actividades ocupan tiempo; los puntos de paso marcan llegadas o conexiones.</small>
+                                <p class="spot-kind-state" role="status" aria-live="polite"></p>
+                            </fieldset>
+                            <div class="place-field"><span class="place-field-label">Categoría</span><div id="categoryOptions" class="category-options" role="radiogroup" aria-label="Categoría"></div></div>
                         </div>
-                        <label class="cost-field"
-                            ><span class="cost-label">Coste en moneda extranjera (<span id="placeCostCurrency">JPY</span>)</span>
-                            <span class="cost-input-row">
-                                <input
-                                    id="placeCost"
-                                    type="number"
-                                    step="0.01"
-                                    inputmode="decimal"
-                                    placeholder="0,00"
-                                />
-                                <button
-                                    id="resetCost"
-                                    class="reset-cost"
-                                    type="button"
-                                    title="Restablecer el coste a 0"
-                                    hidden
-                                >
-                                    ↺ Poner a 0
-                                </button>
-                            </span>
-                        </label>
-                        <fieldset class="hours-field" data-activity-only>
-                            <legend>Horario (opcional)</legend>
-                            <div class="hours-input-row">
-                                <label
-                                    >Apertura
-                                    <span class="clearable-time-input">
-                                        <input id="placeOpeningTime" type="time" />
-                                        <button
-                                            class="clear-time-input"
-                                            type="button"
-                                            aria-label="Quitar hora de apertura"
-                                            title="Quitar hora de apertura"
-                                            hidden
-                                        >
-                                            ×
-                                        </button>
-                                    </span>
-                                </label>
-                                <label
-                                    >Cierre
-                                    <span class="clearable-time-input">
-                                        <input id="placeClosingTime" type="time" />
-                                        <button
-                                            class="clear-time-input"
-                                            type="button"
-                                            aria-label="Quitar hora de cierre"
-                                            title="Quitar hora de cierre"
-                                            hidden
-                                        >
-                                            ×
-                                        </button>
-                                    </span>
-                                </label>
-                                <label
-                                    >Tiempo de visita (min)
-                                    <input
-                                        id="placeVisitMinutes"
-                                        type="number"
-                                        min="1"
-                                        step="1"
-                                        inputmode="numeric"
-                                    />
-                                </label>
+                    </details>
+
+                    <details id="placeGroupLocation" class="place-editor-group" data-place-group="location">
+                        <summary><span class="place-group-index">02</span><span class="place-group-copy"><b>Ubicación</b><small id="placeLocationSummary">Añadir ubicación</small></span><span class="place-group-chevron" aria-hidden="true">⌄</span></summary>
+                        <div class="place-group-body">
+                            <label class="place-field location-field" for="placeAddress"><span>Zona, dirección o coordenadas</span><input autocomplete="off" id="placeAddress" placeholder="Dirección o 35.0046, 135.7673" /><div id="suggestions" class="suggestions" hidden></div></label>
+                            <div id="searchStatus" class="searching" role="status" aria-live="polite">Busca un lugar o pega coordenadas en formato latitud, longitud.</div>
+                            <div id="previewWrap">
+                                <p class="form-hint map-picker-hint">Haz clic en el mapa para colocar la chincheta o arrástrala para moverla. La entrada manual sigue disponible sin red.</p>
+                                <div id="previewMap" class="preview-map"></div>
                             </div>
-                            <label class="health-check-field"><input id="placeScheduleNotApplicable" type="checkbox" /> Sin horario aplicable</label>
-                        </fieldset>
-                        <fieldset class="hours-field" data-activity-planning>
-                            <legend>Planificación</legend>
-                            <div class="hours-input-row">
-                                <label
-                                    >Inicio planificado
-                                    <span class="clearable-time-input">
-                                        <input id="placePlannedStart" type="time" />
-                                        <button
-                                            class="clear-time-input"
-                                            type="button"
-                                            aria-label="Quitar inicio planificado"
-                                            title="Quitar inicio planificado"
-                                            data-uncheck="placeFixedStart"
-                                            hidden
-                                        >
-                                            ×
-                                        </button>
-                                    </span>
-                                </label>
-                                <label class="health-check-field"><input id="placeFixedStart" type="checkbox" /> Reserva con hora fija</label>
-                                <label class="health-check-field"><input id="placeOptional" type="checkbox" /> Parada opcional</label>
-                            </div>
-                        </fieldset>
-                    </div>
-                </details>
-                <div class="form-actions">
-                    <button type="button" class="cancel">Cancelar</button
-                    ><button class="save">Guardar parada</button>
-                </div>
-            </form>
+                        </div>
+                    </details>
+
+                    <details id="placeGroupSchedule" class="place-editor-group" data-place-group="schedule">
+                        <summary><span class="place-group-index">03</span><span class="place-group-copy"><b>Plan y horarios</b><small id="placeScheduleSummary">Añadir horario o duración</small></span><span class="place-group-chevron" aria-hidden="true">⌄</span></summary>
+                        <div class="place-group-body">
+                            <fieldset class="hours-field" data-activity-only>
+                                <legend>Duración de la visita</legend>
+                                <div class="place-presets" aria-label="Duraciones frecuentes"><button type="button" data-duration="30">30 min</button><button type="button" data-duration="60">1 h</button><button type="button" data-duration="90">1 h 30</button><button type="button" data-duration="120">2 h</button></div>
+                                <label class="place-field place-suffix-field" for="placeVisitMinutes"><span>Duración manual</span><span><input id="placeVisitMinutes" type="number" min="1" step="1" inputmode="numeric" aria-describedby="placeVisitMinutesError" /><i>min</i></span><small id="placeVisitMinutesError" class="place-field-error"></small></label>
+                            </fieldset>
+                            <fieldset class="hours-field" data-activity-only>
+                                <legend>Horario</legend>
+                                <div class="hours-input-row">
+                                    <label>Apertura<span class="clearable-time-input"><input id="placeOpeningTime" type="time" /><button class="clear-time-input" type="button" aria-label="Quitar hora de apertura" hidden>×</button></span></label>
+                                    <label>Cierre<span class="clearable-time-input"><input id="placeClosingTime" type="time" /><button class="clear-time-input" type="button" aria-label="Quitar hora de cierre" hidden>×</button></span></label>
+                                </div>
+                                <label class="place-switch"><input id="placeScheduleNotApplicable" type="checkbox" /><span>Sin horario aplicable</span></label>
+                            </fieldset>
+                            <fieldset class="hours-field" data-activity-planning>
+                                <legend>Planificación</legend>
+                                <label>Inicio planificado<span class="clearable-time-input"><input id="placePlannedStart" type="time" aria-describedby="placePlannedStartError" /><button class="clear-time-input" type="button" aria-label="Quitar inicio planificado" data-uncheck="placeFixedStart" hidden>×</button></span><small id="placePlannedStartError" class="place-field-error"></small></label>
+                                <label class="place-switch"><input id="placeFixedStart" type="checkbox" /><span>Reserva con hora fija</span></label>
+                            </fieldset>
+                        </div>
+                    </details>
+
+                    <details id="placeGroupAdditional" class="place-editor-group" data-place-group="additional">
+                        <summary><span class="place-group-index">04</span><span class="place-group-copy"><b>Información adicional</b><small id="placeAdditionalSummary">Añadir coste, etiquetas o nota</small></span><span class="place-group-chevron" aria-hidden="true">⌄</span></summary>
+                        <div class="place-group-body">
+                            <div class="place-field"><span class="place-field-label">Etiquetas</span><div id="tagOptions" class="tag-options" role="group" aria-label="Etiquetas"></div></div>
+                            <label class="place-field cost-field" for="placeCost"><span>Coste</span><span class="place-suffix-input"><input id="placeCost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00" aria-describedby="placeCostError" /><i id="placeCostCurrency">JPY</i></span><small id="placeCostError" class="place-field-error"></small><button id="resetCost" class="place-inline-action" type="button">Limpiar coste</button></label>
+                            <fieldset id="placePositionConstraint" class="travel-duration-choice position-constraint-choice" aria-describedby="placePositionConstraintHint">
+                                <legend>Comportamiento en la ruta</legend>
+                                <div class="position-constraint-grid">
+                                    <label><input type="radio" name="placePositionConstraint" value="" checked /><span class="position-constraint-icon" aria-hidden="true">↕</span><span><strong>Flexible</strong><small>Se puede reordenar</small></span></label>
+                                    <label><input type="radio" name="placePositionConstraint" value="first" /><span class="position-constraint-icon" aria-hidden="true">↑</span><span><strong>Primera</strong><small>Origen obligatorio</small></span></label>
+                                    <label><input type="radio" name="placePositionConstraint" value="locked" /><span class="position-constraint-icon" aria-hidden="true">⌖</span><span><strong>Posición fija</strong><small>No se puede cruzar</small></span></label>
+                                    <label><input type="radio" name="placePositionConstraint" value="last" /><span class="position-constraint-icon" aria-hidden="true">↓</span><span><strong>Última</strong><small>Destino obligatorio</small></span></label>
+                                </div>
+                                <p id="placePositionConstraintHint" class="position-constraint-hint" role="status">Las mejoras y los movimientos podrán cambiar su posición.</p>
+                            </fieldset>
+                            <label class="place-switch"><input id="placeOptional" type="checkbox" /><span>Parada opcional</span></label>
+                            <label class="place-field" for="placeNote"><span>Nota</span><textarea id="placeNote" maxlength="1200" placeholder="Reserva, horario, idea de comida…"></textarea></label>
+                        </div>
+                    </details>
+                </form>
+            </div>
+            <p id="placeDialogStatus" class="sr-only" role="status" aria-live="polite"></p>
+            <footer class="place-inspector-actions">
+                <div id="placeReadActions"><button id="placeEditButton" class="save" type="button">Editar parada</button></div>
+                <div id="placeEditActions"><button id="placeDiscardButton" type="button">Descartar</button><button id="placeSaveButton" class="save" type="submit" form="placeForm">Guardar cambios</button></div>
+            </footer>
         </dialog>
         <dialog id="tagDialog">
             <div class="modal-head">
