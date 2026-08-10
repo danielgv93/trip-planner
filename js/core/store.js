@@ -22,8 +22,9 @@ import {
     activeTripNotePage,
     normalizeTripNotePages,
 } from "./note-pages.js";
+import { normalizeReminders } from "./reminders.js";
 
-export const STORAGE_VERSION = 30;
+export const STORAGE_VERSION = 31;
 
 function loadSavedState() {
     const raw =
@@ -141,6 +142,7 @@ export const store = {
               )
             : {},
     travelLegs: {},
+    reminders: [],
     // Local presentation preference. It deliberately stays out of portable
     // plan exports: collaborators can choose their own column balance.
     workspaceSplit:
@@ -175,6 +177,12 @@ store.travelLegs = migrateLegacyTravelLegs(
     store.routeTimeOverrides,
     { spotIds: new Set([...store.state.flatMap((day) => day.spots), ...store.backlog].map((spot) => spot.id)) },
 );
+store.reminders = normalizeReminders(saved?.reminders, {
+    spotIds: new Set(
+        [...store.state.flatMap((day) => day.spots), ...store.backlog]
+            .map((spot) => spot.id),
+    ),
+});
 store.active = store.state[0]?.id;
 
 export function toggleTagFilter(tag) {
@@ -223,6 +231,7 @@ export function save() {
             routeVisualization: store.routeVisualization,
             basemap: store.basemap,
             travelLegs: store.travelLegs,
+            reminders: store.reminders,
             workspaceSplit: store.workspaceSplit,
             itineraryDensity: store.itineraryDensity,
         }),
@@ -248,6 +257,7 @@ export function replacePlanState(plan) {
     store.routeTimeOverrides = plan.routeTimeOverrides;
     store.routeTimeProfiles = plan.routeTimeProfiles;
     store.travelLegs = plan.travelLegs;
+    store.reminders = plan.reminders;
     store.previewMode = false;
     store.selectedLocation = null;
     store.active = store.state[0]?.id || "backlog";

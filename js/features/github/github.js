@@ -58,6 +58,14 @@ function saveGithubMetadata(connection) {
     }
 }
 
+function removeGithubMetadata() {
+    try {
+        localStorage.removeItem(GITHUB_STORAGE_KEY);
+    } catch {
+        throw new GithubError("STORAGE");
+    }
+}
+
 export function getGithubToken() {
     try {
         return sessionStorage.getItem(GITHUB_TOKEN_KEY) || "";
@@ -570,6 +578,7 @@ function renderGithubStatus() {
     githubMenu.querySelector('[data-github-action="configure"]').disabled = store.githubBusy;
     githubMenu.querySelector('[data-github-action="connect"]').disabled = store.githubBusy || !connection;
     githubMenu.querySelector('[data-github-action="pull"]').disabled = store.githubBusy || !store.githubVerified || !connection?.sha;
+    githubMenu.querySelector('[data-github-action="disconnect"]').disabled = store.githubBusy || !connection;
     const publishButton = githubMenu.querySelector('[data-github-action="publish"]');
     const hasChanges = localPlanHasChanges();
     const tokenNeeded = !store.githubBusy && store.githubVerified && Boolean(connection?.sha) && hasChanges && !tokenAvailable;
@@ -708,7 +717,7 @@ githubForm.addEventListener("submit", (event) => {
     }
 });
 
-async function connectGithub() {
+async function connectGithub({ silent = false } = {}) {
     const connection = store.githubConnection;
     if (store.githubBusy || !connection) return;
     setBusy(true);
@@ -729,13 +738,36 @@ async function connectGithub() {
         store.githubConnection = updated;
         store.githubVerified = true;
         store.githubRemoteSnapshot = planSnapshot(remotePlan);
-        toast("Conexión con GitHub verificada.", "success");
+        if (!silent) toast("Conexión con GitHub verificada.", "success");
     } catch (error) {
         store.githubVerified = false;
         if (error.code === "AUTH") setGithubToken("");
-        toast(errorMessage(error), "error", 5600);
+        if (!silent) toast(errorMessage(error), "error", 5600);
     } finally {
         setBusy(false);
+    }
+}
+
+async function disconnectGithub() {
+    const connection = store.githubConnection;
+    if (store.githubBusy || !connection) return;
+    const accepted = await confirmAction({
+        title: "Desconectar GitHub",
+        message: `¿Eliminar la configuración de ${connection.owner}/${connection.repo} y el token guardado en esta sesión? El plan local no cambiará.`,
+        confirmLabel: "Desconectar",
+    });
+    if (!accepted || store.githubBusy) return;
+    try {
+        removeGithubMetadata();
+        setGithubToken("");
+        store.githubConnection = null;
+        store.githubVerified = false;
+        store.githubRemoteSnapshot = null;
+        fillTarget({ owner: "", repo: "", ref: "main", path: "" });
+        renderGithubStatus();
+        toast("GitHub desconectado y configuración eliminada.", "success");
+    } catch (error) {
+        toast(errorMessage(error), "error");
     }
 }
 
@@ -783,6 +815,7 @@ githubMenu.addEventListener("click", (event) => {
     else if (action === "pull" && store.githubConnection) runRead(store.githubConnection, getGithubToken());
     else if (action === "publish" && button.dataset.needsToken === "true") openGithubDialog({ focusToken: true });
     else if (action === "publish") publishGithub();
+    else if (action === "disconnect") disconnectGithub();
 });
 
 document.addEventListener("click", (event) => {
@@ -796,3 +829,6 @@ store.githubConnection = loadGithubMetadata();
 store.githubVerified = false;
 fillTarget(store.githubConnection);
 renderGithubStatus();
+// Best-effort, one-shot verification on startup. A missing configuration or
+// any remote error simply leaves the optional integration disconnected.
+if (store.githubConnection) void connectGithub({ silent: true });

@@ -100,6 +100,43 @@ test("serializePlan genera el documento portable actual", () => {
     assert.equal(Object.hasOwn(serialized, "activeTripNotePageId"), false);
     assert.ok(Array.isArray(serialized.days));
     assert.ok(Array.isArray(serialized.tripNotePages));
+    assert.ok(Array.isArray(serialized.reminders));
+});
+
+test("normalizePlan conserva recordatorios y planes antiguos usan una colección vacía", () => {
+    const value = plan();
+    assert.deepEqual(normalizePlan(value).reminders, []);
+    value.reminders = [
+        { id: "r1", title: "Comprar entradas", spotId: "s1", timing: { type: "offset", amount: 1, unit: "months", anchor: { type: "spot" } } },
+        { id: "r2", title: "Pagar hotel", timing: { type: "fixed", date: "2026-06-01" } },
+    ];
+    assert.deepEqual(normalizePlan(value).reminders, value.reminders);
+});
+
+test("normalizePlan rechaza formas e ids de recordatorio inválidos", () => {
+    const malformed = plan();
+    malformed.reminders = [{ id: "r", title: "", timing: { type: "fixed", date: "2026-01-01" } }];
+    assert.throws(() => normalizePlan(malformed), /INVALID_PLAN/);
+
+    const duplicate = plan();
+    duplicate.reminders = [
+        { id: "r", title: "Uno", timing: { type: "fixed", date: "2026-01-01" } },
+        { id: "r", title: "Dos", timing: { type: "fixed", date: "2026-01-02" } },
+    ];
+    assert.throws(() => normalizePlan(duplicate), /INVALID_PLAN/);
+});
+
+test("normalizePlan sanea vínculos de recordatorio a paradas inexistentes", () => {
+    const value = plan();
+    value.reminders = [
+        { id: "fixed", title: "Pago", spotId: "missing", timing: { type: "fixed", date: "2026-01-01" } },
+        { id: "relative", title: "Reserva", spotId: "missing", timing: { type: "offset", amount: 2, unit: "weeks", anchor: { type: "spot" } } },
+    ];
+    const [fixedReminder, pendingReminder] = normalizePlan(value).reminders;
+    assert.equal(fixedReminder.spotId, undefined);
+    assert.equal(fixedReminder.timing.date, "2026-01-01");
+    assert.equal(pendingReminder.spotId, undefined);
+    assert.equal(pendingReminder.pendingSpotAnchor, true);
 });
 
 test("normalizePlan conserva metadatos de salud seguros", () => {

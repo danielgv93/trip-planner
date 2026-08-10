@@ -23,6 +23,7 @@ import {
     openReadPreview,
     clearPreviewMarker,
 } from "../map/map.js";
+import { reminderReadMarkup } from "../reminders/reminders.js";
 
 const dialog = $("#placeDialog");
 const tagDialog = $("#tagDialog");
@@ -351,10 +352,15 @@ function renderPlaceReadPanel(spot) {
     $("#placeReadPanel").innerHTML = `<div class="place-read-hero"><span class="place-read-kicker">${esc(summary.identity.kindLabel)}</span><h4>${esc(summary.identity.name)}</h4><div class="place-read-chips">${category}${tags}<span class="place-read-chip ${summary.enabled ? "" : "is-off"}">${esc(summary.enabledLabel)}</span></div></div>
     <section class="place-read-card place-read-location"><div class="place-read-card-head"><span>Ubicación</span><b>${esc(summary.location.status)}</b></div><div class="place-read-location-layout ${summary.location.coordinates ? "" : "is-mapless"}"><div class="place-read-location-copy"><p>${esc(summary.location.address || "Todavía no hay una dirección guardada.")}</p>${summary.location.coordinates ? `<small>${esc(summary.location.coordinates)}</small>` : ""}<button type="button" data-read-edit="location">${summary.location.hasCoordinates ? "Editar ubicación" : "Añadir ubicación"}</button></div>${summary.location.coordinates ? `<div id="placeReadMap" class="place-read-map" role="img" aria-label="Miniatura del mapa de ${esc(summary.identity.name)}"></div>` : ""}</div></section>
     <section class="place-read-card place-read-schedule"><div class="place-read-card-head"><span>Plan y horarios</span><b>${summary.temporal.fixedStart ? "Reserva fija" : esc(summary.temporal.schedule)}</b></div>${temporalPlan}<button type="button" data-read-edit="schedule">Editar planificación</button></section>
-    <section class="place-read-card"><div class="place-read-card-head"><span>Información adicional</span><b>${esc(summary.position.label)}</b></div><div class="place-read-rows"><span>Coste <b>${esc(summary.cost?.label || "Sin coste")}</b></span><span>Nota <b>${summary.note ? "Añadida" : "Sin nota"}</b></span></div>${summary.note ? `<p class="place-read-note">${esc(summary.note)}</p>` : ""}<button type="button" data-read-edit="additional">Editar información</button></section>`;
+    <section class="place-read-card"><div class="place-read-card-head"><span>Información adicional</span><b>${esc(summary.position.label)}</b></div><div class="place-read-rows"><span>Coste <b>${esc(summary.cost?.label || "Sin coste")}</b></span><span>Nota <b>${summary.note ? "Añadida" : "Sin nota"}</b></span></div>${summary.note ? `<p class="place-read-note">${esc(summary.note)}</p>` : ""}<button type="button" data-read-edit="additional">Editar información</button></section>${reminderReadMarkup(spot.id)}`;
     if (summary.location.hasCoordinates)
         requestAnimationFrame(() => openReadPreview(spot));
 }
+
+document.addEventListener("reminders-changed", () => {
+    if (dialog.open && placeMode === "read" && editing?.spot)
+        renderPlaceReadPanel(editing.spot);
+});
 
 function setPlaceMode(mode, { focus = true } = {}) {
     placeMode = mode;

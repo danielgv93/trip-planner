@@ -152,6 +152,7 @@ $("#resetBtn").onclick = () => {
         }];
         store.activeTripNotePageId = "notes-general";
         store.travelLegs = {};
+        store.reminders = [];
         store.routeTimeOverrides = {};
         store.routeTimeProfiles = {};
         store.routeVisualization = "straight";

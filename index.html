@@ -105,6 +105,10 @@
                                 <span class="github-menu-icon" aria-hidden="true">↑</span>
                                 <span><strong>Publicar cambios</strong><small>Actualizar el archivo en GitHub</small></span>
                             </button>
+                            <button type="button" role="menuitem" data-github-action="disconnect" disabled>
+                                <span class="github-menu-icon" aria-hidden="true">×</span>
+                                <span><strong>Desconectar GitHub</strong><small>Eliminar configuración y token guardados</small></span>
+                            </button>
                         </div>
                     </div>
                     <button class="primary" id="exportBtn">Exportar plan</button>
@@ -115,6 +119,7 @@
                         </summary>
                         <div class="manage-menu-items">
                             <span class="manage-menu-title">Herramientas</span>
+                            <button id="remindersOpenBtn" type="button" aria-haspopup="dialog" aria-controls="remindersDialog"><span aria-hidden="true">◷</span> Fechas clave</button>
                             <button id="healthCheckBtn" type="button" aria-haspopup="dialog" aria-controls="healthDialog"><span aria-hidden="true">✓</span> Comprobar plan</button>
                             <button id="companionEnterBtn" type="button" aria-controls="companionView"><span aria-hidden="true">➜</span> En ruta</button>
                             <button id="manageTags"><span aria-hidden="true">#</span> Gestionar etiquetas</button>
@@ -642,6 +647,54 @@
                     <button type="button" class="cancel">Cancelar</button>
                     <button class="save" id="travelSaveButton">Guardar trayecto</button>
                 </div>
+            </form>
+        </dialog>
+        <dialog id="remindersDialog" class="reminders-dialog" aria-labelledby="remindersDialogTitle">
+            <div class="modal-head reminders-head">
+                <div><span class="modal-eyebrow">Preparación del viaje</span><h3 id="remindersDialogTitle">Fechas clave</h3><p>Reservas, pagos y plazos, incluso antes de empezar el viaje.</p></div>
+                <button class="close" type="button" aria-label="Cerrar fechas clave">×</button>
+            </div>
+            <div class="reminders-body">
+                <section class="reminders-overview" aria-labelledby="remindersDashboardTitle"><div class="reminders-section-head"><div><span>Cuenta atrás</span><h4 id="remindersDashboardTitle">Próximos plazos</h4></div><button id="reminderCreateBtn" class="save" type="button"><span aria-hidden="true">＋</span> Nuevo recordatorio</button></div><div id="remindersDashboard" class="reminders-dashboard"></div></section>
+                <section class="reminders-calendar-section" aria-labelledby="remindersCalendarTitle">
+                    <div class="reminders-calendar-head"><button id="remindersPrevMonth" type="button" aria-label="Mes anterior">←</button><h4 id="remindersCalendarTitle" aria-live="polite"></h4><button id="remindersNextMonth" type="button" aria-label="Mes siguiente">→</button></div>
+                    <div class="reminders-calendar-layout"><div class="reminders-calendar-grid"><div class="reminders-weekdays" aria-hidden="true"><span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span></div><div id="remindersCalendar" class="reminders-calendar" role="grid"></div></div><section class="reminders-day-panel" aria-labelledby="remindersDayTitle"><span class="reminders-day-eyebrow">Agenda del día</span><h4 id="remindersDayTitle">Selecciona un día</h4><div id="remindersDayList"></div></section></div>
+                    <div id="remindersEmpty" class="reminders-empty" hidden><strong>Aún no hay fechas clave</strong><p>Añade una reserva, un pago o cualquier plazo importante.</p><button type="button" data-reminder-create>Crear el primero</button></div>
+                </section>
+                <section id="remindersPendingSection" class="reminders-pending" aria-labelledby="remindersPendingTitle" hidden><h4 id="remindersPendingTitle">Pendientes de fecha</h4><p>Asigna estas paradas a un día o edita su fecha de referencia.</p><div id="remindersPendingList"></div></section>
+            </div>
+        </dialog>
+        <dialog id="reminderEditorDialog" class="reminder-editor-dialog" aria-labelledby="reminderEditorTitle">
+            <div class="modal-head reminder-editor-head"><div><span class="modal-eyebrow">Fecha clave</span><h3 id="reminderEditorTitle">Nuevo recordatorio</h3><p>Define qué necesitas recordar y cuándo debe aparecer el aviso.</p></div><button class="close" type="button" aria-label="Cerrar editor">×</button></div>
+            <form id="reminderForm" class="reminder-form" novalidate>
+                <section class="reminder-form-section" aria-labelledby="reminderContentTitle">
+                    <div class="reminder-section-heading"><span class="reminder-section-icon" aria-hidden="true">01</span><span><strong id="reminderContentTitle">Información del aviso</strong><small>Un título claro ayuda a reconocerlo de un vistazo.</small></span></div>
+                    <div class="reminder-section-content">
+                        <label class="reminder-field" for="reminderTitle"><span>Título <small>Obligatorio</small></span><input id="reminderTitle" required maxlength="160" placeholder="Ej. Comprar entradas para el museo" /></label>
+                        <label class="reminder-field" for="reminderNote"><span>Detalles <small>Opcional</small></span><textarea id="reminderNote" maxlength="1200" placeholder="Localizador, enlace, condiciones o cualquier dato útil…"></textarea></label>
+                    </div>
+                </section>
+                <section class="reminder-form-section" aria-labelledby="reminderLinkTitle">
+                    <div class="reminder-section-heading"><span class="reminder-section-icon" aria-hidden="true">02</span><span><strong id="reminderLinkTitle">Parada asociada</strong><small>Vincúlalo para encontrar el aviso también desde la parada.</small></span></div>
+                    <div class="reminder-section-content">
+                        <div class="reminder-field"><label for="reminderSpotSearch">Buscar una parada <small>Opcional</small></label><div class="reminder-spot-combobox"><span class="reminder-search-icon" aria-hidden="true">⌕</span><input id="reminderSpotSearch" type="text" autocomplete="off" placeholder="Escribe para filtrar por nombre…" role="combobox" aria-autocomplete="list" aria-controls="reminderSpotOptions" aria-expanded="false" /><button id="reminderSpotClear" type="button" aria-label="Quitar parada asociada" hidden>×</button><div id="reminderSpotOptions" class="reminder-spot-options" role="listbox" aria-label="Paradas del viaje" hidden></div></div><input id="reminderSpot" type="hidden" /><small class="reminder-field-hint">Puedes dejarlo vacío para crear un recordatorio general.</small></div>
+                    </div>
+                </section>
+                <section class="reminder-form-section" aria-labelledby="reminderTimingTitle">
+                    <div class="reminder-section-heading"><span class="reminder-section-icon" aria-hidden="true">03</span><span><strong id="reminderTimingTitle">Cuándo avisar</strong><small>Usa una fecha exacta o calcula el aviso con antelación.</small></span></div>
+                    <div class="reminder-section-content reminder-timing-content">
+                        <fieldset><legend class="sr-only">Cómo se calcula el recordatorio</legend><div class="reminder-segmented"><label><input type="radio" name="reminderTimingType" value="fixed" checked /><span><b>Fecha fija</b><small>Un día concreto</small></span></label><label><input type="radio" name="reminderTimingType" value="offset" /><span><b>Con antelación</b><small>Antes de otra fecha</small></span></label></div></fieldset>
+                        <label id="reminderFixedField" class="reminder-field reminder-date-field" for="reminderFixedDate"><span>Fecha del aviso</span><input id="reminderFixedDate" type="date" /></label>
+                        <div id="reminderOffsetFields" class="reminder-offset-fields" hidden>
+                            <div class="reminder-offset-row"><label class="reminder-field" for="reminderAmount"><span>Cuánto antes</span><input id="reminderAmount" type="number" min="1" step="1" inputmode="numeric" value="1" /></label><label class="reminder-field" for="reminderUnit"><span>Unidad</span><select id="reminderUnit"><option value="days">días</option><option value="weeks">semanas</option><option value="months">meses</option></select></label></div>
+                            <fieldset><legend>Contar desde</legend><div class="reminder-anchor-options"><label><input type="radio" name="reminderAnchorType" value="date" checked /><span><b>Una fecha</b><small>Elegirla manualmente</small></span></label><label><input type="radio" name="reminderAnchorType" value="spot" /><span><b>La parada</b><small>Usar el día asignado</small></span></label></div></fieldset>
+                            <label id="reminderAnchorDateField" class="reminder-field reminder-date-field" for="reminderAnchorDate"><span>Fecha objetivo</span><input id="reminderAnchorDate" type="date" /></label>
+                        </div>
+                        <div id="reminderPreview" class="reminder-preview" role="status" aria-live="polite"></div>
+                    </div>
+                </section>
+                <p id="reminderError" class="field-error reminder-error" role="alert"></p>
+                <div class="form-actions reminder-form-actions"><button id="reminderDeleteBtn" class="reminder-delete" type="button" hidden>Eliminar recordatorio</button><button type="button" class="cancel">Cancelar</button><button class="save" type="submit">Guardar recordatorio</button></div>
             </form>
         </dialog>
         <dialog id="healthDialog" class="health-dialog" aria-labelledby="healthDialogTitle">

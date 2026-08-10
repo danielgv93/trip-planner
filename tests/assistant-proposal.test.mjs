@@ -19,6 +19,7 @@ function currentPlan() {
         backlog: [],
         tags: [],
         categories: [],
+        reminders: [],
         routeTimeOverrides: { "walking:s1>s2": 15 },
         routeTimeProfiles: { "s1>s2": "walking" },
     };
@@ -31,6 +32,25 @@ test("borrar un día mediante propuesta conserva sus paradas en ideas", () => {
     assert.equal(result.days.length, 0);
     assert.equal(result.backlog[0].id, "s1");
     assert.equal(result.backlog[0].plannedStart, undefined);
+});
+
+test("borrar una parada mediante propuesta conserva y materializa sus recordatorios", () => {
+    const original = currentPlan();
+    original.reminders = [{
+        id: "r1",
+        title: "Comprar entrada",
+        spotId: "s1",
+        timing: { type: "offset", amount: 2, unit: "weeks", anchor: { type: "spot" } },
+    }];
+    const result = buildProposedPlan(original, [
+        { type: "delete_spot", spotId: "s1" },
+    ]).plan;
+    assert.equal(result.days[0].spots.length, 0);
+    assert.deepEqual(result.reminders, [{
+        id: "r1",
+        title: "Comprar entrada",
+        timing: { type: "fixed", date: "2026-07-04" },
+    }]);
 });
 
 test("las propuestas inválidas no alteran el plan original", () => {

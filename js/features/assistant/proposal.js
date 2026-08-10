@@ -5,6 +5,7 @@ import { normalizePlan } from "../../core/plan-json.js";
 import { isTime } from "../../core/time.js";
 import { dayPositionConstraintViolation, spotPositionConstraint } from "../../core/itinerary.js";
 import { normalizeTravelLeg, travelLegKey, TRAVEL_MODES } from "../../core/travel-legs.js";
+import { unlinkSpotReminders } from "../../core/reminders.js";
 
 const MAX_ACTIONS = 30;
 
@@ -320,6 +321,7 @@ export function buildProposedPlan(currentPlan, actions) {
             case "delete_spot": {
                 const match = findSpot(plan, action.spotId);
                 assert(match, `No existe la parada “${action.spotId}”.`);
+                plan.reminders = unlinkSpotReminders(plan.reminders || [], action.spotId, plan.days);
                 const [spot] = match.list.splice(match.index, 1);
                 summaries.push(`Eliminar la parada “${spot.name}”`);
                 break;

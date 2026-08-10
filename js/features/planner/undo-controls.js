@@ -6,6 +6,7 @@ import { syncTripNotes } from "../notes/notes.js";
 import { drawMap, syncRouteVisualizationControl } from "../map/map.js";
 import { isDragInProgress } from "./dnd.js";
 import { applyTitle, render } from "./render.js";
+import { refreshRemindersView } from "../reminders/reminders.js";
 import {
     configureHistoryView,
     redo,
@@ -28,6 +29,9 @@ function syncRestoredControls() {
     syncTripNotes();
     render();
     drawMap();
+    if (document.querySelector("#remindersDialog")?.open)
+        refreshRemindersView();
+    document.dispatchEvent(new CustomEvent("reminders-changed"));
 }
 
 configureHistoryView(syncRestoredControls);

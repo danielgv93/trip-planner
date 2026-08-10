@@ -55,6 +55,8 @@ import {
     schedulesOverlap,
     scheduleOverlapSegments,
 } from "./schedule.js";
+import { reminderStripMarkup } from "../reminders/reminders.js";
+import { unlinkSpotReminders } from "../../core/reminders.js";
 
 export { timeToMinutes } from "../../core/time.js";
 export { openingHourSegments, schedulesOverlap, scheduleOverlapSegments };
@@ -1686,7 +1688,10 @@ async function removeTravelConfiguration() {
         );
         if (!shared) {
             const index = spots.findIndex((candidate) => candidate.id === endpoint.id);
-            if (index >= 0) spots.splice(index, 1);
+            if (index >= 0) {
+                store.reminders = unlinkSpotReminders(store.reminders, endpoint.id, store.state);
+                spots.splice(index, 1);
+            }
         }
     });
     travelDialog.close();
@@ -2036,7 +2041,7 @@ function renderList(list, spots, isBacklog = false) {
             ? `<span class="spot-position-badge" title="Las mejoras y los movimientos respetarán este anclaje"><span aria-hidden="true">⌖</span> ${positionLabels[positionConstraint]}</span>`
             : "";
         const handleTitle = positionConstraint ? "Parada anclada; edítala para hacerla flexible" : "Reordenar parada";
-        spot.innerHTML = `<button class="handle${positionConstraint ? " is-anchored" : ""}" type="button" title="${handleTitle}" aria-label="${positionConstraint ? "Parada anclada" : "Reordenar"} ${esc(s.name || "parada")}"${positionConstraint ? ' aria-disabled="true"' : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number}<span class="spot-name-label">${esc(s.name)}</span></span>${kindBadge}${positionBadge}${spotNote}${spotTiming}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="spot-overflow-control"><button type="button" class="spot-overflow-button" data-act="overflow" title="Más acciones" aria-label="Más acciones para ${esc(s.name || "parada")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></span>`;
+        spot.innerHTML = `<button class="handle${positionConstraint ? " is-anchored" : ""}" type="button" title="${handleTitle}" aria-label="${positionConstraint ? "Parada anclada" : "Reordenar"} ${esc(s.name || "parada")}"${positionConstraint ? ' aria-disabled="true"' : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number}<span class="spot-name-label">${esc(s.name)}</span></span>${kindBadge}${positionBadge}${spotNote}${spotTiming}${reminderStripMarkup(s.id)}<span class="spot-tags"><span class="category-badge" style="--category-color:${safeColor(cat.color)}">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="spot-overflow-control"><button type="button" class="spot-overflow-button" data-act="overflow" title="Más acciones" aria-label="Más acciones para ${esc(s.name || "parada")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></span>`;
         if (!hiddenAsEndpoint) {
             wireMapSpotHighlight(spot, s.id);
             list.append(spot);
@@ -2069,7 +2074,10 @@ function renderList(list, spots, isBacklog = false) {
                     const shared = Object.keys(store.travelLegs).some((candidate) => candidate.split(">").includes(String(endpoint.id)));
                     if (!shared) {
                         const endpointIndex = spots.findIndex((candidate) => candidate.id === endpoint.id);
-                        if (endpointIndex >= 0) spots.splice(endpointIndex, 1);
+                        if (endpointIndex >= 0) {
+                            store.reminders = unlinkSpotReminders(store.reminders, endpoint.id, store.state);
+                            spots.splice(endpointIndex, 1);
+                        }
                     }
                 });
                 save(); render(); drawMap();
@@ -3080,6 +3088,7 @@ daysEl.addEventListener("click", (e) => {
             const idx = items.findIndex((s) => s.id === spotEl.dataset.spot);
             if (idx === -1) return;
             pushUndo();
+            store.reminders = unlinkSpotReminders(store.reminders, items[idx].id, store.state);
             items.splice(idx, 1);
             affectedLegs.forEach((key) => delete store.travelLegs[key]);
             save();

@@ -14,8 +14,9 @@ import {
     activeTripNotePage,
     normalizeTripNotePages,
 } from "./note-pages.js";
+import { normalizeReminders } from "./reminders.js";
 
-export const PLAN_VERSION = 27;
+export const PLAN_VERSION = 28;
 
 export function serializePlan({ exportedAt = true } = {}) {
     const plan = {
@@ -34,6 +35,7 @@ export function serializePlan({ exportedAt = true } = {}) {
         routeProfile: store.routeProfile,
         routeVisualization: store.routeVisualization,
         travelLegs: store.travelLegs,
+        reminders: store.reminders,
     };
     if (exportedAt) plan.exportedAt = new Date().toISOString();
     return plan;
@@ -173,6 +175,12 @@ export function normalizePlan(value) {
         routeTimeOverrides,
         { spotIds: new Set(spotIds) },
     );
+    const reminders = value.reminders === undefined
+        ? []
+        : normalizeReminders(value.reminders, {
+              strict: true,
+              spotIds: new Set(spotIds),
+          });
     const tripNotePages = normalizeTripNotePages(value.tripNotePages, {
         legacyNotes: typeof value.tripNotes === "string" ? value.tripNotes : "",
         strict: value.tripNotePages !== undefined,
@@ -210,6 +218,7 @@ export function normalizePlan(value) {
         routeTimeOverrides,
         routeTimeProfiles,
         travelLegs,
+        reminders,
     };
 }
 

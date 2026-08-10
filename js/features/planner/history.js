@@ -24,6 +24,7 @@ const SNAPSHOT_KEYS = [
     "routeTimeOverrides",
     "routeTimeProfiles",
     "travelLegs",
+    "reminders",
 ];
 
 let restoreView = () => {};

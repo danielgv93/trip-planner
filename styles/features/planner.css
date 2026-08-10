@@ -37,6 +37,7 @@ main {
 }
 .planner {
     min-width: 0;
+    container: itinerary-pane / inline-size;
 }
 .itinerary-toolbar {
     display: flex;
@@ -224,16 +225,24 @@ body.compact-itinerary .spot-hours-rail { display: none; }
 body.compact-itinerary .spot-duration { font-size: 9px; }
 body.compact-itinerary .spot-kind-badge { flex: none; margin: 0; font-size: 9px; }
 body.compact-itinerary .spot-tags {
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     display: flex;
     flex-wrap: nowrap;
     gap: 3px;
+    max-width: 100px;
     margin: 0;
     overflow: hidden;
 }
+body.compact-itinerary .spot-content:has(.spot-reminders) .spot-tags .tag { display: none; }
 body.compact-itinerary .spot-tags .tag:not(:first-of-type) { display: none; }
 body.compact-itinerary .category-badge,
 body.compact-itinerary .spot-tags .tag { padding: 2px 5px; font-size: 8px; white-space: nowrap; }
+body.compact-itinerary .category-badge {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 body.compact-itinerary .spot-cost { padding-left: 6px; font-size: 9px; }
 body.compact-itinerary .spot-actions .spot-overflow-button {
     width: 30px;
@@ -271,6 +280,14 @@ body.compact-itinerary .backlog-group-head { min-height: 34px; padding: 3px 6px;
 body.compact-itinerary .backlog-group-collapse,
 body.compact-itinerary .backlog-group-edit,
 body.compact-itinerary .backlog-group-delete { width: 26px; height: 26px; }
+
+@container itinerary-pane (max-width: 760px) {
+    body.compact-itinerary .spot-content { gap: 5px; }
+    body.compact-itinerary .spot-meta,
+    body.compact-itinerary .spot-tags .tag,
+    body.compact-itinerary .spot-timing { display: none; }
+    body.compact-itinerary .category-badge { display: inline-flex; }
+}
 .day {
     background: var(--card);
     border: 1px solid var(--line);
