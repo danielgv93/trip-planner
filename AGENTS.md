@@ -6,7 +6,7 @@ This file provides guidance to Codex when working with code in this repository.
 
 A browser-based trip route planner. It uses vanilla JavaScript **ES modules**, with no framework, build step, package manager, or backend. Small pure-logic tests use the built-in Node.js test runner. UI copy is in **Spanish** (`lang="es"`). The app is split across `index.html` (markup shell and dialogs), `styles/` (CSS by layer and feature), and `js/` (ES modules, entry point `js/app/main.js`).
 
-Plans are stored only in the browser and can be imported/exported as JSON. There is no account or server-side synchronization.
+Plans are stored in the browser and can be imported/exported as JSON. There is no account or project-owned backend. GitHub synchronization and LLM providers are optional, explicit browser-to-service integrations.
 
 ## Running and verification
 
@@ -22,18 +22,19 @@ Run pure-logic tests with `node --test`. There is no lint or build command. Also
 
 Runtime network dependencies:
 
-- **Leaflet 1.9.4** and Google Fonts load from CDNs. Leaflet is exposed as the global `L` by a classic script loaded before `js/app/main.js`.
-- Leaflet map tiles come from OpenStreetMap.
+- **Leaflet 1.9.4**, **MapLibre GL 5.24.0**, the Leaflet/MapLibre bridge, and Google Fonts load from CDNs. Leaflet and MapLibre are exposed as globals by classic scripts loaded before `js/app/main.js`.
+- The default Liberty vector basemap comes from OpenFreeMap. OpenStreetMap is the selectable raster basemap, and CARTO Voyager is the fallback when the vector renderer is unavailable.
 - Place geocoding uses Nominatim.
 - Street routing uses the public `routing.openstreetmap.de` OSRM instances.
 - Exchange rates use Frankfurter.
 - Place thumbnails use the Spanish and English Wikipedia APIs.
+- Optional GitHub synchronization uses the GitHub API. The assistant calls only the LM Studio, OpenAI-compatible, or Anthropic endpoint configured by the user.
 
-Map tiles, search, street routes, exchange rates, and thumbnails therefore require network access. Straight-line routes and saved plan data still work without those APIs. Routing falls back to an approximate great-circle distance when OSRM is unavailable.
+Map tiles, search, street routes, exchange rates, thumbnails, GitHub synchronization, and cloud LLM providers therefore require network access. Straight-line routes and saved plan data still work without those APIs. Routing falls back to an approximate great-circle distance when OSRM is unavailable. Successful OSRM responses use a bounded 30-day device-local cache under `localStorage["trip-planner-osrm-routes"]`; approximate fallbacks remain memory-only.
 
 ## Architecture
 
-The ES modules under `js/` are wired by `js/app/main.js`. Importing the side-effect modules attaches event listeners; after the module graph is evaluated, `main.js` performs the initial `applyTitle(); render(); drawMap();` and refreshes the exchange rate.
+The ES modules under `js/` are wired by `js/app/main.js`. Importing the side-effect modules attaches event listeners; after the module graph is evaluated, `main.js` performs the initial `applyTitle(); render(); drawMap();`, initializes companion mode, refreshes the exchange rate, and lazily imports the LLM assistant.
 
 The source tree follows four explicit boundaries:
 
@@ -50,13 +51,18 @@ Module map (paths are relative to `js/`):
 - **`core/store.js`** — the single source of truth and local persistence.
 - **`core/plan-json.js`** — portable plan normalization and serialization; it does not apply UI changes.
 - **`core/time.js`** / **`core/geo.js`** — pure time and geographic calculations.
-- **`core/itinerary.js`** / **`core/travel-legs.js`** — portable spot-role and directed travel-leg contracts.
-- **`shared/dom.js`** / **`shared/notify.js`** — stateless DOM helpers and reusable notifications.
-- **`features/planner/`** — destructive itinerary rendering, dialogs, actions, plan-application workflow, drag/drop, and search.
-- **`features/map/`** — Leaflet maps, basemaps, routes, and place images.
+- **`core/itinerary.js`** / **`core/travel-legs.js`** / **`core/travel-leg-presentation.js`** — portable spot-role, position-constraint, and directed travel-leg contracts.
+- **`core/plan-metadata.js`** / **`core/note-pages.js`** / **`core/reminders.js`** — normalized scheduling metadata, multi-page notes, and date/reminder rules.
+- **`core/undo-stack.js`** — bounded domain-neutral undo/redo engine; the planner owns captured snapshot fields.
+- **`shared/dom.js`** / **`shared/modal.js`** / **`shared/notify.js`** — stateless DOM, modal, and notification helpers.
+- **`shared/request-cache.js`** — reusable asynchronous in-memory/persistent request cache.
+- **`features/planner/`** — destructive itinerary rendering, dialogs, actions, plan-application workflow, session history, drag/drop, sticky days, and search.
+- **`features/map/`** — Leaflet maps, shared basemaps, persistent OSRM route cache, routes, and place images.
 - **`features/finance/`** — budget and exchange-rate behavior.
-- **`features/notes/`** — autosaved trip notes and Markdown preview.
+- **`features/notes/`** — autosaved multi-page trip notes and Markdown preview.
 - **`features/companion/`** — focused on-trip experience, pure navigation calculations, and timeline projection.
+- **`features/health/`** — itinerary feasibility diagnostics, session-only results, and constraint-aware suggestions.
+- **`features/reminders/`** — fixed and relative trip reminders, calendar/dashboard, and spot associations.
 - **`features/github/`** — optional explicit GitHub JSON synchronization, with transport isolated in `github-api.js`.
 - **`features/assistant/`** — multi-provider LLM chat with validated plan mutations isolated in `proposal.js`.
 - **`features/workspace/`** — persisted desktop workspace resizing.
@@ -70,9 +76,9 @@ All shared mutable state lives as properties of the single exported `store` obje
 
 Important `store` fields:
 
-- Persisted: `tripTitle`, currencies/rate, `tripNotes`, `state` (the days array), `backlog`, `backlogCollapsed`, `tags`, `categories`, route settings/overrides, `basemap`, and `workspaceSplit`.
+- Persisted locally: `tripTitle`, currencies/rate, `tripNotePages`, `activeTripNotePageId`, `state` (the days array), `backlog`, `backlogCollapsed`, `backlogGroups`, `tags`, `categories`, route settings, `basemap`, `travelLegs`, `reminders`, `workspaceSplit`, and `itineraryDensity`.
 - Runtime-only: `active` (day id or `"backlog"`), `previewMode`, `selectedLocation`, and `activeTagFilter` (`Set<string>`).
-- Module-local transient state stays in the module that owns it: e.g. `editing`/search debounce in `dialogs.js`, route/thumbnail caches, and drag variables in `dnd.js`.
+- Module-local transient state stays in the module that owns it: e.g. `editing`/search debounce in `dialogs.js`, health results, undo/redo history, route/thumbnail memory caches, timeline viewport state, and drag variables in `dnd.js`.
 
 Current data shapes:
 
@@ -105,7 +111,9 @@ spot = {
   scheduleNotApplicable?, // true declares that opening/closing hours do not apply
   visitedAt?,   // ISO timestamp from companion mode
   mapEnabled?,  // false disables the stop everywhere; missing means enabled
-  kind          // "activity" | "waypoint"; legacy/missing means activity
+  kind,         // "activity" | "waypoint"; legacy/missing means activity
+  positionConstraint?, // "first" | "last" | "locked"; day spots only
+  backlogGroupId? // group membership; backlog spots only
 }
 
 category = {
@@ -121,25 +129,40 @@ travelLegs["fromId>toId"] = {
   durationMinutes?, departureTime?, fixedDeparture?, line?, note?, cost?,
   embeddedEndpoints? // ["from"], ["to"] or both for a single travel card
 }
+
+backlogGroup = { id, title, collapsed? }
+notePage = { id, title, content }
+
+reminder = {
+  id,
+  title,
+  note?,
+  spotId?,
+  timing: { type: "fixed", date: "YYYY-MM-DD" }
+       | { type: "offset", amount, unit: "days" | "weeks" | "months",
+           anchor: { type: "date", date: "YYYY-MM-DD" } | { type: "spot" } },
+  pendingSpotAnchor? // unresolved relative reminder after its spot disappears
+}
 ```
 
-`save()` writes `localStorage["trip-planner"]` with schema **version 27** (`STORAGE_VERSION` in `core/store.js`). Portable JSON uses its own independently versioned `PLAN_VERSION` in `core/plan-json.js`. Loading still accepts the legacy `japan-planner` key and old saves whose root is directly an array of days. If the persisted shape changes, bump the relevant version and preserve these read fallbacks/migrations.
+`save()` writes `localStorage["trip-planner"]` with schema **version 31** (`STORAGE_VERSION` in `core/store.js`). Portable JSON uses its own independently versioned **version 28** (`PLAN_VERSION` in `core/plan-json.js`). Loading still accepts the legacy `japan-planner` key and old saves whose root is directly an array of days. If the persisted shape changes, bump the relevant version and preserve these read fallbacks/migrations.
 
-JSON export includes the plan data needed for restoration (`days`, `backlog`, title, tags/categories, currencies/rate, notes, and route settings) plus `version` and `exportedAt`. Import requires `days` to be an array and supplies fallbacks for optional/older fields. Keep import and export in sync when adding a portable persisted field. Browser-only presentation state such as active filters is intentionally excluded.
+JSON export includes the portable plan data needed for restoration (`days`, `backlog`, `backlogGroups`, title, tags/categories, currencies/rate, note pages, route settings, travel legs, and reminders) plus `version` and `exportedAt`. Import requires `days` to be an array and supplies fallbacks or migrations for optional/older fields, including legacy `tripNotes` and route-time overrides. Keep import and export in sync when adding a portable persisted field. Browser-only presentation state such as `backlogCollapsed`, the selected note page, basemap, workspace split, itinerary density, active filters, and undo history is intentionally excluded.
 
 ## Core conventions
 
 ### Destructive render cycle
 
-`render()` clears `#days` and rebuilds every day and spot node, then reattaches its listeners. There is no DOM diffing. Normal state mutations use:
+`render()` clears `#days` and rebuilds every day and spot node, then reattaches its listeners. There is no DOM diffing. Normal persisted plan mutations use this established sequence, omitting repaint steps that the affected feature does not need:
 
 ```js
+pushUndo(); // before a user-initiated portable plan mutation
 save();
 render();
 drawMap();
 ```
 
-Some paths use `render({ persist: false })` when repainting derived UI without changing state. Do not surgically patch rendered day/spot DOM as a substitute for the established render cycle.
+Only include `pushUndo()` for flows that participate in session history; local presentation changes and note autosave do not create history snapshots. Some paths use `render({ persist: false })` when repainting derived UI without changing state. Do not surgically patch rendered day/spot DOM as a substitute for the established render cycle.
 
 ### Escaping and validation
 
@@ -153,14 +176,22 @@ Use `spotIsEnabled(spot)` rather than checking `mapEnabled` ad hoc. A missing `m
 
 `activeTagFilter` is view-only and not persisted or exported. Multiple active tags use OR/union semantics through `spotMatchesFilter()`. Dragging spots is blocked while a tag filter is active because filtered DOM indexes do not match the underlying arrays.
 
+### Position constraints and backlog groups
+
+Use the helpers in `core/itinerary.js` for `positionConstraint`; do not reorder or relocate anchored spots ad hoc. A day can have at most one `first` and one `last` stop, while `locked` keeps its exact index. Day deletion strips position constraints before moving its spots to the backlog. `relocateSpot()` clears `plannedStart` and `fixedStart` when its source and destination differ.
+
+`backlogGroupId` is meaningful only for backlog spots and must refer to an existing `backlogGroups` entry. Day spots must not retain it. Use the planner relocation helpers so grouped insertion indexes and constraints remain consistent.
+
 ## Drag-and-drop
 
 Drag-and-drop is a **custom pointer-events implementation, deliberately not native HTML5 DnD**. It floats a clone (`ghost`) under the pointer and animates remaining cards with FLIP (`captureRects()` → DOM reorder → `playFlip()`).
 
-- `moveSpot(spotId, toDay, at)` is the single source of truth for moving/reordering a spot between backlog and days.
+- `moveSpot(spotId, toDay, at, backlogGroupId)` is the single source of truth for moving/reordering a spot between backlog groups and days.
+- `moveTravelCard(key, toDay, beforeSpotId)` atomically relocates travel cards with both embedded waypoint endpoints; those cards cannot move to the backlog or cross anchored stops.
 - `moveDay(dayId, at)` commits real-day reordering; the backlog remains fixed first.
 - Mouse spot drags can start from most of the card; touch spot drags must start on `.handle`.
 - Day drags always start on `.day-handle`.
+- Anchored spots cannot be dragged.
 - Interactive spot controls, schedule rails, and enable toggles do not start drags.
 - `suppressClick` consumes the click emitted immediately after a drag.
 
@@ -168,12 +199,14 @@ Preserve the pointer-cancel cleanup, transition fallback timeouts, auto-scroll, 
 
 ## Maps and routing
 
-There are two Leaflet instances:
+There are several Leaflet instances with different lifecycles:
 
 - Main `#map`: active-day/backlog map or whole-trip map in preview mode.
-- Lazy `#previewMap`: confirms a Nominatim result in the add/edit dialog.
+- Lazy `#previewMap`: picks or confirms a location in the add/edit dialog.
+- Lazy read-only place preview map in the place inspector.
+- Lazy companion map for the focused on-trip experience.
 
-`routeVisualization` chooses `"straight"` or `"streets"`. `routeProfile` (`walking`, `driving`, or `cycling`) affects street routes. OSRM legs are cached in memory by coordinates and profile, and stale async batches are discarded with a token guard. A category with `connects: false` keeps its numbered marker but is omitted from route lines and routing legs.
+The main, edit-preview, and companion maps share the selected basemap; the small read-only place preview intentionally uses OSM raster directly. `routeVisualization` chooses `"straight"` or `"streets"`. `routeProfile` (`walking`, `driving`, or `cycling`) affects street routes unless an explicit travel leg selects its own automatic mode. OSRM legs are cached by coordinates and profile, and stale async batches are discarded with a token guard. A category with `connects: false` keeps its numbered marker but is omitted from route lines and routing legs.
 
 Backlog is a pseudo-day with the fixed id `"backlog"`. It can be active and accept/move spots, but it has no route polyline. Code that resolves an active or destination list must continue to special-case it.
 
@@ -184,6 +217,8 @@ Place search in `dialogs.js` is debounced by 450 ms and requires at least 3 char
 - Deleting a day moves all its spots to the backlog; it must not discard them.
 - Deleting or renaming tags updates all spots that reference them and the active filter when relevant.
 - Deleting a category leaves affected spots uncategorized.
+- Deleting a spot must unlink or resolve its associated reminders rather than leave a dangling spot id.
+- Undo/redo history is session-only and bounded to 20 snapshots; flows integrated with it capture state immediately before mutation.
 - Cost/schedule/map totals must use only enabled stops.
 - Preview mode is read-only and draws the complete trip map.
 - User-facing copy remains in Spanish.
