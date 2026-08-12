@@ -25,14 +25,16 @@ The interface is currently available in Spanish.
 - **Trip notes** — save general information using lightweight Markdown formatting.
 - **Preview mode** — switch to a cleaner, read-only presentation of the itinerary.
 - **Import and export** — save the complete plan as JSON and restore it later.
+- **Multi-trip library** — create, switch, rename, duplicate, archive, restore, and delete independent trips stored in IndexedDB.
+- **Optional cloud workspaces** — always-visible account controls, email/password accounts, durable local-first synchronization, explicit conflict resolution, and revision history with graceful local fallback when the API is unavailable.
 - **GitHub JSON sync** — import an existing repository file and explicitly publish updates with conflict protection.
 - **LLM trip assistant** — connect LM Studio, OpenAI-compatible, or Anthropic endpoints to discuss the current plan and review natural-language changes before applying them.
-- **Local persistence** — changes are automatically stored in the browser with `localStorage`.
+- **Local persistence** — changes are committed to IndexedDB first; the legacy `localStorage` copy remains available during migration and rollback.
 - **Responsive design** — designed for both desktop and mobile use.
 
 ## Getting Started
 
-There is no build step and no package installation. You only need a modern browser and a small local web server.
+There is no frontend build step or package installation. You only need a modern browser and a small local web server. The optional cloud API has its own isolated Node dependencies; see [`server/README.md`](server/README.md).
 
 ```bash
 git clone <your-repository-url>
@@ -89,7 +91,10 @@ trip-planner/
 │       ├── companion/       # On-trip view and timeline
 │       ├── github/          # Optional JSON synchronization
 │       ├── assistant/       # LLM chat and reviewed plan proposals
+│       ├── library/         # IndexedDB-backed multi-trip library
+│       ├── cloud/           # Optional account, sync, conflicts, and history
 │       └── workspace/       # Desktop workspace resizing
+├── server/                  # Optional Node/Postgres API and migrations
 └── styles/
     ├── app.css              # The single stylesheet entry point
     ├── foundation/          # Tokens and global defaults
@@ -97,7 +102,7 @@ trip-planner/
     └── layout/              # Workspace and responsive overrides
 ```
 
-The project uses native ES modules and intentionally has no framework, bundler, package manager, or build pipeline.
+The frontend uses native ES modules and intentionally has no framework, bundler, package manager, or build pipeline. The optional server is isolated under `server/` and uses its own `package.json`.
 Pure domain logic is covered with the built-in Node.js test runner; run it with `node --test`.
 
 ### Architectural boundaries
@@ -122,11 +127,23 @@ Some functionality requires an internet connection:
 
 These are public third-party services. Their availability, usage policies, and rate limits are outside this project's control. Straight-line route visualization and previously saved itinerary data remain available when routing or geocoding services cannot be reached.
 
+## Optional accounts and cloud synchronization
+
+The account and cloud controls are always visible. The browser checks the API at startup and reports when it is unavailable while keeping every local workflow operational. **Cuenta** lets a person register or sign in with email and password when the API is available; creating an account is never required for local editing. The icon-only global save action (also available with `Ctrl+S`/`Cmd+S`) publishes pending changes manually. Once per minute the browser checks for pending changes and only then saves automatically, notifying the user after a successful automatic save. Every edit still commits locally before entering the durable outbox, so downloaded trips remain available offline.
+
+If two devices edit the same remote revision, automatic publication stops. The conflict dialog can adopt the cloud version after creating a recoverable local copy, publish the local version explicitly, or keep both as independent trips. Revision previews are read-only; restoring creates a new revision and participates in the current session's Undo history.
+
+The remote service, environment variables, Postgres setup, mail transport, security policy, integration tests, and rollback procedure are documented in [`server/README.md`](server/README.md).
+
 ## Data and Privacy
 
-The itinerary is stored in your browser under the `trip-planner` `localStorage` key. There is no project-owned backend or account system. Place searches, routes, exchange-rate requests, map tiles, and image lookups are sent directly from the browser to their respective third-party services.
+Trips are stored in the browser's IndexedDB. During the migration window, the previous `trip-planner`/`japan-planner` `localStorage` value is intentionally retained as a recovery copy. Device preferences, filters, active selection, Undo history, ownership, sessions, remote revisions, and the synchronization queue are excluded from portable JSON exports.
 
-Clearing site data will remove the locally saved plan, so export important itineraries as JSON before clearing browser storage or moving to another device.
+When the optional cloud deployment is enabled and a user explicitly uploads a trip, its portable document and revision metadata are stored in Postgres. Passwords are stored as salted `scrypt` derivations and session secrets stay in an `HttpOnly` cookie. The service retains at least the 100 most recent revisions for an existing trip. Closing a session keeps locally downloaded copies according to the notice shown in the app; pending edits can be converted into local copies first. Account deletion requires the current password and removes remote account data after revoking sessions.
+
+Place searches, routes, exchange-rate requests, map tiles, and image lookups are sent directly from the browser to their respective third-party services.
+
+Clearing site data removes IndexedDB and local recovery copies, so export important itineraries as JSON before clearing browser storage. If a local write fails, the status bar does not claim the trip is saved and offers immediate export.
 
 ## Browser Support
 

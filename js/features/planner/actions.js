@@ -185,19 +185,36 @@ $("#exportBtn").onclick = () => {
     URL.revokeObjectURL(url);
 };
 
-// Header overflow menu: taxonomy management and the destructive sample reset.
-// Their existing handlers remain wired by id; close the native <details> after
-// choosing an action and when clicking outside it.
-const manageMenu = $("#manageMenu");
-if (manageMenu) {
-    manageMenu.addEventListener("click", (e) => {
-        if (e.target.closest(".manage-menu-items button")) manageMenu.open = false;
+// Named navigation groups replace the previous catch-all overflow. Keep only
+// one desktop menu open and close it after choosing a concrete action.
+const navGroups = [...document.querySelectorAll(".nav-group")];
+const desktopHoverNavigation = () =>
+    matchMedia("(min-width: 1401px) and (hover: hover) and (pointer: fine)").matches;
+navGroups.forEach((group) => {
+    let hoverCloseTimer;
+    group.addEventListener("toggle", () => {
+        if (!group.open || matchMedia("(max-width: 1400px)").matches) return;
+        navGroups.forEach((other) => { if (other !== group) other.open = false; });
     });
-    document.addEventListener("click", (e) => {
-        if (manageMenu.open && !manageMenu.contains(e.target))
-            manageMenu.open = false;
+    group.addEventListener("click", (e) => {
+        if (e.target.closest(".nav-group-items > button")) group.open = false;
     });
-}
+    group.addEventListener("pointerenter", () => {
+        if (!desktopHoverNavigation()) return;
+        clearTimeout(hoverCloseTimer);
+        group.open = true;
+    });
+    group.addEventListener("pointerleave", () => {
+        if (!desktopHoverNavigation()) return;
+        clearTimeout(hoverCloseTimer);
+        hoverCloseTimer = setTimeout(() => { group.open = false; }, 120);
+    });
+});
+document.addEventListener("click", (e) => {
+    navGroups.forEach((group) => {
+        if (group.open && !group.contains(e.target)) group.open = false;
+    });
+});
 
 $("#importBtn").onclick = () => $("#importFile").click();
 
@@ -210,21 +227,17 @@ if (navToggle && topActions) {
         topActions.classList.remove("nav-open");
         navToggle.setAttribute("aria-expanded", "false");
         navToggle.setAttribute("aria-label", "Abrir menú");
-        if (matchMedia("(max-width: 860px)").matches && manageMenu)
-            manageMenu.open = false;
+        navGroups.forEach((group) => { group.open = false; });
     };
     navToggle.addEventListener("click", (e) => {
         e.stopPropagation();
         const open = topActions.classList.toggle("nav-open");
         navToggle.setAttribute("aria-expanded", String(open));
         navToggle.setAttribute("aria-label", open ? "Cerrar menú" : "Abrir menú");
-        if (matchMedia("(max-width: 860px)").matches && manageMenu)
-            manageMenu.open = open;
     });
-    // Close after choosing an action, but keep it open when toggling the
-    // nested "Gestionar" <summary> (which isn't a <button>).
+    // Close after choosing an action; summaries only expand their group.
     $("#navMenuItems").addEventListener("click", (e) => {
-        if (e.target.closest("button") && !e.target.closest("#githubOpenBtn")) closeNav();
+        if (e.target.closest("button") && !e.target.closest("#githubOpenBtn, #accountBtn")) closeNav();
     });
     document.addEventListener("click", (e) => {
         if (topActions.classList.contains("nav-open") && !topActions.contains(e.target))
