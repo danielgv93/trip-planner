@@ -107,7 +107,6 @@ function renderAccount() {
     button.querySelector(".account-label").hidden = hasAvatar;
     navAvatar.hidden = !hasAvatar;
     paintAvatar(navAvatar, user);
-    button.querySelector(".account-chevron").toggleAttribute("hidden", !session);
     button.setAttribute("aria-haspopup", session ? "menu" : "dialog");
     button.setAttribute("aria-controls", session ? "accountMenu" : "accountDialog");
     button.setAttribute("aria-label", session ? `Cuenta de ${accountName}` : "Iniciar sesión");

@@ -181,8 +181,7 @@
 .sync-menu-items {
     min-width: 270px;
 }
-.sync-status-dot,
-.account-dot {
+.sync-status-dot {
     display: block;
     width: 8px;
     height: 8px;
@@ -198,18 +197,24 @@
     gap: 7px;
     white-space: nowrap;
 }
-.account-button[data-session="active"] .account-dot {
-    background: #79c7a3;
-    box-shadow: 0 0 0 3px #79c7a326;
+.nav-menu-items > .account-control > .account-button[data-session="local"] {
+    border-color: var(--red);
+    background: var(--red);
+    color: #fff;
+    box-shadow: 0 4px 12px #d44d4329;
+}
+.nav-menu-items > .account-control > .account-button[data-session="local"]:hover,
+.nav-menu-items > .account-control > .account-button[data-session="local"]:focus-visible {
+    border-color: var(--red-dark);
+    background: var(--red-dark);
+    box-shadow: 0 6px 16px #d44d4338;
+    outline: none;
 }
 .account-control { position: relative; }
 .account-label { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-label[hidden], .account-nav-avatar[hidden] { display: none; }
 .account-nav-avatar { display: block; width: 32px; height: 32px; flex: 0 0 auto; overflow: hidden; border: 0; border-radius: 50%; background: #d8e9e2 center/cover no-repeat; }
 .nav-menu-items > .account-control > .account-button[data-avatar="visible"] { padding: 1px 7px; border-color: transparent; }
-.account-button[data-avatar="visible"] .account-dot { display: none; }
-.account-chevron { width: 15px; height: 15px; margin-left: 1px; color: #b9c7c8; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .16s ease; }
-.account-button[aria-expanded="true"] .account-chevron { transform: rotate(180deg); }
 .account-menu {
     position: absolute;
     z-index: 70;
