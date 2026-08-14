@@ -2,6 +2,7 @@
 // Kept separate from provider transport and chat rendering.
 
 import { normalizePlan } from "../../core/plan-json.js";
+import { randomUUID } from "../../core/random-id.js";
 import { isTime } from "../../core/time.js";
 import { dayPositionConstraintViolation, spotPositionConstraint } from "../../core/itinerary.js";
 import { normalizeTravelLeg, travelLegKey, TRAVEL_MODES } from "../../core/travel-legs.js";
@@ -202,7 +203,7 @@ export function buildProposedPlan(currentPlan, actions) {
                 assert(tempId && !tempIds.has(tempId), "El tempId del día no es válido o está repetido.");
                 const date = cleanString(action.date || "", "Fecha", 10);
                 assert(/^\d{4}-\d{2}-\d{2}$/.test(date), "La fecha del nuevo día debe usar YYYY-MM-DD.");
-                const day = { id: crypto.randomUUID(), date, title: cleanString(action.title || "", "Título del día", 120), spots: [] };
+                const day = { id: randomUUID(), date, title: cleanString(action.title || "", "Título del día", 120), spots: [] };
                 tempIds.set(tempId, day.id);
                 plan.days.splice(clampIndex(action.at, plan.days.length), 0, day);
                 summaries.push(`Añadir el día “${day.title || date}”`);
@@ -250,7 +251,7 @@ export function buildProposedPlan(currentPlan, actions) {
                 const tempId = cleanString(action.tempId, "tempId", 80);
                 assert(tempId && !tempIds.has(tempId), "El tempId de la parada no es válido o está repetido.");
                 const dayId = resolveDayId(plan, action.dayId, tempIds);
-                const spot = { id: crypto.randomUUID(), ...cleanSpotPatch(action.spot, plan, { requireName: true }) };
+                const spot = { id: randomUUID(), ...cleanSpotPatch(action.spot, plan, { requireName: true }) };
                 assert(!spot.fixedStart || spot.plannedStart, "Una reserva fija necesita una hora planificada.");
                 assert(dayId !== "backlog" || !spotPositionConstraint(spot), "Una parada del backlog no puede estar anclada.");
                 assert(!spotPositionConstraint(spot) || !spot.optional, "Una parada anclada no puede ser opcional.");

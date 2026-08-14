@@ -1,6 +1,7 @@
 // Stateless DOM and formatting helpers shared across modules.
 
 import { UNCATEGORIZED } from "../core/constants.js";
+import { randomUUID } from "../core/random-id.js";
 
 export const $ = (s) => document.querySelector(s);
 
@@ -63,5 +64,5 @@ export function fmt(date) {
 }
 
 export function id() {
-    return crypto.randomUUID();
+    return randomUUID();
 }

@@ -1,3 +1,4 @@
+import { randomUUID } from "./random-id.js";
 import { createTripEnvelope, normalizeTripEnvelope } from "./trip-envelope.js";
 
 export const TRIP_DATABASE_NAME = "trip-planner-workspaces";
@@ -150,7 +151,7 @@ export function createTripRepository(storage) {
                         tripId: id,
                         remoteId: value.remote.id,
                         type: "delete",
-                        clientMutationId: crypto.randomUUID(),
+                        clientMutationId: randomUUID(),
                         createdAt: new Date().toISOString(),
                     });
                 } else {

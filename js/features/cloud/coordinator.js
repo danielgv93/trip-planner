@@ -1,4 +1,5 @@
 import { canonicalPlanHash } from "../../core/plan-hash.js";
+import { randomUUID } from "../../core/random-id.js";
 import { store } from "../../core/store.js";
 import { createTripEnvelope } from "../../core/trip-envelope.js";
 import {
@@ -23,7 +24,7 @@ let retryTimer = null;
 let attempts = 0;
 let remoteLibrary = [];
 const conflicts = new Map();
-const deviceId = localStorage.getItem("trip-planner-device-id") || crypto.randomUUID();
+const deviceId = localStorage.getItem("trip-planner-device-id") || randomUUID();
 localStorage.setItem("trip-planner-device-id", deviceId);
 
 function emitSession() {
@@ -281,7 +282,7 @@ export async function resolveConflict(localId, action) {
         await repository.commitTrip(local, {
             ...conflict.item,
             baseRevision: local.remote.baseRevision,
-            clientMutationId: crypto.randomUUID(),
+            clientMutationId: randomUUID(),
         });
     } else if (action === "copy") {
         await repository.duplicateTrip(localId, { newId: tripId(), title: `${local.document.tripTitle} (copia)` });

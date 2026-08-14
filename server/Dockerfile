@@ -9,6 +9,8 @@ COPY server/migrations ./migrations
 COPY server/src ./src
 COPY js/core /app/js/core
 
+RUN chmod -R a+rX /app
+
 USER node
 
 EXPOSE 8787

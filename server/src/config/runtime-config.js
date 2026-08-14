@@ -31,6 +31,10 @@ export function loadConfig(env = process.env) {
         databaseIdleTimeoutMs: integer(env, "DATABASE_IDLE_TIMEOUT_MS", 30_000),
         databaseConnectionTimeoutMs: integer(env, "DATABASE_CONNECTION_TIMEOUT_MS", 5_000),
         statementTimeoutMs: integer(env, "DATABASE_STATEMENT_TIMEOUT_MS", 10_000),
+        databaseSsl:
+            env.DATABASE_SSL === undefined
+                ? nodeEnv === "production"
+                : truthy.has(String(env.DATABASE_SSL).toLowerCase()),
         bodyLimitBytes: integer(env, "BODY_LIMIT_BYTES", 1_048_576),
         sessionDays: integer(env, "SESSION_DAYS", 30, { max: 90 }),
         trustProxy: truthy.has(String(env.TRUST_PROXY || "false").toLowerCase()),
