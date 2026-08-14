@@ -1,6 +1,7 @@
 import { DEFAULT_CATEGORIES } from "../../core/constants.js";
 import { migrateLegacyTrip } from "../../core/legacy-trip-migration.js";
 import { normalizePlan, portablePlanFrom } from "../../core/plan-json.js";
+import { randomUUID } from "../../core/random-id.js";
 import { canonicalPlanHash } from "../../core/plan-hash.js";
 import { store, registerTripCommitter, replacePlanState } from "../../core/store.js";
 import { createTripEnvelope } from "../../core/trip-envelope.js";
@@ -11,7 +12,7 @@ let repository = null;
 let lastCommit = Promise.resolve();
 
 export function tripId() {
-    return crypto.randomUUID();
+    return randomUUID();
 }
 
 function emptyDocument(title = "Nuevo viaje") {
@@ -87,7 +88,7 @@ export function commitActiveTrip() {
             type: "document",
             remoteId: envelope.remote.id,
             baseRevision: envelope.remote.baseRevision,
-            clientMutationId: crypto.randomUUID(),
+            clientMutationId: randomUUID(),
             hash: canonicalPlanHash(envelope.document),
             document: envelope.document,
         } : null;
@@ -179,7 +180,7 @@ export async function renameTrip(id, title) {
         type: "document",
         remoteId: envelope.remote.id,
         baseRevision: envelope.remote.baseRevision,
-        clientMutationId: crypto.randomUUID(),
+        clientMutationId: randomUUID(),
         hash: canonicalPlanHash(envelope.document),
         document: envelope.document,
     } : null;
@@ -196,7 +197,7 @@ export async function archiveTrip(id, archived) {
         await repository.commitTrip(envelope, {
             type: "metadata",
             remoteId: envelope.remote.id,
-            clientMutationId: crypto.randomUUID(),
+            clientMutationId: randomUUID(),
             patch: { archived: archived === true },
         });
         document.dispatchEvent(new CustomEvent("trip-sync-needed"));

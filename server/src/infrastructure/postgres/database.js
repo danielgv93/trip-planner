@@ -7,7 +7,7 @@ export async function createDatabase(config) {
         connectionTimeoutMillis: config.databaseConnectionTimeoutMs,
         statement_timeout: config.statementTimeoutMs,
         application_name: "trip-planner-api",
-        ssl: config.production ? { rejectUnauthorized: true } : undefined,
+        ssl: config.databaseSsl ? { rejectUnauthorized: true } : undefined,
     });
     pool.on("error", (error) => {
         console.error(JSON.stringify({ event: "database_pool_error", message: error.message }));
