@@ -2,19 +2,63 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: trip_planner
-      POSTGRES_USER: trip_planner
-      POSTGRES_PASSWORD: change-me
+      POSTGRES_DB: ${POSTGRES_DB:-trip_planner}
+      POSTGRES_USER: ${POSTGRES_USER:-trip_planner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
+      #- "5432:5432"
     volumes:
       - trip_planner_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U trip_planner -d trip_planner"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
     stop_grace_period: 30s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      CLOUD_ENABLED: "true"
+      HOST: 0.0.0.0
+      PORT: 8787
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8000}
+      DATABASE_URL: postgres://${POSTGRES_USER:-trip_planner}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-trip_planner}
+      DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-10}
+      DATABASE_IDLE_TIMEOUT_MS: ${DATABASE_IDLE_TIMEOUT_MS:-30000}
+      DATABASE_CONNECTION_TIMEOUT_MS: ${DATABASE_CONNECTION_TIMEOUT_MS:-5000}
+      DATABASE_STATEMENT_TIMEOUT_MS: ${DATABASE_STATEMENT_TIMEOUT_MS:-10000}
+      BODY_LIMIT_BYTES: ${BODY_LIMIT_BYTES:-1048576}
+      SESSION_DAYS: ${SESSION_DAYS:-30}
+      TRUST_PROXY: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8787"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    stop_grace_period: 15s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+    ports:
+      - "${FRONTEND_PORT:-8000}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   trip_planner_postgres_data:

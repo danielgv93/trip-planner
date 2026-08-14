@@ -1,0 +1,14 @@
+.git
+.DS_Store
+.atl
+.claude
+.codex
+.agents
+openspec
+server/node_modules
+server/.env
+server/test
+docs
+tests
+compose.yaml
+README.md

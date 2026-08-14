@@ -96,21 +96,33 @@ function prepareSettings() {
 function renderAccount() {
     const session = store.accountSession;
     const user = session?.user;
+    const checking = !session && store.cloudAvailability === "checking";
     const hasAvatar = Boolean(session && user?.avatarDataUrl);
     const accountName = user?.displayName || "Cuenta";
     const navAvatar = document.querySelector("#accountNavAvatar");
     document.querySelector("#accountSignedOut").hidden = Boolean(session);
     document.querySelector("#accountSignedIn").hidden = !session;
-    button.dataset.session = session ? "active" : "local";
+    button.dataset.session = checking ? "checking" : session ? "active" : "local";
     button.dataset.avatar = hasAvatar ? "visible" : "hidden";
-    button.querySelector(".account-label").textContent = session ? accountName : "Iniciar sesión";
+    button.querySelector(".account-label").textContent = checking
+        ? "Comprobando sesión…"
+        : session ? accountName : "Iniciar sesión";
     button.querySelector(".account-label").hidden = hasAvatar;
     navAvatar.hidden = !hasAvatar;
     paintAvatar(navAvatar, user);
-    button.setAttribute("aria-haspopup", session ? "menu" : "dialog");
-    button.setAttribute("aria-controls", session ? "accountMenu" : "accountDialog");
-    button.setAttribute("aria-label", session ? `Cuenta de ${accountName}` : "Iniciar sesión");
-    button.title = session ? `Cuenta · ${user?.email || "sesión iniciada"}` : "Iniciar sesión o crear una cuenta";
+    button.disabled = checking;
+    button.toggleAttribute("aria-busy", checking);
+    if (checking) {
+        button.removeAttribute("aria-haspopup");
+        button.removeAttribute("aria-controls");
+        button.setAttribute("aria-label", "Comprobando sesión");
+        button.title = "Comprobando sesión…";
+    } else {
+        button.setAttribute("aria-haspopup", session ? "menu" : "dialog");
+        button.setAttribute("aria-controls", session ? "accountMenu" : "accountDialog");
+        button.setAttribute("aria-label", session ? `Cuenta de ${accountName}` : "Iniciar sesión");
+        button.title = session ? `Cuenta · ${user?.email || "sesión iniciada"}` : "Iniciar sesión o crear una cuenta";
+    }
     document.querySelector("#accountMenuName").textContent = user?.displayName || "Mi cuenta";
     document.querySelector("#accountMenuEmail").textContent = user?.email || "";
     document.querySelector("#accountSettingsName").textContent = user?.displayName || "Mi cuenta";

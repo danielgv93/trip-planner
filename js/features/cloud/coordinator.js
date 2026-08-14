@@ -318,7 +318,13 @@ export async function checkRemoteUpdates() {
 export async function initializeCloud() {
     const config = cloudClientConfig();
     client = createCloudClient({ ...config, csrfToken: () => csrf });
-    remoteLibrary = await getTripRepository()?.getPreference("remoteLibrary") || [];
+    const repository = getTripRepository();
+    const cachedSession = await repository?.getPreference("accountSessionHint");
+    if (cachedSession) {
+        store.accountSession = { ...cachedSession, offline: true };
+        emitSession();
+    }
+    remoteLibrary = await repository?.getPreference("remoteLibrary") || [];
     emitRemoteLibrary();
     await refreshCloudSession();
     if (store.accountSession) {

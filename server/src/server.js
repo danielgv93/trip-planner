@@ -1,16 +1,27 @@
 import { createApi } from "./api/create-api.js";
 import { loadConfig } from "./config/runtime-config.js";
 import { createDatabase } from "./infrastructure/postgres/database.js";
+import { migrate } from "./infrastructure/postgres/run-migrations.js";
 
 const config = loadConfig();
-const database = config.cloudEnabled
-    ? await createDatabase(config)
-    : {
-          health: async () => ({ ok: true, disabled: true }),
-          query: async () => { throw new Error("Cloud deshabilitada"); },
-          connect: async () => { throw new Error("Cloud deshabilitada"); },
-          close: async () => {},
-      };
+let database;
+if (config.cloudEnabled) {
+    database = await createDatabase(config);
+    try {
+        await migrate(database);
+        console.log(JSON.stringify({ event: "database_migrations_applied" }));
+    } catch (error) {
+        await database.close();
+        throw error;
+    }
+} else {
+    database = {
+        health: async () => ({ ok: true, disabled: true }),
+        query: async () => { throw new Error("Cloud deshabilitada"); },
+        connect: async () => { throw new Error("Cloud deshabilitada"); },
+        close: async () => {},
+    };
+}
 const app = createApi({ database, config });
 
 const server = app.listen(config.port, config.host, () => {

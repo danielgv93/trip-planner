@@ -36,6 +36,16 @@ The interface is currently available in Spanish.
 
 There is no frontend build step or package installation. You only need a modern browser and a small local web server. The optional cloud API has its own isolated Node dependencies; see [`server/README.md`](server/README.md).
 
+To run the complete stack (frontend, API, and PostgreSQL) with Docker:
+
+```bash
+docker compose up --build
+```
+
+Then open [http://localhost:8000](http://localhost:8000). The API applies pending database migrations automatically before it starts accepting requests. The frontend proxies `/api/*` to the API inside the Compose network, so the browser only accesses one origin. PostgreSQL is exposed only on `127.0.0.1:5432` by default, and its data persists in the `trip_planner_postgres_data` volume. Configure `APP_ORIGIN`, `FRONTEND_PORT`, and the `POSTGRES_*` variables in a root `.env` file when deploying under a different URL or with non-development credentials. Set `NODE_ENV=production` when the public origin uses HTTPS so session cookies are marked as secure.
+
+To run only the static frontend without Docker:
+
 ```bash
 git clone <your-repository-url>
 cd trip-planner

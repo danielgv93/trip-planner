@@ -4,7 +4,6 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#1d2d36" />
-        <meta name="trip-planner-cloud" data-api-base="http://localhost:8787" />
         <title>Planificador de ruta</title>
         <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -156,7 +155,7 @@
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5"/><path d="M20 12h-9a7 7 0 0 0-7 7"/></svg>
                     </button>
                     <div id="accountControl" class="account-control">
-                        <button id="accountBtn" class="account-button" type="button" data-session="local" aria-haspopup="dialog" aria-controls="accountDialog" aria-expanded="false"><span id="accountNavAvatar" class="account-nav-avatar" aria-hidden="true" hidden></span><span class="account-label">Iniciar sesión</span></button>
+                        <button id="accountBtn" class="account-button" type="button" data-session="checking" aria-label="Comprobando sesión" aria-busy="true" aria-expanded="false" disabled><span id="accountNavAvatar" class="account-nav-avatar" aria-hidden="true" hidden></span><span class="account-label">Comprobando sesión…</span></button>
                         <div id="accountMenu" class="account-menu" role="menu" aria-label="Menú de cuenta" hidden>
                             <div class="account-menu-user">
                                 <span id="accountMenuAvatar" class="account-menu-avatar" aria-hidden="true"></span>

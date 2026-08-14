@@ -34,20 +34,29 @@ src/
 
 Requiere Node.js 20.6 o posterior y Postgres 15 o posterior:
 
+Para levantar PostgreSQL, iniciar la API y servir el frontend bajo un único origen desde la raíz del repositorio:
+
+```bash
+docker compose up --build
+```
+
+La aplicación queda disponible en `http://localhost:8000`. Nginx sirve los archivos estáticos y reenvía `/api/*` al contenedor `api`; este no publica su puerto directamente en el host. Al arrancar, la API crea las tablas en una base nueva y aplica cualquier migración pendiente antes de aceptar peticiones. Para otro dominio o puerto, define `APP_ORIGIN` con el origen público exacto y ajusta `FRONTEND_PORT`; define también credenciales `POSTGRES_*` no predeterminadas fuera del desarrollo local. En un despliegue HTTPS usa además `NODE_ENV=production` para emitir cookies de sesión seguras.
+
+Para ejecutar la API directamente en la máquina y usar solo Postgres en Docker:
+
 ```bash
 docker compose up -d db
 cd server
 npm install
 cp .env.example .env
-npm run migrate
 npm start
 ```
 
-El `compose.yaml` de la raíz levanta PostgreSQL 16 en `127.0.0.1:5432`, con las mismas credenciales de desarrollo que `server/.env.example`. Los datos se conservan en el volumen `trip_planner_postgres_data`. Para detener la base usa `docker compose stop db`; `docker compose down` elimina el contenedor y la red, pero conserva el volumen mientras no se añada `--volumes`.
+El servicio `db` usa PostgreSQL 16 en `127.0.0.1:5432`, con las mismas credenciales de desarrollo que `server/.env.example`. Los datos se conservan en el volumen `trip_planner_postgres_data`. Para detener la base usa `docker compose stop db`; `docker compose down` elimina los contenedores y la red, pero conserva el volumen mientras no se añada `--volumes`.
 
-`npm run migrate` y `npm start` cargan `server/.env` mediante el soporte nativo de Node.js. Las variables ya inyectadas en el proceso tienen prioridad sobre el archivo, por lo que CI y producción pueden proporcionar su propia configuración sin quedar sobrescritas. Con `CLOUD_ENABLED=false`, `/api/health` responde, pero cuentas, viajes y sincronización permanecen deshabilitados.
+`npm start` carga `server/.env` mediante el soporte nativo de Node.js y aplica automáticamente las migraciones cuando cloud está habilitada. `npm run migrate` continúa disponible para ejecutarlas manualmente. Las variables ya inyectadas en el proceso tienen prioridad sobre el archivo, por lo que CI y producción pueden proporcionar su propia configuración sin quedar sobrescritas. Con `CLOUD_ENABLED=false`, `/api/health` responde, pero cuentas, viajes y sincronización permanecen deshabilitados.
 
-El cliente muestra siempre la interfaz cloud y comprueba `/api/session` al arrancar. Si la API no está disponible, informa del fallo y mantiene operativo el modo local. El `index.html` de desarrollo configura `data-api-base="http://localhost:8787"` porque la web se sirve en `localhost:8000`; un despliegue bajo el mismo origen puede dejar esa base vacía. `globalThis.TRIP_PLANNER_CLOUD.baseUrl` también puede sustituirla en tiempo de ejecución.
+El cliente muestra siempre la interfaz cloud y comprueba `/api/session` al arrancar. Si la API no está disponible, informa del fallo y mantiene operativo el modo local.
 
 ## Variables
 
@@ -63,7 +72,7 @@ El cliente muestra siempre la interfaz cloud y comprueba `/api/session` al arran
 
 ## Migraciones y pruebas
 
-`npm run migrate` aplica en orden los SQL de `server/migrations/` y registra cada nombre en `schema_migrations`. Las migraciones del lanzamiento son aditivas. Para integración se debe proporcionar una base vacía y exclusiva:
+Al arrancar con cloud habilitada, la API aplica en orden los SQL pendientes de `server/migrations/` y registra cada nombre en `schema_migrations`; `npm run migrate` permite hacer lo mismo manualmente. En una base nueva esto crea todas las tablas, mientras que en una existente no repite las migraciones ya registradas. Las migraciones del lanzamiento son aditivas. Para integración se debe proporcionar una base vacía y exclusiva:
 
 ```bash
 TEST_DATABASE_URL=postgres://.../trip_planner_test npm test
