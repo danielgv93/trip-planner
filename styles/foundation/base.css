@@ -73,6 +73,7 @@ button {
     align-items: center;
     gap: 20px;
     padding: 0 clamp(20px, 4vw, 58px);
+    border-bottom: 3px solid var(--red);
 }
 .brand {
     display: flex;

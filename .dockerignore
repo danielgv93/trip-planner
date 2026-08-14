@@ -6,9 +6,9 @@
 .agents
 openspec
 server/node_modules
-server/.env
+.env
 server/test
 docs
 tests
-compose.yaml
+docker-compose.yaml
 README.md

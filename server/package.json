@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node --env-file=.env src/server.js",
-    "migrate": "node --env-file=.env src/infrastructure/postgres/run-migrations.js",
+    "start": "node --env-file=../.env src/server.js",
+    "migrate": "node --env-file=../.env src/infrastructure/postgres/run-migrations.js",
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {

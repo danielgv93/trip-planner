@@ -39,10 +39,11 @@ There is no frontend build step or package installation. You only need a modern 
 To run the complete stack (frontend, API, and PostgreSQL) with Docker:
 
 ```bash
+cp .env.example .env
 docker compose up --build
 ```
 
-Then open [http://localhost:8000](http://localhost:8000). The API applies pending database migrations automatically before it starts accepting requests. The frontend proxies `/api/*` to the API inside the Compose network, so the browser only accesses one origin. PostgreSQL is exposed only on `127.0.0.1:5432` by default, and its data persists in the `trip_planner_postgres_data` volume. Configure `APP_ORIGIN`, `FRONTEND_PORT`, and the `POSTGRES_*` variables in a root `.env` file when deploying under a different URL or with non-development credentials. Set `NODE_ENV=production` when the public origin uses HTTPS so session cookies are marked as secure.
+Then open [http://localhost:8000](http://localhost:8000). The API applies pending database migrations automatically before it starts accepting requests. The frontend proxies `/api/*` to the API inside the Compose network, so the browser only accesses one origin. PostgreSQL is exposed only on `127.0.0.1:5432` by default, and its data persists in the `trip_planner_postgres_data` volume. All deployment variables live in the root `.env` file; `.env.example` documents the available settings. Configure `APP_ORIGIN`, `FRONTEND_PORT`, and the `POSTGRES_*` variables when deploying under a different URL or with non-development credentials. Set `NODE_ENV=production` when the public origin uses HTTPS so session cookies are marked as secure.
 
 To run only the static frontend without Docker:
 
@@ -88,6 +89,10 @@ Provider, base URL, and model are stored locally. API keys remain only in `sessi
 
 ```text
 trip-planner/
+├── .env.example             # Environment template for Compose and the API
+├── docker-compose.yaml      # Complete local/deployment stack
+├── Dockerfile               # Static frontend image
+├── nginx.conf               # Frontend server and /api reverse proxy
 ├── index.html               # Application shell and dialogs
 ├── js/
 │   ├── app/main.js          # The single JavaScript entry point
@@ -104,7 +109,7 @@ trip-planner/
 │       ├── library/         # IndexedDB-backed multi-trip library
 │       ├── cloud/           # Optional account, sync, conflicts, and history
 │       └── workspace/       # Desktop workspace resizing
-├── server/                  # Optional Node/Postgres API and migrations
+├── server/                  # Optional Node/Postgres API, Dockerfile and migrations
 └── styles/
     ├── app.css              # The single stylesheet entry point
     ├── foundation/          # Tokens and global defaults

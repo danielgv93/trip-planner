@@ -37,6 +37,7 @@ Requiere Node.js 20.6 o posterior y Postgres 15 o posterior:
 Para levantar PostgreSQL, iniciar la API y servir el frontend bajo un único origen desde la raíz del repositorio:
 
 ```bash
+cp .env.example .env
 docker compose up --build
 ```
 
@@ -45,21 +46,23 @@ La aplicación queda disponible en `http://localhost:8000`. Nginx sirve los arch
 Para ejecutar la API directamente en la máquina y usar solo Postgres en Docker:
 
 ```bash
+cp .env.example .env
 docker compose up -d db
 cd server
 npm install
-cp .env.example .env
 npm start
 ```
 
-El servicio `db` usa PostgreSQL 16 en `127.0.0.1:5432`, con las mismas credenciales de desarrollo que `server/.env.example`. Los datos se conservan en el volumen `trip_planner_postgres_data`. Para detener la base usa `docker compose stop db`; `docker compose down` elimina los contenedores y la red, pero conserva el volumen mientras no se añada `--volumes`.
+El servicio `db` usa PostgreSQL 16 en `127.0.0.1:5432`, con las credenciales de desarrollo incluidas en `.env.example`. Los datos se conservan en el volumen `trip_planner_postgres_data`. Para detener la base usa `docker compose stop db`; `docker compose down` elimina los contenedores y la red, pero conserva el volumen mientras no se añada `--volumes`.
 
-`npm start` carga `server/.env` mediante el soporte nativo de Node.js y aplica automáticamente las migraciones cuando cloud está habilitada. `npm run migrate` continúa disponible para ejecutarlas manualmente. Las variables ya inyectadas en el proceso tienen prioridad sobre el archivo, por lo que CI y producción pueden proporcionar su propia configuración sin quedar sobrescritas. Con `CLOUD_ENABLED=false`, `/api/health` responde, pero cuentas, viajes y sincronización permanecen deshabilitados.
+`npm start` carga el `.env` de la raíz mediante el soporte nativo de Node.js y aplica automáticamente las migraciones cuando cloud está habilitada. `npm run migrate` continúa disponible para ejecutarlas manualmente. Docker Compose y la API directa comparten así una única fuente de configuración. Las variables ya inyectadas en el proceso tienen prioridad sobre el archivo, por lo que CI y producción pueden proporcionar su propia configuración sin quedar sobrescritas. Con `CLOUD_ENABLED=false`, `/api/health` responde, pero cuentas, viajes y sincronización permanecen deshabilitados.
 
 El cliente muestra siempre la interfaz cloud y comprueba `/api/session` al arrancar. Si la API no está disponible, informa del fallo y mantiene operativo el modo local.
 
 ## Variables
 
+- `FRONTEND_PORT`: puerto publicado por el frontend en Docker Compose.
+- `POSTGRES_BIND_ADDRESS`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`: publicación y credenciales del servicio Postgres en Docker Compose.
 - `CLOUD_ENABLED`: feature flag del servidor; su valor seguro por defecto es `false`.
 - `PORT`: puerto HTTP, por defecto `8787`.
 - `HOST`: interfaz de escucha; el valor seguro por defecto es `127.0.0.1`. Un despliegue en contenedor puede establecer explícitamente `0.0.0.0` detrás de su proxy.
