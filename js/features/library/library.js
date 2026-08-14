@@ -237,7 +237,7 @@ async function saveActiveToCloud({ automatic = false } = {}) {
 saveCloudButton.addEventListener("click", () => void saveActiveToCloud());
 
 document.addEventListener("keydown", (event) => {
-    if (event.key.toLowerCase() !== "s" || (!event.ctrlKey && !event.metaKey) || event.altKey || event.shiftKey) return;
+    if (typeof event.key !== "string" || event.key.toLowerCase() !== "s" || (!event.ctrlKey && !event.metaKey) || event.altKey || event.shiftKey) return;
     event.preventDefault();
     void saveActiveToCloud();
 });

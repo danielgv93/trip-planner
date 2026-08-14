@@ -198,7 +198,7 @@ input.addEventListener("keydown", (event) => {
     }
 });
 document.addEventListener("keydown", (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+    if ((event.ctrlKey || event.metaKey) && typeof event.key === "string" && event.key.toLowerCase() === "k") {
         event.preventDefault();
         root.hidden ? openSearch() : closeSearch();
     } else if (event.key === "Escape" && !root.hidden) {

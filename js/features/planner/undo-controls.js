@@ -47,7 +47,7 @@ subscribeHistory(({ canUndo, canRedo }) => {
 
 window.addEventListener("keydown", (event) => {
     if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
-    if (event.key.toLowerCase() !== "z") return;
+    if (typeof event.key !== "string" || event.key.toLowerCase() !== "z") return;
 
     const focused = document.activeElement;
     if (
