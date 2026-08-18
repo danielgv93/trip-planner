@@ -463,6 +463,12 @@ body.companion-mode main {
     transition: none;
 }
 
+.companion-timeline-block.is-map-highlighted {
+    z-index: 5;
+    background: color-mix(in srgb, var(--timeline-color) 34%, var(--card));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--timeline-color) 45%, transparent);
+}
+
 .companion-timeline-block.is-selected {
     z-index: 4;
     outline: 3px solid color-mix(in srgb, var(--timeline-color) 68%, #244f6d);

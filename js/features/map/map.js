@@ -14,13 +14,14 @@ import {
     routeTimeOverride,
     travelLeg,
 } from "../../core/store.js";
-import { AUTOMATIC_TRAVEL_MODES } from "../../core/travel-legs.js";
+import { AUTOMATIC_TRAVEL_MODES, travelLegKey } from "../../core/travel-legs.js";
 import { $, esc, safeColor } from "../../shared/dom.js";
 import { DAY_COLORS } from "../../core/constants.js";
 import { distanceMeters } from "../../core/geo.js";
 import { fetchSpotImage } from "./images.js";
 import { registerBasemapMap } from "./basemap.js";
 import { createRouteCache } from "./route-cache.js";
+import { highlightItinerarySpot } from "../planner/spot-highlight.js";
 
 const usesCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
 const map = L.map("map", {
@@ -35,9 +36,56 @@ let legendControl = null;
 // corresponding marker without putting transient hover state in the store.
 const spotMarkers = new Map();
 let highlightedSpotId = null;
+// Same idea for the drawn route: the geometry of every consecutive pair, keyed
+// by travelLegKey(). The highlight is painted as an extra polyline on its own
+// layer instead of restyling the base line, so straight and street routes (and
+// manual legs, which are drawn differently) all work through one code path.
+const legGeometry = new Map();
+const legHighlightLayer = L.layerGroup().addTo(map);
+let highlightedLegKey = null;
+
+function registerLegGeometry(fromSpot, toSpot, points, color) {
+    if (!points?.length) return;
+    legGeometry.set(travelLegKey(fromSpot.id, toSpot.id), { points, color });
+}
+
+export function highlightMapLeg(fromId, toId, highlighted = true) {
+    const key = fromId === null || fromId === undefined
+        ? null
+        : travelLegKey(fromId, toId);
+    if (highlightedLegKey && (!highlighted || highlightedLegKey !== key)) {
+        legHighlightLayer.clearLayers();
+        highlightedLegKey = null;
+    }
+
+    if (!key || !highlighted || highlightedLegKey === key) return;
+    const geometry = legGeometry.get(key);
+    if (!geometry) return;
+    L.polyline(geometry.points, {
+        color: geometry.color,
+        weight: 9,
+        opacity: 0.34,
+        lineCap: "round",
+        lineJoin: "round",
+        interactive: false,
+    }).addTo(legHighlightLayer);
+    L.polyline(geometry.points, {
+        color: geometry.color,
+        weight: 4,
+        opacity: 1,
+        interactive: false,
+    }).addTo(legHighlightLayer);
+    highlightedLegKey = key;
+}
 
 function registerSpotMarker(spot, marker) {
-    spotMarkers.set(String(spot.id), marker);
+    const id = String(spot.id);
+    spotMarkers.set(id, marker);
+    // Mirror image of highlightMapSpot(): pointing at a marker lights up the
+    // itinerary stop. Leaflet's mouseover/mouseout are pointer-only, so touch
+    // devices are unaffected.
+    marker.on("mouseover", () => highlightItinerarySpot(id, true));
+    marker.on("mouseout", () => highlightItinerarySpot(id, false));
 }
 
 export function highlightMapSpot(spotId, highlighted = true) {
@@ -384,6 +432,11 @@ function drawRouteLine(seq) {
     };
     if (store.routeVisualization === "straight") {
         L.polyline(seq.map((s) => [s.lat, s.lng]), style).addTo(routeLayer);
+        for (let i = 0; i < seq.length - 1; i++)
+            registerLegGeometry(seq[i], seq[i + 1], [
+                [seq[i].lat, seq[i].lng],
+                [seq[i + 1].lat, seq[i + 1].lng],
+            ], style.color);
         return;
     }
     for (let i = 0; i < seq.length - 1; i++) {
@@ -399,7 +452,10 @@ function drawRouteLine(seq) {
             [seq[i + 1].lat, seq[i + 1].lng],
         ];
         const manual = configured && !AUTOMATIC_TRAVEL_MODES.includes(configured.mode);
-        L.polyline(manual ? fallback : leg?.points || fallback, manual ? { ...style, color: "#3f7d9c", dashArray: "3 8" } : style).addTo(routeLayer);
+        const points = manual ? fallback : leg?.points || fallback;
+        const color = manual ? "#3f7d9c" : style.color;
+        L.polyline(points, manual ? { ...style, color, dashArray: "3 8" } : style).addTo(routeLayer);
+        registerLegGeometry(seq[i], seq[i + 1], points, color);
     }
 }
 
@@ -445,6 +501,10 @@ export function drawMap() {
     routeLayer.clearLayers();
     spotMarkers.clear();
     highlightedSpotId = null;
+    legGeometry.clear();
+    legHighlightLayer.clearLayers();
+    highlightedLegKey = null;
+    highlightItinerarySpot(null, false);
     if (store.previewMode) return drawGlobalMap();
     removeLegend();
     const day =

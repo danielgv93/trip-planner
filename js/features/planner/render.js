@@ -35,6 +35,7 @@ import {
     cachedRouteTravelMinutes,
     ensureRouteTravelTimes,
     highlightMapSpot,
+    highlightMapLeg,
 } from "../map/map.js";
 import { openDialog } from "./dialogs.js";
 import { pushUndo } from "./history.js";
@@ -1420,6 +1421,11 @@ function wireDayTimeTools(el, dayId) {
     });
     wireTimelineSelection(tools?.querySelector(".companion-timeline-track"), dayId);
     tools?.querySelectorAll("[data-timeline-travel-from]").forEach((button) => {
+        wireMapLegHighlight(
+            button,
+            button.dataset.timelineTravelFrom,
+            button.dataset.timelineTravelTo,
+        );
         button.addEventListener("click", () =>
             openTravelTimeDialog(dayId, button),
         );
@@ -2059,6 +2065,7 @@ function renderList(list, spots, isBacklog = false) {
                 ? `<span class="spot-cost"><strong>${esc(foreignAmount(outgoing.cost))}</strong><small>${esc(localAmount(outgoing.cost))}</small></span>` : "";
             const draggable = outgoing.embeddedEndpoints?.includes("from") && outgoing.embeddedEndpoints?.includes("to") && !spotPositionConstraint(s) && !spotPositionConstraint(next);
             travelCard.innerHTML = `${draggable ? `<button class="handle travel-card-handle" type="button" title="Reordenar viaje" aria-label="Reordenar viaje ${esc(s.name)} a ${esc(next.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button>` : ""}<span class="travel-card-icon" aria-hidden="true">${modeIcons[outgoing.mode] || "↝"}</span><span class="spot-content"><span class="spot-name">${esc(s.name || "Origen")} → ${esc(next.name || "Destino")}</span><span class="spot-meta">${esc(outgoing.line || presentation.modeLabel)} · ${presentation.minutes ? `${presentation.minutes} min` : "Duración pendiente"}</span>${outgoing.departureTime ? `<span class="spot-timing">Salida ${esc(outgoing.departureTime)}${arrival ? ` · llegada ${esc(arrival)}` : ""}</span>` : ""}${outgoing.note ? `<span class="spot-meta">${esc(outgoing.note)}</span>` : ""}</span>${price}<span class="travel-card-actions"><button type="button" class="travel-card-edit" aria-label="Editar trayecto">Editar</button><button type="button" class="travel-card-delete" aria-label="Eliminar trayecto">×</button></span>`;
+            wireMapLegHighlight(travelCard, s.id, next.id);
             travelCard.querySelector(".travel-card-edit").addEventListener("click", () => {
                 openTravelTimeDialog(list.closest(".day")?.dataset.day, { dataset: { timelineTravelFrom: String(s.id), timelineTravelTo: String(next.id), timelineTravelMinutes: String(outgoing.durationMinutes || "") } });
             });
@@ -2100,6 +2107,7 @@ function renderList(list, spots, isBacklog = false) {
                 { dataset: { timelineTravelFrom: String(s.id), timelineTravelTo: String(next.id) } },
                 { returnFocus: trigger },
             ));
+            wireMapLegHighlight(connector, s.id, next.id);
             list.append(connector);
         }
     });
@@ -2111,6 +2119,30 @@ function wireMapSpotHighlight(element, spotId) {
     let focusInside = false;
     const sync = () =>
         highlightMapSpot(spotId, pointerInside || focusInside);
+
+    element.addEventListener("pointerenter", () => {
+        pointerInside = true;
+        sync();
+    });
+    element.addEventListener("pointerleave", () => {
+        pointerInside = false;
+        sync();
+    });
+    element.addEventListener("focusin", () => {
+        focusInside = true;
+        sync();
+    });
+    element.addEventListener("focusout", (event) => {
+        focusInside = element.contains(event.relatedTarget);
+        sync();
+    });
+}
+
+function wireMapLegHighlight(element, fromId, toId) {
+    let pointerInside = false;
+    let focusInside = false;
+    const sync = () =>
+        highlightMapLeg(fromId, toId, pointerInside || focusInside);
 
     element.addEventListener("pointerenter", () => {
         pointerInside = true;
