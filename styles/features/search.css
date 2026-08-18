@@ -98,6 +98,18 @@ body.spotlight-open { overflow: hidden; }
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+.spotlight-result small b {
+    color: var(--red-dark);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.spotlight-command .spotlight-result-icon {
+    background: #e8edf0;
+    color: #31505e;
+    font-weight: 700;
+}
 .spotlight-arrow { color: var(--muted); opacity: 0; }
 .spotlight-result.active .spotlight-arrow { opacity: 1; }
 .spotlight-empty { padding: 35px 18px; color: var(--muted); text-align: center; }

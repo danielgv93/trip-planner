@@ -65,5 +65,11 @@ export function createUndoStack({ capture, restore, limit = UNDO_LIMIT }) {
         return () => listeners.delete(listener);
     }
 
-    return { pushUndo, undo, redo, status, subscribe };
+    function clear() {
+        undoStack.length = 0;
+        redoStack.length = 0;
+        notify();
+    }
+
+    return { pushUndo, undo, redo, status, subscribe, clear };
 }

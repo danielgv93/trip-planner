@@ -26,6 +26,14 @@ import { normalizeReminders } from "./reminders.js";
 
 export const STORAGE_VERSION = 31;
 
+let tripCommitter = null;
+
+function emitSaveState() {
+    if (globalThis.document && typeof globalThis.CustomEvent === "function") {
+        document.dispatchEvent(new CustomEvent("trip-save-state"));
+    }
+}
+
 function loadSavedState() {
     const raw =
         localStorage.getItem("trip-planner") ||
@@ -57,6 +65,16 @@ function normalizeSavedDay(day) {
 }
 
 export const store = {
+    // Library identity and projected metadata share the same state object as
+    // the active plan. Durable repository/coordinator details remain owned by
+    // their feature modules.
+    activeTripId: localStorage.getItem("trip-planner-active-trip-id") || null,
+    tripLibrary: [],
+    saveStatus: "local",
+    saveError: null,
+    accountSession: null,
+    cloudAvailability: "checking",
+    cloudError: null,
     tripTitle:
         typeof saved?.tripTitle === "string" ? saved.tripTitle : DEFAULT_TITLE,
     localCurrency:
@@ -170,6 +188,7 @@ export const store = {
     githubVerified: false,
     githubBusy: false,
     githubRemoteSnapshot: null,
+    githubSyncState: "local",
 };
 store.travelLegs = migrateLegacyTravelLegs(
     saved?.travelLegs,
@@ -210,32 +229,61 @@ export function spotIsEnabled(spot) {
 }
 
 export function save() {
-    localStorage.setItem(
-        "trip-planner",
-        JSON.stringify({
-            version: STORAGE_VERSION,
-            tripTitle: store.tripTitle,
-            localCurrency: store.localCurrency,
-            foreignCurrency: store.foreignCurrency,
-            exchangeRate: store.exchangeRate,
-            exchangeRateDate: store.exchangeRateDate,
-            tripNotePages: store.tripNotePages,
-            activeTripNotePageId: store.activeTripNotePageId,
-            days: store.state,
-            backlog: store.backlog,
-            backlogCollapsed: store.backlogCollapsed,
-            backlogGroups: store.backlogGroups,
-            tags: store.tags,
-            categories: store.categories,
-            routeProfile: store.routeProfile,
-            routeVisualization: store.routeVisualization,
-            basemap: store.basemap,
-            travelLegs: store.travelLegs,
-            reminders: store.reminders,
-            workspaceSplit: store.workspaceSplit,
-            itineraryDensity: store.itineraryDensity,
-        }),
-    );
+    try {
+        localStorage.setItem(
+            "trip-planner",
+            JSON.stringify({
+                version: STORAGE_VERSION,
+                tripTitle: store.tripTitle,
+                localCurrency: store.localCurrency,
+                foreignCurrency: store.foreignCurrency,
+                exchangeRate: store.exchangeRate,
+                exchangeRateDate: store.exchangeRateDate,
+                tripNotePages: store.tripNotePages,
+                activeTripNotePageId: store.activeTripNotePageId,
+                days: store.state,
+                backlog: store.backlog,
+                backlogCollapsed: store.backlogCollapsed,
+                backlogGroups: store.backlogGroups,
+                tags: store.tags,
+                categories: store.categories,
+                routeProfile: store.routeProfile,
+                routeVisualization: store.routeVisualization,
+                basemap: store.basemap,
+                travelLegs: store.travelLegs,
+                reminders: store.reminders,
+                workspaceSplit: store.workspaceSplit,
+                itineraryDensity: store.itineraryDensity,
+            }),
+        );
+    } catch (error) {
+        console.warn("No se pudo actualizar la copia localStorage de recuperación.", error);
+        if (!tripCommitter) {
+            store.saveStatus = "error";
+            store.saveError = error;
+            emitSaveState();
+        }
+    }
+    if (tripCommitter) {
+        store.saveStatus = "saving";
+        store.saveError = null;
+        emitSaveState();
+        Promise.resolve()
+            .then(() => tripCommitter())
+            .then(() => {
+                if (store.saveStatus === "saving") store.saveStatus = "saved";
+                emitSaveState();
+            })
+            .catch((error) => {
+                store.saveStatus = "error";
+                store.saveError = error;
+                emitSaveState();
+            });
+    }
+}
+
+export function registerTripCommitter(callback) {
+    tripCommitter = callback;
 }
 
 export function replacePlanState(plan) {

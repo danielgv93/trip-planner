@@ -2,3 +2,6 @@
 .claude
 openspec
 .DS_Store
+server/node_modules/
+.env
+deploy

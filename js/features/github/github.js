@@ -581,6 +581,14 @@ function renderGithubStatus() {
     githubMenu.querySelector('[data-github-action="disconnect"]').disabled = store.githubBusy || !connection;
     const publishButton = githubMenu.querySelector('[data-github-action="publish"]');
     const hasChanges = localPlanHasChanges();
+    store.githubSyncState = store.githubBusy
+        ? "saving"
+        : !connection
+          ? "local"
+          : store.githubVerified
+            ? (hasChanges ? "pending" : "synced")
+            : "pending";
+    document.dispatchEvent(new CustomEvent("github-sync-state"));
     const tokenNeeded = !store.githubBusy && store.githubVerified && Boolean(connection?.sha) && hasChanges && !tokenAvailable;
     publishButton.disabled = store.githubBusy || !store.githubVerified || !connection?.sha || !hasChanges;
     publishButton.classList.toggle("github-needs-token", tokenNeeded);
@@ -662,6 +670,55 @@ function closeGithubMenu({ restoreFocus = false } = {}) {
     if (restoreFocus) githubOpenBtn.focus();
 }
 
+function positionGithubMenu() {
+    if (githubMenu.hidden) return;
+
+    const margin = 12;
+    const gap = 10;
+    const triggerRect = githubOpenBtn.getBoundingClientRect();
+    const menuRect = githubMenu.getBoundingClientRect();
+    const compact = matchMedia("(max-width: 700px)").matches;
+    const clamp = (value, min, max) => Math.min(Math.max(value, min), Math.max(min, max));
+
+    let side;
+    let left;
+    let top;
+
+    if (compact) {
+        side = "below";
+        left = clamp(triggerRect.right - menuRect.width, margin, innerWidth - menuRect.width - margin);
+        top = clamp(triggerRect.bottom + gap, margin, innerHeight - menuRect.height - margin);
+        githubMenu.style.setProperty(
+            "--github-menu-arrow-left",
+            `${clamp(triggerRect.left + triggerRect.width / 2 - left - 7, 14, menuRect.width - 28)}px`,
+        );
+    } else {
+        const spaceRight = innerWidth - triggerRect.right;
+        const spaceLeft = triggerRect.left;
+        side = spaceRight >= menuRect.width + gap || spaceRight >= spaceLeft ? "right" : "left";
+        left = side === "right" ? triggerRect.right + gap : triggerRect.left - menuRect.width - gap;
+        left = clamp(left, margin, innerWidth - menuRect.width - margin);
+        top = clamp(triggerRect.top - 8, margin, innerHeight - menuRect.height - margin);
+        githubMenu.style.setProperty(
+            "--github-menu-arrow-top",
+            `${clamp(triggerRect.top + triggerRect.height / 2 - top, 16, menuRect.height - 16)}px`,
+        );
+    }
+
+    githubMenu.dataset.side = side;
+    githubMenu.style.right = "auto";
+    githubMenu.style.left = `${left}px`;
+    githubMenu.style.top = `${top}px`;
+}
+
+function openGithubMenu({ focusFirst = false } = {}) {
+    renderGithubStatus();
+    githubMenu.hidden = false;
+    githubOpenBtn.setAttribute("aria-expanded", "true");
+    positionGithubMenu();
+    if (focusFirst) githubMenu.querySelector("button:not(:disabled)")?.focus();
+}
+
 function openGithubDialog({ focusToken = false } = {}) {
     fillTarget(store.githubConnection);
     tokenInput.value = "";
@@ -676,11 +733,21 @@ githubOpenBtn.onclick = (event) => {
     const willOpen = githubMenu.hidden;
     closeGithubMenu();
     if (!willOpen) return;
-    renderGithubStatus();
-    githubMenu.hidden = false;
-    githubOpenBtn.setAttribute("aria-expanded", "true");
-    githubMenu.querySelector("button:not(:disabled)")?.focus();
+    openGithubMenu({ focusFirst: true });
 };
+let githubHoverCloseTimer;
+const desktopGithubHover = () =>
+    matchMedia("(min-width: 1401px) and (hover: hover) and (pointer: fine)").matches;
+githubOpenBtn.closest(".github-control")?.addEventListener("pointerenter", () => {
+    if (!desktopGithubHover()) return;
+    clearTimeout(githubHoverCloseTimer);
+    openGithubMenu();
+});
+githubOpenBtn.closest(".github-control")?.addEventListener("pointerleave", () => {
+    if (!desktopGithubHover()) return;
+    clearTimeout(githubHoverCloseTimer);
+    githubHoverCloseTimer = setTimeout(closeGithubMenu, 120);
+});
 githubDialog.addEventListener("close", () => {
     ownerAutocomplete.hide();
     repoAutocomplete.hide();
@@ -824,11 +891,14 @@ document.addEventListener("click", (event) => {
 window.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !githubMenu.hidden) closeGithubMenu({ restoreFocus: true });
 });
+window.addEventListener("resize", positionGithubMenu);
+window.addEventListener("scroll", positionGithubMenu, { capture: true, passive: true });
 
 store.githubConnection = loadGithubMetadata();
 store.githubVerified = false;
 fillTarget(store.githubConnection);
 renderGithubStatus();
+document.addEventListener("trip-save-state", renderGithubStatus);
 // Best-effort, one-shot verification on startup. A missing configuration or
 // any remote error simply leaves the optional integration disconnected.
 if (store.githubConnection) void connectGithub({ silent: true });

@@ -9,6 +9,25 @@ const root = $("#spotSearch"),
     trigger = $("#spotSearchBtn");
 let results = [], activeIndex = 0, previouslyFocused;
 
+// Keep commands pointed at the existing UI controls so every action continues
+// to use its owning feature's validation, dialogs and side effects.
+const commands = [
+    { label: "Exportar plan", detail: "Descargar una copia JSON", icon: "↓", selector: "#exportBtn", keywords: "exportar descargar copia json archivo" },
+    { label: "Importar plan", detail: "Cargar un archivo JSON", icon: "↑", selector: "#importBtn", keywords: "importar cargar subir json archivo" },
+    { label: "Fechas clave", detail: "Abrir recordatorios y plazos", icon: "◷", selector: "#remindersOpenBtn", keywords: "fechas clave recordatorios avisos calendario plazos reservas pagos" },
+    { label: "Mis viajes", detail: "Abrir la biblioteca de viajes", icon: "▣", selector: "#libraryBtn", keywords: "mis viajes biblioteca planes" },
+    { label: "Historial", detail: "Ver versiones guardadas", icon: "↺", selector: "#historyOpenBtn", keywords: "historial versiones cambios restaurar" },
+    { label: "Notas del viaje", detail: "Abrir el cuaderno de notas", icon: "✎", selector: "#tripNotesToggle", keywords: "notas cuaderno apuntes" },
+    { label: "Presupuesto", detail: "Ver el desglose de gastos", icon: "€", selector: "#tripBudgetTotal", keywords: "presupuesto gastos costes dinero total" },
+    { label: "Configurar divisas", detail: "Cambiar monedas y conversión", icon: "⇄", selector: "#currencyConfigBtn", keywords: "divisas monedas cambio conversion eur usd jpy" },
+    { label: "Vista completa", detail: "Alternar la vista de todo el viaje", icon: "◎", selector: "#previewBtn", keywords: "vista completa mapa viaje editar plan" },
+    { label: "Comprobar plan", detail: "Revisar horarios y viabilidad", icon: "✓", selector: "#healthCheckBtn", keywords: "comprobar revisar salud plan horarios viabilidad" },
+    { label: "En ruta", detail: "Abrir el modo de acompañamiento", icon: "➜", selector: "#companionEnterBtn", keywords: "en ruta acompañamiento viaje navegacion" },
+    { label: "Gestionar etiquetas", detail: "Crear, editar o eliminar etiquetas", icon: "#", selector: "#manageTags", keywords: "gestionar etiquetas tags filtros" },
+    { label: "Gestionar categorías", detail: "Configurar tipos de parada", icon: "◈", selector: "#manageCategories", keywords: "gestionar categorias tipos colores" },
+    { label: "Añadir un día", detail: "Crear otro día en el itinerario", icon: "+", selector: "#addDay", keywords: "anadir agregar crear nuevo dia itinerario" },
+];
+
 function normalized(value) {
     return String(value || "")
         .normalize("NFD")
@@ -58,23 +77,52 @@ function allSpots() {
     ];
 }
 
+function availableCommands() {
+    return commands.filter((command) => {
+        const target = document.querySelector(command.selector);
+        return target && !target.disabled;
+    });
+}
+
 function paint() {
     const query = normalized(input.value);
-    results = allSpots()
-        .map((item) => ({ ...item, score: score(item.spot.name, query) }))
+    const commandResults = availableCommands().map((command) => {
+        const matchScore = score(`${command.label} ${command.keywords}`, query);
+        return {
+            type: "command",
+            command,
+            score: matchScore > 0 && query ? matchScore + 6 : matchScore,
+        };
+    });
+    const spotResults = allSpots().map((item) => ({
+        type: "spot",
+        ...item,
+        score: score(item.spot.name, query),
+    }));
+    results = [...commandResults, ...spotResults]
         .filter((item) => item.score > 0)
-        .sort((a, b) => b.score - a.score || a.spot.name.localeCompare(b.spot.name, "es"))
-        .slice(0, 8);
+        .sort((a, b) => b.score - a.score || resultLabel(a).localeCompare(resultLabel(b), "es"))
+        .slice(0, 10);
     activeIndex = Math.min(activeIndex, Math.max(0, results.length - 1));
     if (!results.length) {
-        resultsEl.innerHTML = `<div class="spotlight-empty">${query ? "No hay paradas parecidas" : "Aún no hay paradas en el viaje"}</div>`;
+        resultsEl.innerHTML = `<div class="spotlight-empty">${query ? "No hay paradas ni acciones parecidas" : "No hay resultados disponibles"}</div>`;
         input.removeAttribute("aria-activedescendant");
         return;
     }
-    resultsEl.innerHTML = results.map(({ spot, dayTitle }, index) =>
-        `<button id="spot-search-result-${index}" class="spotlight-result${index === activeIndex ? " active" : ""}" type="button" role="option" aria-selected="${index === activeIndex}" data-index="${index}"><span class="spotlight-result-icon" aria-hidden="true">⌖</span><span><strong>${esc(spot.name || "Parada sin nombre")}</strong><small>${esc(dayTitle)}${spot.address ? ` · ${esc(spot.address)}` : ""}</small></span><span class="spotlight-arrow" aria-hidden="true">↵</span></button>`,
-    ).join("");
+    resultsEl.innerHTML = results.map((result, index) => {
+        const active = index === activeIndex;
+        if (result.type === "command") {
+            const { command } = result;
+            return `<button id="spot-search-result-${index}" class="spotlight-result spotlight-command${active ? " active" : ""}" type="button" role="option" aria-selected="${active}" data-index="${index}"><span class="spotlight-result-icon" aria-hidden="true">${esc(command.icon)}</span><span><strong>${esc(command.label)}</strong><small><b>Acción</b> · ${esc(command.detail)}</small></span><span class="spotlight-arrow" aria-hidden="true">↵</span></button>`;
+        }
+        const { spot, dayTitle } = result;
+        return `<button id="spot-search-result-${index}" class="spotlight-result${active ? " active" : ""}" type="button" role="option" aria-selected="${active}" data-index="${index}"><span class="spotlight-result-icon" aria-hidden="true">⌖</span><span><strong>${esc(spot.name || "Parada sin nombre")}</strong><small>${esc(dayTitle)}${spot.address ? ` · ${esc(spot.address)}` : ""}</small></span><span class="spotlight-arrow" aria-hidden="true">↵</span></button>`;
+    }).join("");
     input.setAttribute("aria-activedescendant", `spot-search-result-${activeIndex}`);
+}
+
+function resultLabel(result) {
+    return result.type === "command" ? result.command.label : result.spot.name || "";
 }
 
 function openSearch() {
@@ -101,6 +149,10 @@ function choose(index) {
     const match = results[index];
     if (!match) return;
     closeSearch({ restoreFocus: false });
+    if (match.type === "command") {
+        document.querySelector(match.command.selector)?.click();
+        return;
+    }
     clearTagFilter();
     if (match.dayId === "backlog") {
         store.backlogCollapsed = false;
@@ -146,7 +198,7 @@ input.addEventListener("keydown", (event) => {
     }
 });
 document.addEventListener("keydown", (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+    if ((event.ctrlKey || event.metaKey) && typeof event.key === "string" && event.key.toLowerCase() === "k") {
         event.preventDefault();
         root.hidden ? openSearch() : closeSearch();
     } else if (event.key === "Escape" && !root.hidden) {

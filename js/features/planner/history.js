@@ -58,6 +58,7 @@ export const undo = history.undo;
 export const redo = history.redo;
 export const historyStatus = history.status;
 export const subscribeHistory = history.subscribe;
+export const clearHistory = history.clear;
 
 export function configureHistoryView(callback) {
     restoreView = callback;

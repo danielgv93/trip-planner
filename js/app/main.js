@@ -16,15 +16,27 @@ import "../features/health/health.js";
 import "../features/github/github.js";
 import "../features/finance/budget.js";
 import "../features/workspace/workspace-resize.js";
+import "../features/library/library.js";
+import "../features/library/persistence-status.js";
+import "../features/cloud/account.js";
+import "../features/cloud/conflicts.js";
+import "../features/cloud/history.js";
 import { render, applyTitle } from "../features/planner/render.js";
 import { drawMap } from "../features/map/map.js";
 import { initCompanion } from "../features/companion/companion.js";
 import { refreshExchangeRate } from "../features/finance/currency.js";
+import { initializeTripWorkspace } from "../features/library/workspace.js";
+import { initializeCloud } from "../features/cloud/coordinator.js";
 
+const workspace = await initializeTripWorkspace();
 applyTitle();
 render();
 drawMap();
 initCompanion();
+await initializeCloud().catch((error) => {
+    console.warn("La nube no está disponible; se mantiene el modo local.", error);
+});
+if (!workspace.hasActiveTrip) document.querySelector("#libraryBtn")?.click();
 refreshExchangeRate().then((ok) => {
     document.querySelector("#exchangeRateStatus").textContent = ok
         ? `Cambio del ${store.exchangeRateDate}`
