@@ -308,7 +308,10 @@ export function replacePlanState(plan) {
     store.reminders = plan.reminders;
     store.previewMode = false;
     store.selectedLocation = null;
-    store.active = store.state[0]?.id || "backlog";
+    const keepsSelection =
+        store.active === "backlog" ||
+        store.state.some((day) => day.id === store.active);
+    if (!keepsSelection) store.active = store.state[0]?.id || "backlog";
     clearTagFilter();
 }
 

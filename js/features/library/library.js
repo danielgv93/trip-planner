@@ -27,7 +27,6 @@ import { SYNC_COPY } from "../cloud/sync-state.js";
 
 const dialog = document.querySelector("#libraryDialog");
 const saveCloudButton = document.querySelector("#saveCloudBtn");
-const AUTO_SAVE_INTERVAL_MS = 60_000;
 let showArchived = false;
 let uploadingTripId = null;
 
@@ -197,7 +196,7 @@ document.querySelector("#libraryList").addEventListener("click", async (event) =
     }
 });
 
-async function saveActiveToCloud({ automatic = false } = {}) {
+async function saveActiveToCloud() {
     await waitForActiveCommit();
     const activeTripId = store.activeTripId;
     const activeTrip = store.tripLibrary.find((trip) => trip.id === activeTripId);
@@ -220,13 +219,10 @@ async function saveActiveToCloud({ automatic = false } = {}) {
         } else {
             await uploadLocalTrip(activeTripId);
         }
-        toast(
-            automatic ? "Los cambios se han guardado automáticamente." : "Viaje guardado en tu cuenta.",
-            "success",
-        );
+        toast("Viaje guardado en tu cuenta.", "success");
         return true;
     } catch {
-        if (!automatic) toast("No se pudo guardar el viaje en la nube. Sigue disponible en este dispositivo.", "error");
+        toast("No se pudo guardar el viaje en la nube. Sigue disponible en este dispositivo.", "error");
         return false;
     } finally {
         if (uploadingTripId === activeTripId) uploadingTripId = null;
@@ -241,8 +237,6 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     void saveActiveToCloud();
 });
-
-setInterval(() => void saveActiveToCloud({ automatic: true }), AUTO_SAVE_INTERVAL_MS);
 
 document.addEventListener("trip-library-changed", () => {
     renderLibrary();

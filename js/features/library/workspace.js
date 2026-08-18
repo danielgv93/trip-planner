@@ -244,7 +244,9 @@ export async function attachRemote(id, remote) {
 export async function updateEnvelope(envelope, { removeOutbox = false } = {}) {
     await repository.putTrip(envelope);
     if (removeOutbox) await repository.deleteOutbox(envelope.id);
-    if (envelope.id === store.activeTripId) {
+    const changed = envelope.id === store.activeTripId
+        && canonicalPlanHash(envelope.document) !== canonicalPlanHash(portablePlanFrom(store));
+    if (changed) {
         replacePlanState(normalizePlan(envelope.document));
         applyPreferences(envelope.preferences);
         document.dispatchEvent(new CustomEvent("active-trip-changed"));
