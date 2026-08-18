@@ -105,16 +105,6 @@
                                 <span id="tripPersistenceStatus">Solo en este dispositivo</span>
                                 <button id="tripPersistenceExport" type="button" hidden>Exportar ahora</button>
                             </div>
-                            <button
-                                id="saveCloudBtn"
-                                class="save-cloud-button"
-                                type="button"
-                                aria-label="Guardar en la nube"
-                                title="Guardar en la nube (Ctrl/Cmd + S)"
-                                disabled
-                            >
-                                <span aria-hidden="true">☁</span><span class="save-cloud-label">Guardar en la nube</span>
-                            </button>
                             <button id="historyOpenBtn" type="button" aria-haspopup="dialog" aria-controls="historyDialog"><span aria-hidden="true">↶</span> Historial remoto</button>
                             <div class="github-control">
                                 <button id="githubOpenBtn" type="button" aria-haspopup="menu" aria-controls="githubMenu" aria-expanded="false">
@@ -148,6 +138,17 @@
                             </div>
                         </div>
                     </details>
+                    <button
+                        id="saveCloudBtn"
+                        class="save-cloud-button"
+                        type="button"
+                        aria-label="Guardar en la nube"
+                        title="Guardar en la nube (Ctrl/Cmd + S)"
+                        disabled
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4 4 0 0 1 .3-8 5.5 5.5 0 0 1 10.5 1.4A3.6 3.6 0 0 1 17.5 18"/><path d="M12 21v-8"/><path d="m9 15.5 3-3 3 3"/></svg>
+                        <span class="save-cloud-label">Guardar en la nube</span>
+                    </button>
                     <button id="undoBtn" class="history-button" type="button" aria-label="Deshacer" title="Deshacer (Ctrl/Cmd + Z)" disabled>
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7-5 5 5 5"/><path d="M4 12h9a7 7 0 0 1 7 7"/></svg>
                     </button>

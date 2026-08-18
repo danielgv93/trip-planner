@@ -76,6 +76,17 @@
         width: 100%;
         text-align: left;
     }
+    .top-actions.nav-open .nav-menu-items > .save-cloud-button {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
+        height: auto;
+        padding: 9px 12px;
+    }
+    .top-actions.nav-open .nav-menu-items > .save-cloud-button > .save-cloud-label {
+        display: inline;
+    }
     .top-actions.nav-open .nav-menu-items > .account-control > .account-button {
         justify-content: flex-start;
     }
@@ -242,6 +253,17 @@ body.preview-mode .spot {
     .top-actions.nav-open .nav-menu-items > button {
         width: 100%;
         text-align: left;
+    }
+    .top-actions.nav-open .nav-menu-items > .save-cloud-button {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
+        height: auto;
+        padding: 9px 12px;
+    }
+    .top-actions.nav-open .nav-menu-items > .save-cloud-button > .save-cloud-label {
+        display: inline;
     }
     .top-actions.nav-open .nav-menu-items > .account-control > .account-button {
         justify-content: flex-start;
