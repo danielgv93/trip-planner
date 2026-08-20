@@ -24,8 +24,16 @@ let retryTimer = null;
 let attempts = 0;
 let remoteLibrary = [];
 const conflicts = new Map();
-const deviceId = localStorage.getItem("trip-planner-device-id") || randomUUID();
-localStorage.setItem("trip-planner-device-id", deviceId);
+let deviceIdentifier = null;
+
+// Resolved lazily so that merely loading the page — as an anonymous visitor
+// following a share link does — never stamps a device identifier on storage.
+function deviceId() {
+    if (deviceIdentifier) return deviceIdentifier;
+    deviceIdentifier = localStorage.getItem("trip-planner-device-id") || randomUUID();
+    localStorage.setItem("trip-planner-device-id", deviceIdentifier);
+    return deviceIdentifier;
+}
 
 function emitSession() {
     document.dispatchEvent(new CustomEvent("cloud-session-changed"));
@@ -150,7 +158,7 @@ export async function uploadLocalTrip(localId) {
     const repository = getTripRepository();
     const envelope = await repository.getTrip(localId);
     if (!envelope || envelope.remote.id) return envelope;
-    const response = await client.createTrip(envelope.document, deviceId);
+    const response = await client.createTrip(envelope.document, deviceId());
     const trip = response.trip;
     await attachRemote(localId, {
         id: trip.id,
@@ -196,7 +204,7 @@ async function drainItem(item) {
             clientMutationId: item.clientMutationId,
             hash: item.hash || canonicalPlanHash(item.document),
             document: item.document,
-            deviceId,
+            deviceId: deviceId(),
             origin: item.origin,
         });
         envelope.remote.baseRevision = Number(result.revision);
@@ -338,6 +346,24 @@ export async function initializeCloud() {
         await checkRemoteUpdates();
     });
     return { available: store.cloudAvailability === "available", authenticated: Boolean(store.accountSession) };
+}
+
+// Share state lives only in the cloud: a link cannot exist for a trip that was
+// never uploaded, so these go straight to the API instead of the envelope.
+export async function readTripShare(remoteId) {
+    return (await client.getTripShare(remoteId)).share;
+}
+
+export async function shareTrip(remoteId) {
+    const share = (await client.shareTrip(remoteId)).share;
+    await refreshRemoteTrips().catch(() => {});
+    return share;
+}
+
+export async function unshareTrip(remoteId) {
+    const share = (await client.unshareTrip(remoteId)).share;
+    await refreshRemoteTrips().catch(() => {});
+    return share;
 }
 
 export const getCloudClient = () => client;

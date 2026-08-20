@@ -23,12 +23,29 @@ import {
     uploadLocalTrip,
 } from "../cloud/coordinator.js";
 import { cloudSaveActionState } from "../cloud/global-action-state.js";
+import { canShareTrip, openShareDialog } from "../share/share-dialog.js";
 import { SYNC_COPY } from "../cloud/sync-state.js";
 
 const dialog = document.querySelector("#libraryDialog");
+const list = document.querySelector("#libraryList");
+const emptyState = document.querySelector("#libraryEmpty");
+const cardMenu = document.querySelector("#libraryCardMenu");
+const searchInput = document.querySelector("#librarySearch");
 const saveCloudButton = document.querySelector("#saveCloudBtn");
 let showArchived = false;
+let searchTerm = "";
 let uploadingTripId = null;
+let menuTrigger = null;
+
+const stampFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
+const dayFormatter = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" });
+const relativeFormatter = new Intl.RelativeTimeFormat("es-ES", { numeric: "auto" });
+const RELATIVE_STEPS = [
+    ["minute", 60_000, 60],
+    ["hour", 3_600_000, 24],
+    ["day", 86_400_000, 7],
+    ["week", 604_800_000, 4.35],
+];
 
 function repaintActiveTrip() {
     document.body.classList.toggle("compact-itinerary", store.itineraryDensity === "compact");
@@ -56,62 +73,273 @@ function repaintActiveTrip() {
     drawMap();
 }
 
-function button(label, action, id, className = "") {
-    const element = document.createElement("button");
-    element.type = "button";
-    element.textContent = label;
-    element.dataset.libraryAction = action;
-    element.dataset.tripId = id;
-    element.className = className;
+// Only real problems earn the amber tone; a local-only trip is a normal state,
+// not a warning.
+const SYNC_TONE = {
+    local: "offline",
+    saved: "offline",
+    saving: "offline",
+    offline: "offline",
+    synced: "synced",
+};
+
+// Search must ignore accents so "japon" still matches "Japón".
+function foldText(value) {
+    return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function relativeUpdated(value) {
+    const stamp = new Date(value);
+    if (Number.isNaN(stamp.getTime())) return { label: "Sin fecha", title: "" };
+    const elapsed = Date.now() - stamp.getTime();
+    if (elapsed < 60_000) return { label: "Ahora mismo", title: stampFormatter.format(stamp) };
+    for (const [unit, ms, limit] of RELATIVE_STEPS) {
+        const amount = elapsed / ms;
+        if (amount < limit) return { label: relativeFormatter.format(-Math.round(amount), unit), title: stampFormatter.format(stamp) };
+    }
+    return { label: stampFormatter.format(stamp), title: stampFormatter.format(stamp) };
+}
+
+// Card metadata comes straight from the portable document, so remote-only trips
+// (which are not downloaded yet) simply have no summary to show.
+function planSummary(document_) {
+    const days = Array.isArray(document_?.days) ? document_.days : [];
+    const stops = days.reduce((total, day) => total + (Array.isArray(day.spots) ? day.spots.length : 0), 0);
+    const dates = days.map((day) => day.date).filter(Boolean).sort();
+    return { days: days.length, stops, from: dates[0], to: dates.at(-1) };
+}
+
+function dateRangeLabel({ from, to }) {
+    if (!from) return "";
+    const start = new Date(`${from}T12:00:00`);
+    const end = new Date(`${to || from}T12:00:00`);
+    if (Number.isNaN(start.getTime())) return "";
+    if (from === to) return dayFormatter.format(start);
+    return `${dayFormatter.format(start)} – ${dayFormatter.format(end)}`;
+}
+
+function chip(text, tone, icon) {
+    const element = document.createElement("span");
+    element.className = "library-chip";
+    element.dataset.tone = tone;
+    const mark = document.createElement("i");
+    mark.setAttribute("aria-hidden", "true");
+    mark.textContent = icon;
+    const label = document.createElement("span");
+    label.textContent = text;
+    element.append(mark, label);
     return element;
 }
 
-function renderLibrary() {
-    const list = document.querySelector("#libraryList");
-    list.replaceChildren();
-    const localByRemote = new Map(store.tripLibrary.filter((trip) => trip.remote.id).map((trip) => [trip.remote.id, trip]));
-    const local = store.tripLibrary.filter((trip) => trip.archived === showArchived);
-    const remoteOnly = getRemoteLibrary().filter((trip) => Boolean(trip.archived_at) === showArchived && !localByRemote.has(trip.id));
+function statBlock(value, label) {
+    const element = document.createElement("span");
+    element.className = "library-stat";
+    const amount = document.createElement("strong");
+    amount.textContent = String(value);
+    const caption = document.createElement("small");
+    caption.textContent = label;
+    element.append(amount, caption);
+    return element;
+}
 
-    for (const trip of [...local, ...remoteOnly]) {
-        const remote = trip.remoteOnly === true;
-        const id = remote ? trip.id : trip.id;
-        const card = document.createElement("article");
-        card.className = "library-card";
-        if (!remote && trip.id === store.activeTripId) card.dataset.active = "true";
-        if (!remote && trip.pendingDeletion) card.dataset.disabled = "true";
-        const heading = document.createElement("div");
-        const title = document.createElement("h4");
-        title.textContent = remote ? trip.title : trip.document.tripTitle;
-        const date = document.createElement("time");
-        date.textContent = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" }).format(new Date(remote ? trip.updated_at : trip.updatedAt));
-        heading.append(title, date);
-        const meta = document.createElement("div");
-        meta.className = "library-card-meta";
-        const availability = document.createElement("span");
-        availability.textContent = remote ? "Necesita conexión para la primera apertura" : "Disponible sin conexión";
-        const status = document.createElement("span");
-        status.textContent = remote ? "En la nube" : (SYNC_COPY[trip.syncState] || trip.syncState);
-        meta.append(availability, status);
-        const actions = document.createElement("div");
-        actions.className = "library-card-actions";
-        if (!trip.pendingDeletion) actions.append(button(trip.id === store.activeTripId ? "Abierto" : "Abrir", remote ? "open-remote" : "open", id, "primary"));
-        if (!remote && !trip.pendingDeletion) {
-            actions.append(button("Renombrar", "rename", id), button("Duplicar", "duplicate", id));
-            actions.append(button(showArchived ? "Restaurar" : "Archivar", "archive", id));
-            actions.append(button("Eliminar", "delete", id, "danger"));
-        }
-        if (trip.pendingDeletion) {
-            const pending = document.createElement("strong");
-            pending.textContent = "Eliminación pendiente · no editable";
-            actions.append(pending);
-        }
-        card.append(heading, meta, actions);
-        list.append(card);
+function menuItem(label, action, id, tone = "") {
+    const element = document.createElement("button");
+    element.type = "button";
+    element.role = "menuitem";
+    element.dataset.libraryAction = action;
+    element.dataset.tripId = id;
+    if (tone) element.dataset.tone = tone;
+    element.textContent = label;
+    return element;
+}
+
+function closeCardMenu({ restoreFocus = false } = {}) {
+    const trigger = menuTrigger;
+    menuTrigger = null;
+    if (typeof cardMenu.hidePopover === "function" && cardMenu.matches(":popover-open")) cardMenu.hidePopover();
+    cardMenu.removeAttribute("data-open");
+    if (restoreFocus && trigger?.isConnected) trigger.focus();
+}
+
+function openCardMenu(trigger, trip) {
+    const id = trip.id;
+    const local = store.tripLibrary.find((entry) => entry.id === id);
+    cardMenu.replaceChildren(
+        menuItem("Renombrar", "rename", id),
+        menuItem("Duplicar", "duplicate", id),
+        ...(canShareTrip(local) ? [menuItem("Compartir", "share", id)] : []),
+        menuItem(showArchived ? "Restaurar" : "Archivar", "archive", id),
+        menuItem("Eliminar", "delete", id, "danger"),
+    );
+    cardMenu.dataset.tripId = id;
+    menuTrigger = trigger;
+    if (typeof cardMenu.showPopover === "function") cardMenu.showPopover();
+    else cardMenu.dataset.open = "true";
+    const anchor = trigger.getBoundingClientRect();
+    const menu = cardMenu.getBoundingClientRect();
+    const top = Math.min(anchor.bottom + 6, window.innerHeight - menu.height - 10);
+    const left = Math.min(anchor.right - menu.width, window.innerWidth - menu.width - 10);
+    cardMenu.style.top = `${Math.max(10, top)}px`;
+    cardMenu.style.left = `${Math.max(10, left)}px`;
+    cardMenu.querySelector("button")?.focus();
+}
+
+function libraryEntries() {
+    const localByRemote = new Map(store.tripLibrary.filter((trip) => trip.remote.id).map((trip) => [trip.remote.id, trip]));
+    const sharedRemoteIds = new Set(getRemoteLibrary().filter((trip) => trip.shared).map((trip) => trip.id));
+    const local = store.tripLibrary.map((trip) => ({
+        id: trip.id,
+        remoteOnly: false,
+        shared: Boolean(trip.remote.id && sharedRemoteIds.has(trip.remote.id)),
+        archived: trip.archived === true,
+        pendingDeletion: trip.pendingDeletion === true,
+        title: trip.document.tripTitle,
+        updatedAt: trip.updatedAt,
+        syncState: trip.syncState,
+        summary: planSummary(trip.document),
+    }));
+    const remoteOnly = getRemoteLibrary()
+        .filter((trip) => !localByRemote.has(trip.id))
+        .map((trip) => ({
+            id: trip.id,
+            remoteOnly: true,
+            shared: Boolean(trip.shared),
+            archived: Boolean(trip.archived_at),
+            pendingDeletion: false,
+            title: trip.title,
+            updatedAt: trip.updated_at,
+            syncState: "synced",
+            summary: null,
+        }));
+    return [...local, ...remoteOnly];
+}
+
+function buildCard(trip) {
+    const isActive = !trip.remoteOnly && trip.id === store.activeTripId;
+    const card = document.createElement("article");
+    card.className = "library-card";
+    card.role = "listitem";
+    if (isActive) card.dataset.active = "true";
+    if (trip.pendingDeletion) card.dataset.disabled = "true";
+
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "library-card-open";
+    open.dataset.libraryAction = isActive ? "focus" : trip.remoteOnly ? "open-remote" : "open";
+    open.dataset.tripId = trip.id;
+    open.disabled = trip.pendingDeletion;
+    open.setAttribute("aria-label", `${isActive ? "Volver a" : "Abrir"} ${trip.title}`);
+
+    const title = document.createElement("h4");
+    title.textContent = trip.title;
+    const updated = relativeUpdated(trip.updatedAt);
+    const stamp = document.createElement("time");
+    stamp.textContent = `Editado ${updated.label.toLowerCase()}`;
+    if (updated.title) stamp.title = updated.title;
+    open.append(title, stamp);
+
+    if (isActive) {
+        const badge = document.createElement("span");
+        badge.className = "library-card-badge";
+        badge.textContent = "Abierto ahora";
+        open.append(badge);
     }
-    document.querySelector("#libraryEmpty").hidden = list.childElementCount > 0;
-    document.querySelector("#libraryArchivedBtn").setAttribute("aria-pressed", String(showArchived));
-    document.querySelector("#libraryArchivedBtn").textContent = showArchived ? "Ver activos" : "Ver archivados";
+
+    const body = document.createElement("div");
+    body.className = "library-card-body";
+    if (trip.summary && trip.summary.days) {
+        const stats = document.createElement("div");
+        stats.className = "library-card-stats";
+        stats.append(statBlock(trip.summary.days, trip.summary.days === 1 ? "día" : "días"));
+        stats.append(statBlock(trip.summary.stops, trip.summary.stops === 1 ? "parada" : "paradas"));
+        const range = dateRangeLabel(trip.summary);
+        if (range) {
+            const dates = document.createElement("span");
+            dates.className = "library-stat library-stat-range";
+            const value = document.createElement("strong");
+            value.textContent = range;
+            const caption = document.createElement("small");
+            caption.textContent = "fechas";
+            dates.append(value, caption);
+            stats.append(dates);
+        }
+        body.append(stats);
+    }
+
+    const chips = document.createElement("div");
+    chips.className = "library-card-chips";
+    if (trip.remoteOnly) chips.append(chip("En la nube · necesita conexión", "cloud", "☁"));
+    else {
+        const tone = SYNC_TONE[trip.syncState] || "pending";
+        chips.append(chip(SYNC_COPY[trip.syncState] || trip.syncState, tone, tone === "synced" ? "☁" : "⌁"));
+        // "Solo en este dispositivo" already says it works offline; the extra
+        // chip only adds information once the trip also lives in the cloud.
+        if (tone !== "offline") chips.append(chip("Disponible sin conexión", "offline", "⌁"));
+    }
+    if (trip.shared) chips.append(chip("Público · cualquiera con el enlace", "shared", "◎"));
+    if (trip.pendingDeletion) chips.append(chip("Eliminación pendiente · no editable", "warn", "△"));
+    body.append(chips);
+
+    card.append(open, body);
+
+    if (!trip.remoteOnly && !trip.pendingDeletion) {
+        const more = document.createElement("button");
+        more.type = "button";
+        more.className = "library-card-more";
+        more.dataset.libraryMenu = trip.id;
+        more.setAttribute("aria-haspopup", "menu");
+        more.setAttribute("aria-label", `Más acciones para ${trip.title}`);
+        more.textContent = "⋯";
+        card.append(more);
+    }
+    return card;
+}
+
+function renderLibrary() {
+    closeCardMenu();
+    const entries = libraryEntries();
+    const activeCount = entries.filter((trip) => !trip.archived).length;
+    const archivedCount = entries.length - activeCount;
+    document.querySelector("#libraryActiveCount").textContent = String(activeCount);
+    document.querySelector("#libraryArchivedCount").textContent = String(archivedCount);
+    document.querySelector("#libraryActiveBtn").setAttribute("aria-selected", String(!showArchived));
+    document.querySelector("#libraryActiveBtn").tabIndex = showArchived ? -1 : 0;
+    document.querySelector("#libraryArchivedBtn").setAttribute("aria-selected", String(showArchived));
+    document.querySelector("#libraryArchivedBtn").tabIndex = showArchived ? 0 : -1;
+
+    const needle = foldText(searchTerm);
+    const visible = entries
+        .filter((trip) => trip.archived === showArchived)
+        .filter((trip) => !needle || foldText(trip.title).includes(needle))
+        .sort((a, b) => {
+            if (a.id === store.activeTripId && !a.remoteOnly) return -1;
+            if (b.id === store.activeTripId && !b.remoteOnly) return 1;
+            return new Date(b.updatedAt) - new Date(a.updatedAt);
+        });
+
+    list.replaceChildren(...visible.map(buildCard));
+
+    const total = showArchived ? archivedCount : activeCount;
+    const summary = document.querySelector("#libraryHeadSummary");
+    const scopeCopy = showArchived
+        ? total === 1 ? "1 viaje archivado" : `${total} viajes archivados`
+        : total === 1 ? "1 viaje activo" : `${total} viajes activos`;
+    summary.textContent = needle
+        ? `${visible.length} de ${total} ${total === 1 ? "viaje" : "viajes"} coinciden con la búsqueda`
+        : scopeCopy;
+
+    emptyState.hidden = visible.length > 0;
+    document.querySelector("#libraryEmptyTitle").textContent = needle
+        ? "Ningún viaje coincide"
+        : showArchived
+          ? "No tienes viajes archivados"
+          : "Aún no tienes viajes aquí";
+    document.querySelector("#libraryEmptyHint").textContent = needle
+        ? "Prueba con otro nombre o borra la búsqueda."
+        : showArchived
+          ? "Los viajes que archives se guardarán en esta sección."
+          : "Crea uno nuevo o importa un plan que ya tengas guardado.";
+    document.querySelector("#libraryEmptyAction").hidden = Boolean(needle) || showArchived;
 }
 
 function renderGlobalCloudAction() {
@@ -130,6 +358,8 @@ function renderGlobalCloudAction() {
 }
 
 document.querySelector("#libraryBtn").addEventListener("click", () => {
+    searchTerm = "";
+    searchInput.value = "";
     renderLibrary();
     openModal(dialog);
 });
@@ -142,10 +372,30 @@ document.querySelector("#libraryCreateBtn").addEventListener("click", async () =
     renderLibrary();
 });
 
-document.querySelector("#libraryArchivedBtn").addEventListener("click", () => {
+for (const tab of document.querySelectorAll("[data-library-scope]")) {
+    tab.addEventListener("click", () => {
+        const next = tab.dataset.libraryScope === "archived";
+        if (next === showArchived) return;
+        showArchived = next;
+        renderLibrary();
+    });
+}
+
+// Roving focus so the two scope tabs behave like a real tablist.
+document.querySelector(".library-scope").addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+    event.preventDefault();
     showArchived = !showArchived;
     renderLibrary();
+    document.querySelector(`[data-library-scope="${showArchived ? "archived" : "active"}"]`).focus();
 });
+
+searchInput.addEventListener("input", () => {
+    searchTerm = searchInput.value;
+    renderLibrary();
+});
+
+document.querySelector("#libraryEmptyAction").addEventListener("click", () => document.querySelector("#libraryCreateBtn").click());
 
 document.querySelector("#libraryImportBtn").addEventListener("click", () => document.querySelector("#libraryImportFile").click());
 document.querySelector("#libraryImportFile").addEventListener("change", async (event) => {
@@ -163,11 +413,12 @@ document.querySelector("#libraryImportFile").addEventListener("change", async (e
     }
 });
 
-document.querySelector("#libraryList").addEventListener("click", async (event) => {
-    const control = event.target.closest("[data-library-action]");
-    if (!control) return;
-    const { libraryAction: action, tripId: id } = control.dataset;
+async function runLibraryAction(action, id) {
     try {
+        if (action === "focus") {
+            dialog.close();
+            return;
+        }
         if (action === "open") {
             await switchTrip(id);
             repaintActiveTrip();
@@ -181,6 +432,9 @@ document.querySelector("#libraryList").addEventListener("click", async (event) =
             const title = await promptAction({ title: "Renombrar viaje", message: "El título cambiará también dentro del plan.", inputLabel: "Nombre", inputPlaceholder: current.document.tripTitle, confirmLabel: "Guardar" });
             if (title !== null) await renameTrip(id, title || current.document.tripTitle);
             if (id === store.activeTripId) applyTitle();
+        } else if (action === "share") {
+            const local = store.tripLibrary.find((trip) => trip.id === id);
+            if (canShareTrip(local)) await openShareDialog(local.remote.id);
         } else if (action === "duplicate") {
             await duplicateTrip(id);
             toast("Copia independiente creada.", "success");
@@ -194,7 +448,46 @@ document.querySelector("#libraryList").addEventListener("click", async (event) =
     } catch (error) {
         toast(error.message === "TRIP_NOT_AVAILABLE" ? "Este viaje no está disponible." : "No se pudo completar la acción.", "error");
     }
+}
+
+list.addEventListener("click", (event) => {
+    const menuTrigger = event.target.closest("[data-library-menu]");
+    if (menuTrigger) {
+        openCardMenu(menuTrigger, { id: menuTrigger.dataset.libraryMenu });
+        return;
+    }
+    const control = event.target.closest("[data-library-action]");
+    if (control) void runLibraryAction(control.dataset.libraryAction, control.dataset.tripId);
 });
+
+cardMenu.addEventListener("click", (event) => {
+    const control = event.target.closest("[data-library-action]");
+    if (!control) return;
+    closeCardMenu();
+    void runLibraryAction(control.dataset.libraryAction, control.dataset.tripId);
+});
+
+// Captured on the document so Escape dismisses the menu instead of the dialog
+// underneath, wherever the focus happens to be.
+document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !menuTrigger) return;
+    event.preventDefault();
+    event.stopPropagation();
+    closeCardMenu({ restoreFocus: true });
+}, true);
+
+cardMenu.addEventListener("keydown", (event) => {
+    if (!["ArrowDown", "ArrowUp"].includes(event.key)) return;
+    event.preventDefault();
+    const items = [...cardMenu.querySelectorAll("button")];
+    const step = event.key === "ArrowDown" ? 1 : -1;
+    const next = (items.indexOf(document.activeElement) + step + items.length) % items.length;
+    items[next]?.focus();
+});
+
+// The menu is positioned against the trigger, so any scroll would detach it.
+list.addEventListener("scroll", closeCardMenu, { passive: true });
+dialog.addEventListener("close", closeCardMenu);
 
 async function saveActiveToCloud() {
     await waitForActiveCommit();

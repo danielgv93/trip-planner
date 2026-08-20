@@ -162,9 +162,14 @@ body.preview-mode .spots {
     padding: 6px;
 }
 body.preview-mode .spot {
-    grid-template-columns: 1fr;
+    /* The editing columns (handle, toggle, actions) are hidden above, so only
+       content and price remain: keep them side by side as in edit mode. */
+    grid-template-columns: minmax(0, 1fr) auto;
     padding: 6px 8px;
     cursor: default;
+}
+body.preview-mode .spot.travel-card {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
 }
 @media (max-width: 860px) {
     .itinerary-toolbar { align-items: stretch; }

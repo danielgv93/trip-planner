@@ -1,0 +1,74 @@
+/*
+ * Public share links: the owner's share dialog, and the read-only shell an
+ * anonymous visitor sees. Hiding editing affordances here is presentation
+ * only — `store.readOnly` is what actually keeps the visitor's device safe.
+ */
+
+.share-form { display: grid; gap: 12px; }
+.share-state { margin: 0; color: #43514f; font-size: .8rem; line-height: 1.5; }
+.share-link-field { display: grid; gap: 6px; }
+.share-link-field[hidden] { display: none; }
+.share-link-field > span:first-child { color: #6b7370; font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.share-link-row { display: flex; gap: 8px; }
+.share-link-row input { flex: 1; min-width: 0; padding: 9px 11px; border: 1px solid #dcdbd4; border-radius: 9px; background: #f7f6f2; color: var(--ink); font-family: "DM Mono", monospace; font-size: .74rem; }
+.share-link-row button { padding: 0 14px; border: 1px solid #dcdbd4; border-radius: 9px; background: #fff; color: #43514f; font-size: .74rem; font-weight: 600; }
+.share-link-row button:hover, .share-link-row button:focus-visible { border-color: #b9c4c0; background: #f1f4f2; outline: none; }
+.share-hint { margin: 0; color: #6b7370; font-size: .72rem; line-height: 1.55; }
+.share-status { min-height: 1.1em; margin: 0; color: #286145; font-size: .72rem; font-weight: 600; }
+
+.library-chip[data-tone="shared"] { background: #eae9f6; color: #453f7a; }
+
+/* `hidden` must win over these display rules, so it is restated explicitly. */
+.public-view-banner[hidden], .public-view-error[hidden] { display: none; }
+
+.public-view-banner { display: flex; align-items: center; justify-content: center; gap: 9px; padding: 9px 16px; background: #1d2d36; color: #f4f2ed; text-align: center; }
+.public-view-banner p { margin: 0; font-size: .74rem; font-weight: 600; }
+.public-view-banner span { font-size: .9rem; line-height: 1; }
+
+.public-view-error { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; background: #f4f2ed; }
+.public-view-error > div { display: grid; justify-items: center; gap: 12px; max-width: 34rem; text-align: center; }
+.public-view-error h1 { margin: 0; font-family: "Playfair Display", serif; font-size: 1.8rem; }
+.public-view-error p { margin: 0; color: #5f6764; font-size: .85rem; line-height: 1.6; }
+.public-view-error .primary { padding: 10px 18px; border-radius: 999px; background: var(--ink, #1d2d36); color: #f4f2ed; text-decoration: none; font-size: .78rem; font-weight: 600; }
+
+/* Every affordance that would write to the plan, the account or the device. */
+.public-view .top-actions,
+.public-view #spotSearchBtn,
+.public-view #saveCloudBtn,
+.public-view #previewBtn,
+.public-view #addDay,
+.public-view #currencyConfigBtn,
+.public-view .day-title-edit,
+.public-view .health-badge,
+.public-view .backlog-footer,
+.public-view #tripNotesTabs .trip-notes-add-page,
+.public-view #tripNotesAddPage,
+.public-view #tripNotesRenamePage,
+.public-view #tripNotesDeletePage,
+.public-view #tripNotesMode,
+.public-view #tripNotesStatus,
+.public-view .backlog-group-edit,
+.public-view .backlog-group-delete,
+.public-view #placeReadActions,
+.public-view [data-read-edit],
+.public-view .place-reminder-actions,
+.public-view #llmChatLauncher { display: none !important; }
+
+/* Reminders stay readable in the place card, but lead nowhere to edit. */
+.public-view [data-reminder-edit] { pointer-events: none; }
+
+/* The resize handle stays: it is a device-local reading preference, and it
+   occupies its own grid column, so hiding it would collapse the map panel. */
+
+.public-view .intro { display: none; }
+/* Empty-state copy written for an editor ("arrastra aquí…", "escribe un
+   título…") only confuses a reader who cannot edit anything. */
+.public-view .backlog-group .empty,
+.public-view .trip-notes-index-empty,
+.public-view .trip-notes-meta,
+.public-view .trip-notes-view-actions { display: none; }
+
+/* The day date opens a picker from the whole box, so the box itself is inert. */
+.public-view .date-box.editable { pointer-events: none; }
+.public-view .date-box.editable input { display: none; }
+.public-view-failed .top, .public-view-failed main { visibility: hidden; }

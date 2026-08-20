@@ -112,7 +112,20 @@ export function invalidateMainMap() {
 
 // Keyed by `fromCoord|toCoord|profile`. Successful OSRM responses survive page
 // reloads in a bounded device-local cache; approximate fallbacks stay in memory.
-const routeCache = createRouteCache();
+// Persistence is resolved at read/write time rather than at import time, so a
+// public visitor — whose `readOnly` flag is set after this module evaluates —
+// gets the in-memory cache without leaving anything on their device.
+const routeCache = createRouteCache({
+    storage: {
+        getItem: (key) => (store.readOnly ? null : localStorage.getItem(key)),
+        setItem: (key, value) => {
+            if (!store.readOnly) localStorage.setItem(key, value);
+        },
+        removeItem: (key) => {
+            if (!store.readOnly) localStorage.removeItem(key);
+        },
+    },
+});
 let routeCacheRevision = 0;
 
 export function routeTravelRevision() { return routeCacheRevision; }

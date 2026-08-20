@@ -2,6 +2,7 @@ import { canonicalPlanHash } from "../../../../js/core/plan-hash.js";
 import { summarizePlanRevision, validatePlanDocument } from "../../domain/plan-document.js";
 import { ApiError } from "../../http/api-error.js";
 import { withTransaction } from "../../infrastructure/postgres/transaction.js";
+import { assertTripId } from "./trip-share-service.js";
 
 async function pruneRevisions(client, tripId) {
     await client.query(`DELETE FROM trip_revisions
@@ -14,10 +15,12 @@ async function pruneRevisions(client, tripId) {
 
 export function createTripService({ database, config, now = () => new Date() }) {
     async function listTrips({ userId, archived }) {
-        const result = await database.query(`SELECT id, title, created_at, updated_at, archived_at, current_revision, document_hash
-            FROM trips WHERE owner_id = $1 AND deleted_at IS NULL
-              AND (($2::boolean AND archived_at IS NOT NULL) OR (NOT $2::boolean AND archived_at IS NULL))
-            ORDER BY updated_at DESC LIMIT 500`, [userId, archived]);
+        const result = await database.query(`SELECT t.id, t.title, t.created_at, t.updated_at, t.archived_at,
+                t.current_revision, t.document_hash, (s.trip_id IS NOT NULL) AS shared
+            FROM trips t LEFT JOIN trip_shares s ON s.trip_id = t.id
+            WHERE t.owner_id = $1 AND t.deleted_at IS NULL
+              AND (($2::boolean AND t.archived_at IS NOT NULL) OR (NOT $2::boolean AND t.archived_at IS NULL))
+            ORDER BY t.updated_at DESC LIMIT 500`, [userId, archived]);
         return result.rows;
     }
 
@@ -39,8 +42,11 @@ export function createTripService({ database, config, now = () => new Date() }) 
     }
 
     async function getTrip({ userId, tripId }) {
-        const result = await database.query(`SELECT id, title, document, document_hash, current_revision, archived_at, created_at, updated_at
-            FROM trips WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL`, [tripId, userId]);
+        assertTripId(tripId);
+        const result = await database.query(`SELECT t.id, t.title, t.document, t.document_hash, t.current_revision,
+                t.archived_at, t.created_at, t.updated_at, (s.trip_id IS NOT NULL) AS shared
+            FROM trips t LEFT JOIN trip_shares s ON s.trip_id = t.id
+            WHERE t.id = $1 AND t.owner_id = $2 AND t.deleted_at IS NULL`, [tripId, userId]);
         if (!result.rowCount) throw new ApiError(404, "TRIP_NOT_FOUND", "Viaje no encontrado");
         return result.rows[0];
     }

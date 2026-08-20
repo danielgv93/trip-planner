@@ -175,6 +175,9 @@ export const store = {
         ? "compact"
         : "comfortable",
     previewMode: false,
+    // Anonymous public-link viewing. It is the single choke point that keeps a
+    // shared trip from touching the visitor's own device storage: see save().
+    readOnly: false,
     // Held from a picked Nominatim suggestion until the place form is submitted.
     selectedLocation: null,
     // id of the selected day, or the literal "backlog".
@@ -229,6 +232,9 @@ export function spotIsEnabled(spot) {
 }
 
 export function save() {
+    // A visitor reading somebody else's public link must never overwrite their
+    // own workspace, so persistence stops here rather than in the UI layer.
+    if (store.readOnly) return;
     try {
         localStorage.setItem(
             "trip-planner",

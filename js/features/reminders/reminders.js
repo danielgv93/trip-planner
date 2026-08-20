@@ -345,6 +345,7 @@ $("#remindersCalendar").addEventListener("click", (event) => {
 });
 
 document.addEventListener("click", (event) => {
+    if (store.readOnly) return;
     const edit = event.target.closest("[data-reminder-edit]")?.dataset.reminderEdit;
     if (edit) { event.stopPropagation(); openReminderEditor(edit); return; }
     const create = event.target.closest("[data-reminder-create]");

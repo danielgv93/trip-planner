@@ -8,7 +8,9 @@ Trip Planner is a browser-only, responsive itinerary planner built with vanilla
 JavaScript ES modules. It has no framework, package manager, build step, or
 project-owned backend. The interface is in Spanish. Plans persist in
 `localStorage`, support JSON import/export, and can optionally be synchronized
-explicitly with an existing GitHub JSON file. Notes are multi-page, and
+explicitly with an existing GitHub JSON file. A trip stored in the cloud can also
+be published as a read-only public link (`?viaje=<token>`) that anyone can open
+without an account. Notes are multi-page, and
 portable plan data also includes backlog groups, directed travel legs, and
 fixed or relative reminders.
 
@@ -30,8 +32,8 @@ fixed or relative reminders.
   `js/core/`, neutral browser primitives in `js/shared/`, and product behavior
   in `js/features/<domain>/`.
 - Current feature domains include planner, map, finance, notes, companion,
-  health, reminders, GitHub synchronization, the LLM assistant, and workspace
-  resizing.
+  health, reminders, GitHub synchronization, public share links, the LLM
+  assistant, and workspace resizing.
 - Use `styles/app.css` as the only stylesheet entry point and update its import
   order deliberately.
 - Preserve legacy plan loading and keep local persistence and portable JSON

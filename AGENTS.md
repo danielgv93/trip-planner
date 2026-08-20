@@ -65,6 +65,8 @@ Module map (paths are relative to `js/`):
 - **`features/reminders/`** — fixed and relative trip reminders, calendar/dashboard, and spot associations.
 - **`features/github/`** — optional explicit GitHub JSON synchronization, with transport isolated in `github-api.js`.
 - **`features/assistant/`** — multi-provider LLM chat with validated plan mutations isolated in `proposal.js`.
+- **`features/share/`** — public read-only share links: the owner's link dialog,
+  the anonymous bootstrap, and the pure URL rules in `share-url.js`.
 - **`features/workspace/`** — persisted desktop workspace resizing.
 - **`app/main.js`** — imports side-effect modules, paints the initial UI/map, and starts background initialization.
 
@@ -212,6 +214,44 @@ Backlog is a pseudo-day with the fixed id `"backlog"`. It can be active and acce
 
 Place search in `dialogs.js` is debounced by 450 ms and requires at least 3 characters. A chosen suggestion is stored temporarily in `store.selectedLocation` until form submission. A spot without finite `lat`/`lng` still renders in the itinerary but not on maps.
 
+## Public share links
+
+A cloud trip can be published as a read-only link. The owner opens **Compartir**
+from the library card menu; the server mints a token in `trip_shares` and the app
+builds `?viaje=<token>` against the current origin and path. Making the trip
+private deletes the token, so the old URL stops working for good; publishing
+again mints a different one. Publishing twice in a row is idempotent and keeps
+the link the owner already sent.
+
+- `GET /api/public/trips/:token` is the only trip route registered **before** the
+  authentication middleware. It is read-only, takes no session, and returns the
+  current revision plus the title and `updatedAt` — never ids or owner data.
+- The token travels as a query parameter, not a path segment: `index.html` loads
+  its modules through relative URLs, so a deeper path would break every asset.
+- `js/app/main.js` branches on the token before anything else. The public
+  bootstrap never opens the trip repository, never creates a starter trip, and
+  never initializes the cloud session, companion mode, or the assistant.
+- `store.readOnly` is the real boundary: `save()` returns immediately when it is
+  set, so a visitor cannot overwrite their own device storage. The `public-view`
+  body class only hides affordances; never rely on CSS alone for this.
+- `replacePlanState()` resets `previewMode`, so the public bootstrap forces the
+  full-trip view *after* calling it.
+
+Preview mode alone is **not** enough to make the view read-only: it hides drag
+handles and spot actions, but plenty of editors are still reachable. When adding
+any new way to mutate the plan, close it at its own source rather than only
+hiding a button. The guards that exist today:
+
+- `setPlaceMode()` in `planner/dialogs.js` refuses any non-read mode, which
+  covers the place inspector's footer button and its read-card shortcuts.
+- `wireBacklogGroup()` in `planner/render.js` skips the rename/delete wiring,
+  including the double click on the group title.
+- The day timeline is built with `interactive: !store.readOnly`, so it renders
+  plain blocks instead of the buttons that open the duration and travel dialogs.
+- The reminder click delegate in `features/reminders/reminders.js` returns early.
+- The OSRM route cache in `features/map/map.js` resolves its storage at call
+  time, so a visitor gets the in-memory cache and writes nothing.
+
 ## Behavioral invariants
 
 - Deleting a day moves all its spots to the backlog; it must not discard them.
@@ -221,4 +261,6 @@ Place search in `dialogs.js` is debounced by 450 ms and requires at least 3 char
 - Undo/redo history is session-only and bounded to 20 snapshots; flows integrated with it capture state immediately before mutation.
 - Cost/schedule/map totals must use only enabled stops.
 - Preview mode is read-only and draws the complete trip map.
+- A public visitor writes nothing: no `localStorage`, no IndexedDB, no device id.
+- Making a trip private must invalidate the previous link permanently.
 - User-facing copy remains in Spanish.

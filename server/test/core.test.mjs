@@ -6,6 +6,7 @@ import { createApi } from "../src/api/create-api.js";
 import { loadConfig } from "../src/config/runtime-config.js";
 import { summarizePlanRevision, validatePlanDocument } from "../src/domain/plan-document.js";
 import { AVATAR_MAX_BYTES, createAccountService } from "../src/modules/accounts/account-service.js";
+import { createTripShareService } from "../src/modules/trips/trip-share-service.js";
 import { passwordHash, SlidingWindowLimiter, secretHash, safeEqualHash, sessionCookie, verifyPassword } from "../src/security/session-security.js";
 
 const config = loadConfig({ CLOUD_ENABLED: "false", APP_ORIGIN: "http://localhost:8000" });
@@ -106,4 +107,56 @@ test("Express sirve salud, CORS y errores JSON con el contrato público", async 
     } finally {
         await new Promise((resolve) => server.close(resolve));
     }
+});
+
+test("un enlace público con token inválido no llega a la base de datos", async () => {
+    let queries = 0;
+    const database = { query: async () => { queries += 1; return { rows: [], rowCount: 0 }; } };
+    const service = createTripShareService({ database });
+    for (const token of ["", "corto", "con espacio", "../../etc", "a".repeat(200)]) {
+        await assert.rejects(
+            service.readPublicTrip({ token, clientKey: "1.1.1.1" }),
+            (error) => error?.code === "SHARE_NOT_FOUND" && error.status === 404,
+        );
+    }
+    assert.equal(queries, 0);
+});
+
+test("un token desconocido responde 404 sin distinguir viaje inexistente de enlace revocado", async () => {
+    const database = { query: async () => ({ rows: [], rowCount: 0 }) };
+    const service = createTripShareService({ database });
+    await assert.rejects(
+        service.readPublicTrip({ token: "a".repeat(32), clientKey: "1.1.1.1" }),
+        (error) => error?.code === "SHARE_NOT_FOUND",
+    );
+});
+
+test("la lectura pública devuelve el plan sin identificar a la cuenta propietaria", async () => {
+    const row = { title: "Japón", document: { tripTitle: "Japón", days: [] }, updated_at: "2026-01-01T00:00:00.000Z", owner_id: "no-debe-salir" };
+    const database = { query: async () => ({ rows: [row], rowCount: 1 }) };
+    const service = createTripShareService({ database });
+    const trip = await service.readPublicTrip({ token: "a".repeat(32), clientKey: "1.1.1.1" });
+    assert.deepEqual(Object.keys(trip).sort(), ["document", "title", "updatedAt"]);
+});
+
+test("las acciones de compartir rechazan identificadores que no son uuid sin consultar", async () => {
+    let queries = 0;
+    const database = { query: async () => { queries += 1; return { rows: [], rowCount: 0 }; } };
+    const service = createTripShareService({ database });
+    for (const action of ["readShare", "share", "unshare"]) {
+        await assert.rejects(
+            service[action]({ userId: "u", tripId: "no-es-uuid" }),
+            (error) => error?.code === "TRIP_NOT_FOUND",
+        );
+    }
+    assert.equal(queries, 0);
+});
+
+test("compartir un viaje ajeno responde 404 en lugar de crear el enlace", async () => {
+    const database = { query: async () => ({ rows: [], rowCount: 0 }) };
+    const service = createTripShareService({ database });
+    await assert.rejects(
+        service.share({ userId: "otra-cuenta", tripId: "11111111-1111-4111-8111-111111111111" }),
+        (error) => error?.code === "TRIP_NOT_FOUND" && error.status === 404,
+    );
 });

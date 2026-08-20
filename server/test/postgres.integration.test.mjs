@@ -22,7 +22,7 @@ async function withServer(callback) {
         APP_ORIGIN: "http://test.local",
     });
     const database = await createDatabase(config);
-    await database.query("DROP TABLE IF EXISTS account_deletions, trip_mutations, trip_revisions, trips, sessions, login_tokens, users, schema_migrations CASCADE");
+    await database.query("DROP TABLE IF EXISTS account_deletions, trip_shares, trip_mutations, trip_revisions, trips, sessions, login_tokens, users, schema_migrations CASCADE");
     await migrate(database);
     const logger = { info() {}, error() {} };
     const server = createServer(createApi({ database, config, logger }));
@@ -146,6 +146,42 @@ test("Postgres integra cuentas, sesiones, concurrencia, idempotencia y aislamien
         assert.equal((await request(`/api/trips/${tripId}`, { method: "DELETE", cookie: userB.sessionCookie, csrf: userB.csrf })).body.deleted, false);
         assert.equal((await request(`/api/trips/${tripId}/revisions`, { cookie: userB.sessionCookie })).body.revisions.length, 0);
         assert.equal((await request("/api/trips", { cookie: userB.sessionCookie })).body.trips.length, 0);
+        assert.equal((await request(`/api/trips/${tripId}/share`, { cookie: userB.sessionCookie })).response.status, 404);
+        assert.equal((await request(`/api/trips/${tripId}/share`, { method: "POST", cookie: userB.sessionCookie, csrf: userB.csrf })).response.status, 404);
+        assert.equal((await database.query("SELECT count(*)::int AS count FROM trip_shares")).rows[0].count, 0);
+
+        assert.equal((await request(`/api/trips/${tripId}/share`, { cookie: userA.sessionCookie })).body.share.shared, false);
+        assert.equal((await request("/api/public/trips/inventado-pero-suficientemente-largo")).response.status, 404);
+        const published = await request(`/api/trips/${tripId}/share`, { method: "POST", cookie: userA.sessionCookie, csrf: userA.csrf });
+        assert.equal(published.response.status, 200);
+        const shareToken = published.body.share.token;
+        assert.match(shareToken, /^[A-Za-z0-9_-]{32,}$/);
+        // Publishing twice must not rotate a link the owner already sent.
+        assert.equal((await request(`/api/trips/${tripId}/share`, { method: "POST", cookie: userA.sessionCookie, csrf: userA.csrf })).body.share.token, shareToken);
+        assert.equal((await request(`/api/trips/${tripId}/share`, { cookie: userA.sessionCookie })).body.share.token, shareToken);
+        assert.equal((await request("/api/trips", { cookie: userA.sessionCookie })).body.trips[0].shared, true);
+
+        // An anonymous reader: no cookie, no CSRF, and no write of any kind.
+        const anonymous = await request(`/api/public/trips/${shareToken}`);
+        assert.equal(anonymous.response.status, 200);
+        assert.equal(anonymous.body.trip.title, (await request(`/api/trips/${tripId}`, { cookie: userA.sessionCookie })).body.trip.title);
+        assert.ok(Array.isArray(anonymous.body.trip.document.days));
+        assert.equal(Object.hasOwn(anonymous.body.trip, "id"), false);
+        assert.equal(Object.hasOwn(anonymous.body.trip, "owner_id"), false);
+        // Only GET is public: any other verb falls through to the authentication
+        // middleware instead of reaching the share route.
+        assert.equal((await request(`/api/public/trips/${shareToken}`, { method: "DELETE" })).response.status, 401);
+        assert.equal((await request(`/api/trips/${tripId}`, { method: "PATCH", body: { title: "Robado" } })).response.status, 401);
+
+        const revoked = await request(`/api/trips/${tripId}/share`, { method: "DELETE", cookie: userA.sessionCookie, csrf: userA.csrf });
+        assert.equal(revoked.body.share.shared, false);
+        assert.equal((await request(`/api/public/trips/${shareToken}`)).response.status, 404);
+        // Publishing again mints a different link; the revoked one stays dead.
+        const republished = await request(`/api/trips/${tripId}/share`, { method: "POST", cookie: userA.sessionCookie, csrf: userA.csrf });
+        assert.notEqual(republished.body.share.token, shareToken);
+        assert.equal((await request(`/api/public/trips/${shareToken}`)).response.status, 404);
+        assert.equal((await request(`/api/public/trips/${republished.body.share.token}`)).response.status, 200);
+        await request(`/api/trips/${tripId}/share`, { method: "DELETE", cookie: userA.sessionCookie, csrf: userA.csrf });
 
         await database.query("UPDATE sessions SET expires_at = now() - interval '1 minute' WHERE token_hash = $1", [secretHash(userB.sessionCookie.split("=")[1])]);
         assert.equal((await request("/api/session", { cookie: userB.sessionCookie })).body.authenticated, false);
@@ -189,9 +225,10 @@ test("las migraciones avanzan desde cada versión aditiva soportada", { skip: !d
     const database = await createDatabase(config);
     const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), "../migrations");
     try {
-        const files = ["001_accounts.sql", "002_trips.sql", "003_account_deletions.sql", "004_password_auth.sql", "005_account_profiles.sql"];
-        for (const startingVersion of [0, 1, 2, 3, 4]) {
-            await database.query("DROP TABLE IF EXISTS account_deletions, trip_mutations, trip_revisions, trips, sessions, login_tokens, users, schema_migrations CASCADE");
+        const files = ["001_accounts.sql", "002_trips.sql", "003_account_deletions.sql", "004_password_auth.sql",
+            "005_account_profiles.sql", "006_avatar_size_limit.sql", "007_trip_shares.sql"];
+        for (const startingVersion of [0, 1, 2, 3, 4, 5, 6]) {
+            await database.query("DROP TABLE IF EXISTS account_deletions, trip_shares, trip_mutations, trip_revisions, trips, sessions, login_tokens, users, schema_migrations CASCADE");
             await database.query(`CREATE TABLE schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`);
             for (const name of files.slice(0, startingVersion)) {
                 await database.query(await readFile(join(migrationsDir, name), "utf8"));
@@ -203,6 +240,7 @@ test("las migraciones avanzan desde cada versión aditiva soportada", { skip: !d
             assert.equal((await database.query("SELECT to_regclass('trips') AS name")).rows[0].name, "trips");
             assert.equal((await database.query("SELECT to_regclass('account_deletions') AS name")).rows[0].name, "account_deletions");
             assert.equal((await database.query("SELECT display_name FROM users LIMIT 1")).fields[0].name, "display_name");
+            assert.equal((await database.query("SELECT to_regclass('trip_shares') AS name")).rows[0].name, "trip_shares");
         }
     } finally {
         await database.close();

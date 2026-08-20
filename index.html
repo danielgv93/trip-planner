@@ -23,6 +23,20 @@
         <link rel="stylesheet" href="styles/app.css" />
     </head>
     <body>
+        <div id="publicViewBanner" class="public-view-banner" hidden>
+            <span aria-hidden="true">◎</span>
+            <p>
+                Estás viendo un viaje compartido en modo lectura. Los cambios
+                no están disponibles.
+            </p>
+        </div>
+        <div id="publicViewError" class="public-view-error" hidden>
+            <div>
+                <h1>Este viaje no está disponible</h1>
+                <p id="publicViewErrorDetail">El enlace no existe o su autor dejó de compartir el viaje.</p>
+                <a class="primary" href="./">Ir al planificador</a>
+            </div>
+        </div>
         <header class="top">
             <div class="brand">
                 <img
@@ -905,18 +919,37 @@
             </div>
         </dialog>
         <dialog id="libraryDialog" class="library-dialog">
-            <div class="modal-head">
-                <div><span class="modal-eyebrow">Espacios de viaje</span><h3>Mis viajes</h3></div>
+            <div class="modal-head library-head">
+                <div>
+                    <span class="modal-eyebrow">Espacios de viaje</span>
+                    <h3>Mis viajes</h3>
+                    <p id="libraryHeadSummary" role="status" aria-live="polite"></p>
+                </div>
                 <button class="close" aria-label="Cerrar">×</button>
             </div>
             <div class="library-toolbar">
-                <button id="libraryCreateBtn" class="primary" type="button">＋ Nuevo viaje</button>
-                <button id="libraryImportBtn" type="button">Importar como nuevo</button>
-                <button id="libraryArchivedBtn" type="button" aria-pressed="false">Ver archivados</button>
+                <div class="library-scope" role="tablist" aria-label="Sección de la biblioteca">
+                    <button id="libraryActiveBtn" type="button" role="tab" aria-selected="true" aria-controls="libraryList" data-library-scope="active">Activos <span id="libraryActiveCount" class="library-scope-count">0</span></button>
+                    <button id="libraryArchivedBtn" type="button" role="tab" aria-selected="false" aria-controls="libraryList" tabindex="-1" data-library-scope="archived">Archivados <span id="libraryArchivedCount" class="library-scope-count">0</span></button>
+                </div>
+                <div class="library-search">
+                    <span aria-hidden="true">⌕</span>
+                    <input id="librarySearch" type="search" placeholder="Buscar por nombre…" aria-label="Buscar viaje por nombre" autocomplete="off" />
+                </div>
+                <div class="library-toolbar-actions">
+                    <button id="libraryImportBtn" type="button" class="library-ghost"><span aria-hidden="true">↑</span> Importar</button>
+                    <button id="libraryCreateBtn" class="primary" type="button"><span aria-hidden="true">＋</span> Nuevo viaje</button>
+                </div>
                 <input id="libraryImportFile" type="file" accept="application/json,.json" hidden />
             </div>
-            <div id="libraryList" class="library-list"></div>
-            <p id="libraryEmpty" class="library-empty" hidden>No hay viajes en esta sección.</p>
+            <div id="libraryList" class="library-list" role="list"></div>
+            <div id="libraryEmpty" class="library-empty" hidden>
+                <span class="library-empty-mark" aria-hidden="true">▣</span>
+                <strong id="libraryEmptyTitle">Aún no tienes viajes aquí</strong>
+                <small id="libraryEmptyHint">Crea uno nuevo o importa un plan que ya tengas guardado.</small>
+                <button id="libraryEmptyAction" class="primary" type="button"><span aria-hidden="true">＋</span> Nuevo viaje</button>
+            </div>
+            <div id="libraryCardMenu" class="library-menu" popover="auto" role="menu" aria-label="Acciones del viaje"></div>
         </dialog>
         <dialog id="accountDialog" class="account-dialog">
             <div class="modal-head account-head">
@@ -1021,6 +1054,33 @@
             <div class="modal-head"><div><span class="modal-eyebrow">Historial remoto</span><h3>Versiones del viaje</h3></div><button class="close" aria-label="Cerrar">×</button></div>
             <div id="historyList" class="history-list"></div>
             <p id="historyStatus" class="history-status" role="status"></p>
+        </dialog>
+        <dialog id="shareDialog" class="share-dialog">
+            <div class="modal-head">
+                <div><span class="modal-eyebrow">Compartir</span><h3>Enlace público del viaje</h3></div>
+                <button class="close" aria-label="Cerrar">×</button>
+            </div>
+            <div class="form share-form">
+                <p id="shareState" class="share-state" role="status">Comprobando la visibilidad…</p>
+                <label id="shareLinkField" class="share-link-field" hidden>
+                    <span>Enlace para compartir</span>
+                    <span class="share-link-row">
+                        <input id="shareLink" type="text" readonly aria-label="Enlace público del viaje" />
+                        <button id="shareCopyBtn" type="button">Copiar</button>
+                    </span>
+                </label>
+                <p class="share-hint">
+                    Quien abra el enlace verá el viaje tal como esté en ese momento,
+                    incluidas las notas y los costes, y no podrá editarlo. Al volver a
+                    hacerlo privado el enlace deja de funcionar para siempre.
+                </p>
+                <p id="shareStatus" class="share-status" role="status"></p>
+                <div class="form-actions">
+                    <button type="button" class="cancel">Cerrar</button
+                    ><button id="sharePublishBtn" class="primary" type="button" hidden>Hacer público</button
+                    ><button id="shareRevokeBtn" class="confirm-ok" type="button" hidden>Hacer privado</button>
+                </div>
+            </div>
         </dialog>
         <dialog id="revisionPreviewDialog" class="revision-preview-dialog">
             <div class="modal-head"><div><span class="modal-eyebrow">Vista de solo lectura</span><h3 id="revisionPreviewTitle">Revisión</h3></div><button class="close" aria-label="Cerrar">×</button></div>

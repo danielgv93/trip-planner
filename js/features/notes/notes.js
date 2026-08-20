@@ -213,9 +213,11 @@ export function syncTripNotes() {
 }
 
 toggle.addEventListener("click", () => {
-    showMode("write");
+    // A public visitor can read the notes but never edit them, so the dialog
+    // opens straight in the rendered view instead of the editor.
+    showMode(store.readOnly ? "preview" : "write");
     openModal(dialog);
-    notes.focus();
+    if (!store.readOnly) notes.focus();
 });
 
 tabs.addEventListener("click", (event) => {

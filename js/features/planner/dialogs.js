@@ -363,6 +363,10 @@ document.addEventListener("reminders-changed", () => {
 });
 
 function setPlaceMode(mode, { focus = true } = {}) {
+    // Single choke point for every route into the editor (the footer button,
+    // the read-panel shortcuts, and openDialog itself), so a public visitor
+    // keeps the read card and never reaches an editable form.
+    if (store.readOnly && mode !== "read") return;
     placeMode = mode;
     const read = mode === "read";
     $("#placeReadPanel").hidden = !read; $("#placeForm").hidden = read;
