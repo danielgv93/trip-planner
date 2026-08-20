@@ -94,6 +94,11 @@ copyButton?.addEventListener("click", async () => {
 
 // A trip that is not in the cloud has nowhere to publish from, and an expired
 // session cannot mint a link.
+// Publishing to the open internet is an owner decision, and the API enforces
+// it; hiding the entry keeps a collaborator from meeting a 403 for no reason.
 export function canShareTrip(trip) {
-    return Boolean(trip?.remote?.id) && Boolean(store.accountSession) && !trip.pendingDeletion;
+    return Boolean(trip?.remote?.id)
+        && Boolean(store.accountSession)
+        && !trip.pendingDeletion
+        && trip.remote.role === "owner";
 }

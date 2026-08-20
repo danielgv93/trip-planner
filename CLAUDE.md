@@ -10,7 +10,10 @@ project-owned backend. The interface is in Spanish. Plans persist in
 `localStorage`, support JSON import/export, and can optionally be synchronized
 explicitly with an existing GitHub JSON file. A trip stored in the cloud can also
 be published as a read-only public link (`?viaje=<token>`) that anyone can open
-without an account. Notes are multi-page, and
+without an account. A cloud trip also has one owner and any number of
+collaborators (editor or viewer) who see it in their own library, edit it live
+over a server-sent event stream, and are attributed per revision in the
+history. Notes are multi-page, and
 portable plan data also includes backlog groups, directed travel legs, and
 fixed or relative reminders.
 
@@ -32,8 +35,10 @@ fixed or relative reminders.
   `js/core/`, neutral browser primitives in `js/shared/`, and product behavior
   in `js/features/<domain>/`.
 - Current feature domains include planner, map, finance, notes, companion,
-  health, reminders, GitHub synchronization, public share links, the LLM
-  assistant, and workspace resizing.
+  health, reminders, GitHub synchronization, public share links, trip
+  collaboration, the LLM assistant, and workspace resizing.
+- Never authorize a trip route with `trips.owner_id`: membership in
+  `trip_members` is the permission. Use `server/src/modules/trips/trip-access.js`.
 - Use `styles/app.css` as the only stylesheet entry point and update its import
   order deliberately.
 - Preserve legacy plan loading and keep local persistence and portable JSON

@@ -21,12 +21,14 @@ import "../features/library/persistence-status.js";
 import "../features/cloud/account.js";
 import "../features/cloud/conflicts.js";
 import "../features/cloud/history.js";
+import "../features/cloud/collaborators.js";
 import { render, applyTitle } from "../features/planner/render.js";
 import { drawMap } from "../features/map/map.js";
 import { initCompanion } from "../features/companion/companion.js";
 import { refreshExchangeRate } from "../features/finance/currency.js";
 import { initializeTripWorkspace } from "../features/library/workspace.js";
 import { initializeCloud } from "../features/cloud/coordinator.js";
+import { initializeLiveTripStream } from "../features/cloud/live-trip.js";
 import { bootstrapPublicView, publicShareToken } from "../features/share/public-view.js";
 
 function startExchangeRate() {
@@ -58,6 +60,9 @@ if (shareToken) {
     await initializeCloud().catch((error) => {
         console.warn("La nube no está disponible; se mantiene el modo local.", error);
     });
+    // Live collaboration only makes sense once the session is resolved: the
+    // stream is authenticated by the same cookie the cloud bootstrap validates.
+    initializeLiveTripStream();
     if (!workspace.hasActiveTrip) document.querySelector("#libraryBtn")?.click();
 
     import("../features/assistant/llm-chat.js")

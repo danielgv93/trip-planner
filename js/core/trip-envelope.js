@@ -9,12 +9,28 @@ export const TRIP_SYNC_STATES = new Set([
 function optionalString(value) {
     return typeof value === "string" && value ? value : null;
 }
+
+export const TRIP_ROLES = new Set(["owner", "editor", "viewer"]);
+
+function normalizeMember(value) {
+    const userId = optionalString(value?.userId);
+    if (!userId || !TRIP_ROLES.has(value.role)) return null;
+    return {
+        userId,
+        role: value.role,
+        displayName: optionalString(value.displayName) || "Viajero",
+    };
+}
+
 export function createTripEnvelope({
     id,
     document,
     remoteId = null,
     baseRevision = null,
     remoteHash = null,
+    role = null,
+    ownerId = null,
+    members = [],
     syncState = remoteId ? "pending" : "local",
     archived = false,
     pendingDeletion = false,
@@ -34,6 +50,12 @@ export function createTripEnvelope({
             id: optionalString(remoteId),
             baseRevision,
             hash: optionalString(remoteHash),
+            // Collaboration metadata is a cached copy of what the server said
+            // last: it drives the card and the affordances, never the
+            // authorization, which only the API can decide.
+            role: TRIP_ROLES.has(role) ? role : null,
+            ownerId: optionalString(ownerId),
+            members: Array.isArray(members) ? members.map(normalizeMember).filter(Boolean) : [],
         },
         syncState,
         archived: archived === true,
@@ -55,6 +77,9 @@ export function normalizeTripEnvelope(value) {
         remoteId: value.remote?.id,
         baseRevision: value.remote?.baseRevision,
         remoteHash: value.remote?.hash,
+        role: value.remote?.role,
+        ownerId: value.remote?.ownerId,
+        members: value.remote?.members,
         syncState: value.syncState,
         archived: value.archived,
         pendingDeletion: value.pendingDeletion,

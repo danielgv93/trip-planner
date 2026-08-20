@@ -32,30 +32,34 @@
 .public-view-error .primary { padding: 10px 18px; border-radius: 999px; background: var(--ink, #1d2d36); color: #f4f2ed; text-decoration: none; font-size: .78rem; font-weight: 600; }
 
 /* Every affordance that would write to the plan, the account or the device. */
+/* `read-only-plan` is the editing lockdown itself: it is worn by an anonymous
+ * visitor AND by a collaborator whose role is "lector". Anything specific to
+ * having no account at all stays under `.public-view` below. */
+.read-only-plan #spotSearchBtn,
+.read-only-plan #saveCloudBtn,
+.read-only-plan #addDay,
+.read-only-plan #currencyConfigBtn,
+.read-only-plan .day-title-edit,
+.read-only-plan .health-badge,
+.read-only-plan .backlog-footer,
+.read-only-plan #tripNotesTabs .trip-notes-add-page,
+.read-only-plan #tripNotesAddPage,
+.read-only-plan #tripNotesRenamePage,
+.read-only-plan #tripNotesDeletePage,
+.read-only-plan #tripNotesMode,
+.read-only-plan #tripNotesStatus,
+.read-only-plan .backlog-group-edit,
+.read-only-plan .backlog-group-delete,
+.read-only-plan #placeReadActions,
+.read-only-plan [data-read-edit],
+.read-only-plan .place-reminder-actions { display: none !important; }
+
 .public-view .top-actions,
-.public-view #spotSearchBtn,
-.public-view #saveCloudBtn,
 .public-view #previewBtn,
-.public-view #addDay,
-.public-view #currencyConfigBtn,
-.public-view .day-title-edit,
-.public-view .health-badge,
-.public-view .backlog-footer,
-.public-view #tripNotesTabs .trip-notes-add-page,
-.public-view #tripNotesAddPage,
-.public-view #tripNotesRenamePage,
-.public-view #tripNotesDeletePage,
-.public-view #tripNotesMode,
-.public-view #tripNotesStatus,
-.public-view .backlog-group-edit,
-.public-view .backlog-group-delete,
-.public-view #placeReadActions,
-.public-view [data-read-edit],
-.public-view .place-reminder-actions,
 .public-view #llmChatLauncher { display: none !important; }
 
 /* Reminders stay readable in the place card, but lead nowhere to edit. */
-.public-view [data-reminder-edit] { pointer-events: none; }
+.read-only-plan [data-reminder-edit] { pointer-events: none; }
 
 /* The resize handle stays: it is a device-local reading preference, and it
    occupies its own grid column, so hiding it would collapse the map panel. */
@@ -63,12 +67,12 @@
 .public-view .intro { display: none; }
 /* Empty-state copy written for an editor ("arrastra aquí…", "escribe un
    título…") only confuses a reader who cannot edit anything. */
-.public-view .backlog-group .empty,
-.public-view .trip-notes-index-empty,
-.public-view .trip-notes-meta,
-.public-view .trip-notes-view-actions { display: none; }
+.read-only-plan .backlog-group .empty,
+.read-only-plan .trip-notes-index-empty,
+.read-only-plan .trip-notes-meta,
+.read-only-plan .trip-notes-view-actions { display: none; }
 
 /* The day date opens a picker from the whole box, so the box itself is inert. */
-.public-view .date-box.editable { pointer-events: none; }
-.public-view .date-box.editable input { display: none; }
+.read-only-plan .date-box.editable { pointer-events: none; }
+.read-only-plan .date-box.editable input { display: none; }
 .public-view-failed .top, .public-view-failed main { visibility: hidden; }

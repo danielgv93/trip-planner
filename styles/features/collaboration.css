@@ -1,0 +1,94 @@
+/*
+ * Collaboration surfaces: the people row on a library card, the collaborators
+ * dialog and the author line in the history. Avatars on cards are initials, not
+ * photos, on purpose — a profile picture weighs up to 500 KB and the library
+ * can hold hundreds of trips, so only the dialog ever downloads the real image.
+ */
+
+.member-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    border: 2px solid var(--paper, #fbfaf7);
+    background: hsl(var(--member-hue, 200) 42% 88%);
+    color: hsl(var(--member-hue, 200) 46% 26%);
+    font-size: .6rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    overflow: hidden;
+    user-select: none;
+}
+
+.member-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.member-avatar[data-role="owner"] { box-shadow: 0 0 0 2px #d7b56a; }
+.member-avatar-rest { background: #eceae4; color: #5f6764; }
+
+.member-stack { display: inline-flex; align-items: center; }
+.member-stack .member-avatar + .member-avatar { margin-left: -8px; }
+
+.library-card-people { display: flex; align-items: center; gap: 9px; margin-top: 9px; }
+.library-card-people small { color: #71736f; font-size: .68rem; font-weight: 600; }
+
+/* Collaborators dialog */
+.collaborators-dialog { width: min(34rem, 94vw); }
+.collaborators-form { display: grid; gap: 14px; }
+.collaborators-state, .collaborators-status { margin: 0; color: #71736f; font-size: .76rem; }
+.collaborators-state[hidden] { display: none; }
+.collaborators-hint { margin: 0; color: #71736f; font-size: .72rem; line-height: 1.55; }
+
+.collaborators-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.collaborator-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 2px;
+    border-bottom: 1px solid var(--line, #e6e3dc);
+}
+.collaborator-row:last-child { border-bottom: 0; }
+.collaborator-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.collaborator-identity .member-avatar { width: 34px; height: 34px; font-size: .74rem; }
+.collaborator-identity strong { display: block; font-size: .84rem; }
+.collaborator-identity small { display: block; color: #71736f; font-size: .7rem; overflow-wrap: anywhere; }
+
+.collaborator-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.collaborator-role { color: #5f6764; font-size: .7rem; font-weight: 600; white-space: nowrap; }
+.collaborator-actions select { font-size: .74rem; padding: 5px 7px; }
+.collaborator-remove {
+    padding: 5px 10px;
+    border: 1px solid #e2cfc9;
+    border-radius: 999px;
+    background: transparent;
+    color: #9b382a;
+    font-size: .7rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.collaborator-remove:hover { background: #fbe8e4; }
+
+.collaborator-invite { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 9px; align-items: end; }
+.collaborator-invite[hidden] { display: none; }
+.collaborator-invite label { display: grid; gap: 4px; min-width: 0; }
+.collaborator-invite span { color: #5f6764; font-size: .7rem; font-weight: 600; }
+
+/* Blame line inside the revision history. */
+.history-row .history-author {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 7px;
+    color: #5f6764;
+    font-size: .72rem;
+    font-weight: 600;
+}
+.history-row .history-author .member-avatar { width: 21px; height: 21px; font-size: .54rem; }
+
+@media (max-width: 720px) {
+    .collaborator-invite { grid-template-columns: 1fr; }
+    .collaborator-row { flex-wrap: wrap; }
+    .collaborator-actions { width: 100%; justify-content: flex-end; }
+}

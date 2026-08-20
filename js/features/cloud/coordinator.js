@@ -164,6 +164,9 @@ export async function uploadLocalTrip(localId) {
         id: trip.id,
         revision: trip.current_revision,
         hash: trip.document_hash,
+        role: trip.role,
+        ownerId: trip.owner_id,
+        members: trip.members,
     });
     await refreshRemoteTrips();
     return repository.getTrip(localId);
@@ -181,6 +184,10 @@ export async function openRemoteTrip(remoteId) {
         remoteId: remote.id,
         baseRevision: Number(remote.current_revision),
         remoteHash: remote.document_hash,
+        role: remote.role,
+        ownerId: remote.owner_id,
+        members: remote.members,
+        archived: Boolean(remote.archived_at),
         syncState: "synced",
     });
     await repository.putTrip(envelope);
@@ -307,21 +314,96 @@ export async function resolveConflict(localId, action) {
     if (action === "local") drainOutbox();
 }
 
+// Role and collaborator list can change while a trip sits idle in the library,
+// so they are refreshed even when the document itself did not move.
+function applyRemoteMembership(envelope, remote) {
+    const changed = envelope.remote.role !== remote.role
+        || envelope.remote.ownerId !== remote.owner_id
+        || JSON.stringify(envelope.remote.members) !== JSON.stringify(remote.members || []);
+    envelope.remote.role = remote.role;
+    envelope.remote.ownerId = remote.owner_id;
+    envelope.remote.members = remote.members || [];
+    return changed;
+}
+
 export async function checkRemoteUpdates() {
     if (!store.accountSession || !navigator.onLine) return;
     await refreshRemoteTrips();
     const repository = getTripRepository();
     const pendingIds = new Set((await repository.listOutbox()).map((item) => item.tripId));
     for (const local of await repository.listTrips({ includeArchived: true })) {
+        if (!local.remote.id) continue;
         const remote = remoteLibrary.find((item) => item.id === local.remote.id);
-        if (!remote || pendingIds.has(local.id) || Number(remote.current_revision) <= Number(local.remote.baseRevision)) continue;
-        const response = await client.getTrip(remote.id);
-        local.document = response.trip.document;
-        local.remote.baseRevision = Number(response.trip.current_revision);
-        local.remote.hash = response.trip.document_hash;
-        local.syncState = "synced";
-        await updateEnvelope(local);
+        // A trip that vanished from the account is one this user was removed
+        // from — or the owner deleted. Either way the local copy is stale.
+        if (!remote) {
+            if (!pendingIds.has(local.id)) await dropRevokedTrip(local.id);
+            continue;
+        }
+        const membershipChanged = applyRemoteMembership(local, remote);
+        const documentChanged = !pendingIds.has(local.id)
+            && Number(remote.current_revision) > Number(local.remote.baseRevision);
+        if (documentChanged) {
+            const response = await client.getTrip(remote.id);
+            local.document = response.trip.document;
+            local.remote.baseRevision = Number(response.trip.current_revision);
+            local.remote.hash = response.trip.document_hash;
+            local.syncState = "synced";
+        }
+        if (documentChanged || membershipChanged) await updateEnvelope(local);
     }
+}
+
+// Losing access is not an error to retry: the local copy simply stops being a
+// mirror of anything, so it is removed rather than left to fail forever.
+export async function dropRevokedTrip(localId) {
+    const repository = getTripRepository();
+    await repository.deleteTripPermanently(localId);
+    if (store.activeTripId === localId) {
+        const next = (await repository.listTrips()).find((trip) => !trip.pendingDeletion);
+        if (next) await switchTrip(next.id);
+        else store.activeTripId = null;
+    }
+    await refreshTripLibrary();
+    document.dispatchEvent(new CustomEvent("trip-access-revoked", { detail: { tripId: localId } }));
+}
+
+export async function listTripMembers(remoteId) {
+    return client.listTripMembers(remoteId);
+}
+
+export async function inviteTripMember(remoteId, email, role) {
+    const result = await client.inviteTripMember(remoteId, email, role);
+    await refreshRemoteTrips().catch(() => {});
+    return result.member;
+}
+
+export async function updateTripMemberRole(remoteId, memberId, role) {
+    const result = await client.updateTripMemberRole(remoteId, memberId, role);
+    await refreshRemoteTrips().catch(() => {});
+    return result.member;
+}
+
+export async function removeTripMember(remoteId, memberId) {
+    await client.removeTripMember(remoteId, memberId);
+    await refreshRemoteTrips().catch(() => {});
+}
+
+// Leaving is a membership operation, like sharing: it only exists in the cloud,
+// so it needs a connection instead of an outbox entry.
+export async function leaveTrip(localId) {
+    const repository = getTripRepository();
+    const envelope = await repository.getTrip(localId);
+    if (!envelope?.remote.id) throw new Error("TRIP_NOT_AVAILABLE");
+    await client.leaveTrip(envelope.remote.id);
+    await repository.deleteTripPermanently(localId);
+    if (store.activeTripId === localId) {
+        const next = (await repository.listTrips()).find((trip) => !trip.pendingDeletion);
+        if (next) await switchTrip(next.id);
+        else store.activeTripId = null;
+    }
+    await refreshRemoteTrips().catch(() => {});
+    await refreshTripLibrary();
 }
 
 export async function initializeCloud() {
@@ -368,3 +450,5 @@ export async function unshareTrip(remoteId) {
 
 export const getCloudClient = () => client;
 export const getRemoteLibrary = () => remoteLibrary;
+export const getCurrentUserId = () => store.accountSession?.user?.id || null;
+export const getDeviceId = () => deviceId();

@@ -65,6 +65,11 @@ Module map (paths are relative to `js/`):
 - **`features/reminders/`** — fixed and relative trip reminders, calendar/dashboard, and spot associations.
 - **`features/github/`** — optional explicit GitHub JSON synchronization, with transport isolated in `github-api.js`.
 - **`features/assistant/`** — multi-provider LLM chat with validated plan mutations isolated in `proposal.js`.
+- **`features/library/`** — the trip workspace: the IndexedDB-backed library,
+  the active-trip lifecycle, and the "Mis viajes" cards.
+- **`features/cloud/`** — the account session, the outbox sync coordinator, the
+  revision history, and trip collaboration (`collaborators.js`, `live-trip.js`,
+  `member-avatar.js`).
 - **`features/share/`** — public read-only share links: the owner's link dialog,
   the anonymous bootstrap, and the pure URL rules in `share-url.js`.
 - **`features/workspace/`** — persisted desktop workspace resizing.
@@ -252,6 +257,76 @@ hiding a button. The guards that exist today:
 - The OSRM route cache in `features/map/map.js` resolves its storage at call
   time, so a visitor gets the in-memory cache and writes nothing.
 
+## Trip collaboration
+
+A cloud trip has one **owner** and any number of **collaborators**, each holding
+a role: `editor` (edits the plan exactly like the owner) or `viewer` (reads it,
+including the history). Owner-only actions: deleting the trip, publishing a
+public link, and managing the member list. A collaborator leaves instead of
+deleting.
+
+- `trips.owner_id` used to be both the owner AND the authorization predicate of
+  every query. Since `008_trip_collaboration.sql`, `trip_members` is the access
+  list and `owner_id` is only ownership, mirrored by exactly one `role = 'owner'`
+  member row (a partial unique index enforces the "exactly one"). **Never
+  authorize a trip route with `owner_id` again** — go through
+  `readTripAccess` / `requireTripRole` in `trip-access.js`.
+- A trip the caller does not collaborate on returns **404, never 403**: a 403
+  would confirm that the id belongs to somebody. A role the caller lacks on a
+  trip they *do* belong to returns 403, which leaks nothing new.
+- Archiving lives on `trip_members.archived_at`, not on the trip: tidying your
+  own library must not hide the trip from the rest of the group.
+- Idempotency (`trip_mutations`) is keyed by trip + client mutation id only. It
+  is deliberately not scoped to the actor: replaying a mutation must return its
+  original result whoever asks.
+- Invitations are by the email of an **existing** account. That inherently tells
+  the owner whether an account exists, so `inviteMember` is rate-limited per
+  account rather than pretending otherwise. Members per trip are capped at
+  `TRIP_MEMBER_LIMIT`.
+- Card payloads (`GET /api/trips`) carry `role`, `owner_id` and a `members`
+  summary **without avatars**: a profile picture is up to 500 KB and the library
+  holds hundreds of trips. Cards draw initials via `member-avatar.js`; only
+  `GET /api/trips/:tripId/members` downloads real photos, and it returns emails
+  only to the owner.
+
+### Live updates
+
+`GET /api/trips/:tripId/events` is a server-sent event stream authenticated by
+the session cookie. It emits `revision`, `members`, `access-revoked` and
+`trip-deleted`. `features/cloud/live-trip.js` keeps **one** stream, for the trip
+currently open, and:
+
+- ignores a `revision` whose actor is the current user — it is our own mutation
+  echoing back;
+- **skips the pull entirely when the local outbox still holds an edit for that
+  trip.** Applying the remote document there would discard local work without a
+  trace; the existing conflict path handles it on the next drain.
+
+The event bus in `server/src/realtime/trip-events.js` is an in-process
+`EventEmitter`, which is correct while the api runs as a single container. It is
+the only seam that knows how fan-out happens: swap it for Postgres
+`LISTEN`/`NOTIFY` before running more than one instance.
+
+`nginx.conf` disables `proxy_buffering` for `/api/`, and the stream also sets
+`x-accel-buffering: no`. Without either, events sit in the proxy buffer until
+the stream closes.
+
+### Read-only collaborators
+
+A `viewer` gets `store.readOnly = true` (via `applyTripPermissions` in
+`library/workspace.js`) plus the `read-only-plan` body class. `save()` returns
+early while `readOnly` is set, so no edit reaches `localStorage`, IndexedDB or
+the outbox — the CSS only hides affordances. `read-only-plan` carries the
+editing lockdown shared with the anonymous visitor; `public-view` adds only what
+is specific to having no account (no library, no assistant, no preview toggle).
+Keep new editing affordances behind `read-only-plan`, not `public-view`.
+
+### Known limitation
+
+`trips.owner_id` cascades on account deletion, and there is no ownership
+transfer: if the owner deletes their account, the trip disappears for every
+collaborator. Local device copies survive as detached local-only trips.
+
 ## Behavioral invariants
 
 - Deleting a day moves all its spots to the backlog; it must not discard them.
@@ -263,4 +338,9 @@ hiding a button. The guards that exist today:
 - Preview mode is read-only and draws the complete trip map.
 - A public visitor writes nothing: no `localStorage`, no IndexedDB, no device id.
 - Making a trip private must invalidate the previous link permanently.
+- Only the owner deletes a trip or publishes it; a collaborator only leaves.
+- A trip must never be authorized by `owner_id`; membership is the permission.
+- Leaving or being removed revokes access and never erases past revisions: the
+  history keeps attributing them to their author.
+- A live remote revision must never overwrite a local edit still in the outbox.
 - User-facing copy remains in Spanish.

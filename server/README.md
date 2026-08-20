@@ -17,6 +17,9 @@ src/
 │   │   ├── auth-service.js      # registro, login, sesiones y autorización
 │   │   └── auth-middleware.js
 │   ├── trips/                   # routes → controller → service
+│   │   ├── trip-access.js       # membresía: la única autorización de un viaje
+│   │   ├── trip-member-service.js   # invitaciones, roles y salida
+│   │   └── trip-stream-controller.js # eventos SSE de colaboración
 │   ├── accounts/                # routes → controller → service
 │   └── system/                  # salud y métricas
 ├── config/runtime-config.js     # lectura y validación del entorno
@@ -25,8 +28,17 @@ src/
 ├── infrastructure/
 │   └── postgres/                # pool, transacciones y migraciones
 ├── observability/request-metrics.js
+├── realtime/trip-events.js      # bus de eventos por viaje (en proceso)
 └── security/session-security.js
 ```
+
+Un viaje se autoriza siempre por su fila en `trip_members`, nunca por
+`trips.owner_id`: `trip-access.js` resuelve el rol (`owner`, `editor` o
+`viewer`) y responde 404 —no 403— cuando quien pregunta no colabora en él, para
+no confirmar que ese identificador existe. `realtime/trip-events.js` es un bus
+en proceso, correcto mientras la API sea un único contenedor; es la costura que
+hay que cambiar por `LISTEN`/`NOTIFY` de Postgres antes de escalar a varias
+instancias.
 
 `create-api.js` sólo construye dependencias y compone los módulos. Cada archivo `*-routes.js` declara endpoints, cada `*-controller.js` traduce peticiones y respuestas, y cada `*-service.js` contiene los casos de uso. Postgres, correo y configuración permanecen fuera de la capa HTTP.
 

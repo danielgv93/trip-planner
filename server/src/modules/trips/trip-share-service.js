@@ -1,30 +1,20 @@
 import { ApiError } from "../../http/api-error.js";
 import { secret, SlidingWindowLimiter } from "../../security/session-security.js";
+import { OWNER_ONLY, requireTripRole } from "./trip-access.js";
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // `secret()` produces base64url, so the token alphabet is fixed and safe to
 // validate before it ever reaches Postgres.
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
-
-export function assertTripId(tripId) {
-    if (!UUID_PATTERN.test(String(tripId || ""))) {
-        throw new ApiError(404, "TRIP_NOT_FOUND", "Viaje no encontrado");
-    }
-    return tripId;
-}
 
 export function createTripShareService({ database }) {
     // A share token carries 256 bits of entropy, so this limiter is only there
     // to keep an anonymous scan from turning into database load.
     const publicReadLimiter = new SlidingWindowLimiter({ limit: 120, windowMs: 60_000 });
 
+    // Publishing a trip to the open internet stays an owner decision: a
+    // collaborator may edit the plan, not decide who else gets to read it.
     async function assertOwned(tripId, userId) {
-        assertTripId(tripId);
-        const result = await database.query(
-            "SELECT id FROM trips WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL",
-            [tripId, userId],
-        );
-        if (!result.rowCount) throw new ApiError(404, "TRIP_NOT_FOUND", "Viaje no encontrado");
+        await requireTripRole(database, tripId, userId, OWNER_ONLY);
     }
 
     async function readShare({ userId, tripId }) {

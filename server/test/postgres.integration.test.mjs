@@ -22,7 +22,7 @@ async function withServer(callback) {
         APP_ORIGIN: "http://test.local",
     });
     const database = await createDatabase(config);
-    await database.query("DROP TABLE IF EXISTS account_deletions, trip_shares, trip_mutations, trip_revisions, trips, sessions, login_tokens, users, schema_migrations CASCADE");
+    await database.query("DROP TABLE IF EXISTS account_deletions, trip_shares, trip_members, trip_mutations, trip_revisions, trips, sessions, login_tokens, users, schema_migrations CASCADE");
     await migrate(database);
     const logger = { info() {}, error() {} };
     const server = createServer(createApi({ database, config, logger }));
@@ -143,8 +143,10 @@ test("Postgres integra cuentas, sesiones, concurrencia, idempotencia y aislamien
         assert.equal((await request(`/api/trips/${tripId}`, { cookie: userB.sessionCookie })).response.status, 404);
         assert.equal((await request(`/api/trips/${tripId}`, { method: "PATCH", body: { title: "Robado" }, cookie: userB.sessionCookie, csrf: userB.csrf })).response.status, 404);
         assert.equal((await request(`/api/trips/${tripId}/mutations`, { method: "POST", body: { ...mutationA, clientMutationId: randomUUID(), baseRevision: noOp.body.revision }, cookie: userB.sessionCookie, csrf: userB.csrf })).response.status, 404);
-        assert.equal((await request(`/api/trips/${tripId}`, { method: "DELETE", cookie: userB.sessionCookie, csrf: userB.csrf })).body.deleted, false);
-        assert.equal((await request(`/api/trips/${tripId}/revisions`, { cookie: userB.sessionCookie })).body.revisions.length, 0);
+        // Isolation is now uniform: a stranger gets the same 404 on every route
+        // instead of an empty-but-successful answer that confirmed the id.
+        assert.equal((await request(`/api/trips/${tripId}`, { method: "DELETE", cookie: userB.sessionCookie, csrf: userB.csrf })).response.status, 404);
+        assert.equal((await request(`/api/trips/${tripId}/revisions`, { cookie: userB.sessionCookie })).response.status, 404);
         assert.equal((await request("/api/trips", { cookie: userB.sessionCookie })).body.trips.length, 0);
         assert.equal((await request(`/api/trips/${tripId}/share`, { cookie: userB.sessionCookie })).response.status, 404);
         assert.equal((await request(`/api/trips/${tripId}/share`, { method: "POST", cookie: userB.sessionCookie, csrf: userB.csrf })).response.status, 404);
@@ -220,15 +222,114 @@ test("Postgres integra cuentas, sesiones, concurrencia, idempotencia y aislamien
     });
 });
 
+test("la colaboración reparte permisos, historial y salida sin tocar la propiedad", { skip: !databaseUrl }, async () => {
+    await withServer(async ({ database, request, register }) => {
+        const owner = await register("propietaria@example.com");
+        const editor = await register("editor@example.com");
+        const viewer = await register("lectora@example.com");
+        const stranger = await register("ajena@example.com");
+        const auth = (user) => ({ cookie: user.sessionCookie, csrf: user.csrf });
+
+        const plan = { tripTitle: "Ruta compartida", days: [{ id: "d", date: "2026-08-12", title: "Día", spots: [] }] };
+        const created = await request("/api/trips", { method: "POST", body: { document: plan }, ...auth(owner) });
+        const tripId = created.body.trip.id;
+        assert.equal(created.body.trip.role, "owner");
+
+        // A trip you do not collaborate on is indistinguishable from one that
+        // does not exist: never a 403 that would confirm the id.
+        assert.equal((await request(`/api/trips/${tripId}`, { cookie: stranger.sessionCookie })).response.status, 404);
+        assert.equal((await request(`/api/trips/${tripId}/members`, { cookie: stranger.sessionCookie })).response.status, 404);
+
+        assert.equal((await request(`/api/trips/${tripId}/members`, {
+            method: "POST", body: { email: "editor@example.com" }, ...auth(editor),
+        })).response.status, 404);
+        assert.equal((await request(`/api/trips/${tripId}/members`, {
+            method: "POST", body: { email: "nadie@example.com" }, ...auth(owner),
+        })).body.error.code, "ACCOUNT_NOT_FOUND");
+
+        const invitedEditor = await request(`/api/trips/${tripId}/members`, {
+            method: "POST", body: { email: "Editor@Example.com", role: "editor" }, ...auth(owner),
+        });
+        assert.equal(invitedEditor.response.status, 201);
+        assert.equal(invitedEditor.body.member.role, "editor");
+        assert.equal((await request(`/api/trips/${tripId}/members`, {
+            method: "POST", body: { email: "editor@example.com" }, ...auth(owner),
+        })).body.error.code, "ALREADY_MEMBER");
+        await request(`/api/trips/${tripId}/members`, {
+            method: "POST", body: { email: "lectora@example.com", role: "viewer" }, ...auth(owner),
+        });
+
+        // The trip now appears in everybody's library, with the role each holds.
+        const editorLibrary = await request("/api/trips", { cookie: editor.sessionCookie });
+        assert.equal(editorLibrary.body.trips[0].id, tripId);
+        assert.equal(editorLibrary.body.trips[0].role, "editor");
+        assert.equal(editorLibrary.body.trips[0].members.length, 3);
+        assert.equal(editorLibrary.body.trips[0].members[0].role, "owner");
+        // Card payloads never carry avatars: they would weigh megabytes.
+        assert.equal(JSON.stringify(editorLibrary.body.trips).includes("avatar"), false);
+
+        const editorMutation = await request(`/api/trips/${tripId}/mutations`, {
+            method: "POST",
+            body: { baseRevision: 1, clientMutationId: randomUUID(), document: { ...plan, tripTitle: "Editado por el equipo" } },
+            ...auth(editor),
+        });
+        assert.equal(editorMutation.response.status, 200);
+        const viewerMutation = await request(`/api/trips/${tripId}/mutations`, {
+            method: "POST",
+            body: { baseRevision: editorMutation.body.revision, clientMutationId: randomUUID(), document: { ...plan, tripTitle: "No" } },
+            ...auth(viewer),
+        });
+        assert.equal(viewerMutation.response.status, 403);
+        assert.equal(viewerMutation.body.error.code, "TRIP_FORBIDDEN");
+        assert.equal((await request(`/api/trips/${tripId}/share`, { method: "POST", ...auth(editor) })).response.status, 403);
+
+        // Blame: the history says who wrote each revision, for every member.
+        const history = await request(`/api/trips/${tripId}/revisions`, { cookie: viewer.sessionCookie });
+        assert.equal(history.response.status, 200);
+        assert.equal(history.body.revisions[0].actor_user_id, editor.body.user.id);
+        assert.equal(history.body.revisions[0].actor_display_name, "editor");
+        assert.equal(history.body.revisions.at(-1).actor_user_id, owner.body.user.id);
+
+        // Archiving is per collaborator and must not hide the trip from anybody.
+        await request(`/api/trips/${tripId}`, { method: "PATCH", body: { archived: true }, ...auth(viewer) });
+        assert.equal((await request("/api/trips", { cookie: viewer.sessionCookie })).body.trips.length, 0);
+        assert.equal((await request("/api/trips?archived=true", { cookie: viewer.sessionCookie })).body.trips.length, 1);
+        assert.equal((await request("/api/trips", { cookie: owner.sessionCookie })).body.trips.length, 1);
+
+        // Only the owner deletes; a collaborator only removes themselves.
+        assert.equal((await request(`/api/trips/${tripId}`, { method: "DELETE", ...auth(editor) })).response.status, 403);
+        assert.equal((await request(`/api/trips/${tripId}/members/me`, { method: "DELETE", ...auth(owner) })).body.error.code, "OWNER_CANNOT_LEAVE");
+        assert.equal((await request(`/api/trips/${tripId}/members/me`, { method: "DELETE", ...auth(viewer) })).response.status, 200);
+        assert.equal((await request(`/api/trips/${tripId}`, { cookie: viewer.sessionCookie })).response.status, 404);
+        // Leaving removes access, never the work already recorded.
+        assert.equal((await database.query("SELECT count(*)::int AS count FROM trip_revisions WHERE trip_id = $1", [tripId])).rows[0].count, 2);
+
+        const demoted = await request(`/api/trips/${tripId}/members/${editor.body.user.id}`, {
+            method: "PATCH", body: { role: "viewer" }, ...auth(owner),
+        });
+        assert.equal(demoted.body.member.role, "viewer");
+        assert.equal((await request(`/api/trips/${tripId}/mutations`, {
+            method: "POST",
+            body: { baseRevision: editorMutation.body.revision, clientMutationId: randomUUID(), document: plan },
+            ...auth(editor),
+        })).response.status, 403);
+
+        assert.equal((await request(`/api/trips/${tripId}/members/${editor.body.user.id}`, { method: "DELETE", ...auth(owner) })).response.status, 200);
+        assert.equal((await request(`/api/trips/${tripId}`, { cookie: editor.sessionCookie })).response.status, 404);
+        assert.equal((await request(`/api/trips/${tripId}`, { method: "DELETE", ...auth(owner) })).response.status, 200);
+    });
+});
+
 test("las migraciones avanzan desde cada versión aditiva soportada", { skip: !databaseUrl }, async () => {
     const config = loadConfig({ NODE_ENV: "test", CLOUD_ENABLED: "true", DATABASE_URL: databaseUrl, APP_ORIGIN: "http://test.local" });
     const database = await createDatabase(config);
     const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), "../migrations");
     try {
         const files = ["001_accounts.sql", "002_trips.sql", "003_account_deletions.sql", "004_password_auth.sql",
-            "005_account_profiles.sql", "006_avatar_size_limit.sql", "007_trip_shares.sql"];
-        for (const startingVersion of [0, 1, 2, 3, 4, 5, 6]) {
-            await database.query("DROP TABLE IF EXISTS account_deletions, trip_shares, trip_mutations, trip_revisions, trips, sessions, login_tokens, users, schema_migrations CASCADE");
+            "005_account_profiles.sql", "006_avatar_size_limit.sql", "007_trip_shares.sql",
+            "008_trip_collaboration.sql"];
+        for (const startingVersion of [0, 1, 2, 3, 4, 5, 6, 7]) {
+            await database.query("DROP TABLE IF EXISTS account_deletions, trip_shares, trip_members, trip_mutations, trip_revisions, trips, sessions, login_tokens, users, schema_migrations CASCADE");
             await database.query(`CREATE TABLE schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`);
             for (const name of files.slice(0, startingVersion)) {
                 await database.query(await readFile(join(migrationsDir, name), "utf8"));
@@ -241,6 +342,12 @@ test("las migraciones avanzan desde cada versión aditiva soportada", { skip: !d
             assert.equal((await database.query("SELECT to_regclass('account_deletions') AS name")).rows[0].name, "account_deletions");
             assert.equal((await database.query("SELECT display_name FROM users LIMIT 1")).fields[0].name, "display_name");
             assert.equal((await database.query("SELECT to_regclass('trip_shares') AS name")).rows[0].name, "trip_shares");
+            assert.equal((await database.query("SELECT to_regclass('trip_members') AS name")).rows[0].name, "trip_members");
+            // Every pre-existing trip must survive the split with its owner
+            // still able to reach it, which is what the backfilled row grants.
+            assert.equal((await database.query(`SELECT count(*)::int AS count FROM trips t
+                LEFT JOIN trip_members m ON m.trip_id = t.id AND m.user_id = t.owner_id AND m.role = 'owner'
+                WHERE m.trip_id IS NULL`)).rows[0].count, 0);
         }
     } finally {
         await database.close();

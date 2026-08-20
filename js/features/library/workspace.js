@@ -72,6 +72,9 @@ async function envelopeForActive() {
         remoteId: existing?.remote.id,
         baseRevision: existing?.remote.baseRevision,
         remoteHash: existing?.remote.hash,
+        role: existing?.remote.role,
+        ownerId: existing?.remote.ownerId,
+        members: existing?.remote.members,
         syncState: existing?.remote.id ? "pending" : "local",
         archived: existing?.archived,
         pendingDeletion: existing?.pendingDeletion,
@@ -134,9 +137,18 @@ export async function initializeTripWorkspace() {
     }
 }
 
+// A viewer is read-only at the source, not merely in CSS: `save()` returns
+// early while `store.readOnly` is set, so no edit ever reaches IndexedDB or the
+// outbox even if some affordance slips through the styling.
+export function applyTripPermissions(envelope) {
+    store.readOnly = envelope?.remote?.role === "viewer";
+    document.body.classList.toggle("read-only-plan", store.readOnly);
+}
+
 async function loadTrip(envelope) {
     replacePlanState(normalizePlan(envelope.document));
     applyPreferences(envelope.preferences);
+    applyTripPermissions(envelope);
     store.activeTripId = envelope.id;
     localStorage.setItem("trip-planner-active-trip-id", envelope.id);
     if (repository) await repository.setPreference("activeTripId", envelope.id);
@@ -233,7 +245,14 @@ export async function replaceActiveTrip(planDocument) {
 export async function attachRemote(id, remote) {
     const envelope = await repository.getTrip(id);
     if (!envelope) throw new Error("TRIP_NOT_FOUND");
-    envelope.remote = { id: remote.id, baseRevision: Number(remote.revision), hash: remote.hash };
+    envelope.remote = {
+        id: remote.id,
+        baseRevision: Number(remote.revision),
+        hash: remote.hash,
+        role: remote.role || "owner",
+        ownerId: remote.ownerId || null,
+        members: remote.members || [],
+    };
     envelope.syncState = "synced";
     await repository.putTrip(envelope);
     await repository.deleteOutbox(id);
@@ -246,6 +265,7 @@ export async function updateEnvelope(envelope, { removeOutbox = false } = {}) {
     if (removeOutbox) await repository.deleteOutbox(envelope.id);
     const changed = envelope.id === store.activeTripId
         && canonicalPlanHash(envelope.document) !== canonicalPlanHash(portablePlanFrom(store));
+    if (envelope.id === store.activeTripId) applyTripPermissions(envelope);
     if (changed) {
         replacePlanState(normalizePlan(envelope.document));
         applyPreferences(envelope.preferences);
@@ -273,7 +293,7 @@ export async function detachRemoteTrips() {
     const trips = await repository.listTrips({ includeArchived: true, includePendingDeletion: true });
     for (const envelope of trips) {
         if (!envelope.remote.id) continue;
-        envelope.remote = { id: null, baseRevision: 0, hash: null };
+        envelope.remote = { id: null, baseRevision: 0, hash: null, role: null, ownerId: null, members: [] };
         envelope.syncState = "local";
         envelope.pendingDeletion = false;
         await repository.putTrip(envelope);

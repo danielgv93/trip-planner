@@ -19,10 +19,13 @@ import {
 import {
     drainOutbox,
     getRemoteLibrary,
+    leaveTrip,
     openRemoteTrip,
     uploadLocalTrip,
 } from "../cloud/coordinator.js";
 import { cloudSaveActionState } from "../cloud/global-action-state.js";
+import { canManageCollaborators, openCollaboratorsDialog } from "../cloud/collaborators.js";
+import { memberAvatar } from "../cloud/member-avatar.js";
 import { canShareTrip, openShareDialog } from "../share/share-dialog.js";
 import { SYNC_COPY } from "../cloud/sync-state.js";
 
@@ -131,6 +134,34 @@ function chip(text, tone, icon) {
     return element;
 }
 
+// The people row only appears once somebody else is involved: a solo trip has
+// nothing to say about collaboration, and the card is already dense.
+const VISIBLE_AVATARS = 4;
+
+function peopleRow(trip) {
+    const members = Array.isArray(trip.members) ? trip.members : [];
+    if (members.length < 2) return null;
+    const row = document.createElement("div");
+    row.className = "library-card-people";
+    const stack = document.createElement("span");
+    stack.className = "member-stack";
+    for (const member of members.slice(0, VISIBLE_AVATARS)) stack.append(memberAvatar(member));
+    if (members.length > VISIBLE_AVATARS) {
+        const rest = document.createElement("span");
+        rest.className = "member-avatar member-avatar-rest";
+        rest.textContent = `+${members.length - VISIBLE_AVATARS}`;
+        stack.append(rest);
+    }
+    const caption = document.createElement("small");
+    const others = members.length - 1;
+    const owner = members.find((member) => member.role === "owner");
+    caption.textContent = trip.role === "owner"
+        ? `Tuyo · ${others} ${others === 1 ? "colaborador" : "colaboradores"}`
+        : `De ${owner?.displayName || "otra persona"} · ${trip.role === "viewer" ? "solo lectura" : "puedes editar"}`;
+    row.append(stack, caption);
+    return row;
+}
+
 function statBlock(value, label) {
     const element = document.createElement("span");
     element.className = "library-stat";
@@ -164,12 +195,18 @@ function closeCardMenu({ restoreFocus = false } = {}) {
 function openCardMenu(trigger, trip) {
     const id = trip.id;
     const local = store.tripLibrary.find((entry) => entry.id === id);
+    // A trip with no remote copy has no roles yet: its creator is its owner.
+    const role = local?.remote.id ? local.remote.role : "owner";
+    const canEdit = role !== "viewer";
     cardMenu.replaceChildren(
-        menuItem("Renombrar", "rename", id),
+        ...(canEdit ? [menuItem("Renombrar", "rename", id)] : []),
         menuItem("Duplicar", "duplicate", id),
+        ...(canManageCollaborators(local) ? [menuItem("Colaboradores", "collaborators", id)] : []),
         ...(canShareTrip(local) ? [menuItem("Compartir", "share", id)] : []),
         menuItem(showArchived ? "Restaurar" : "Archivar", "archive", id),
-        menuItem("Eliminar", "delete", id, "danger"),
+        role === "owner"
+            ? menuItem("Eliminar", "delete", id, "danger")
+            : menuItem("Salir del viaje", "leave", id, "danger"),
     );
     cardMenu.dataset.tripId = id;
     menuTrigger = trigger;
@@ -196,6 +233,9 @@ function libraryEntries() {
         title: trip.document.tripTitle,
         updatedAt: trip.updatedAt,
         syncState: trip.syncState,
+        role: trip.remote.id ? trip.remote.role : null,
+        ownerId: trip.remote.ownerId,
+        members: trip.remote.members,
         summary: planSummary(trip.document),
     }));
     const remoteOnly = getRemoteLibrary()
@@ -209,6 +249,9 @@ function libraryEntries() {
             title: trip.title,
             updatedAt: trip.updated_at,
             syncState: "synced",
+            role: trip.role,
+            ownerId: trip.owner_id,
+            members: trip.members || [],
             summary: null,
         }));
     return [...local, ...remoteOnly];
@@ -279,6 +322,9 @@ function buildCard(trip) {
     if (trip.shared) chips.append(chip("Público · cualquiera con el enlace", "shared", "◎"));
     if (trip.pendingDeletion) chips.append(chip("Eliminación pendiente · no editable", "warn", "△"));
     body.append(chips);
+
+    const people = peopleRow(trip);
+    if (people) body.append(people);
 
     card.append(open, body);
 
@@ -432,6 +478,19 @@ async function runLibraryAction(action, id) {
             const title = await promptAction({ title: "Renombrar viaje", message: "El título cambiará también dentro del plan.", inputLabel: "Nombre", inputPlaceholder: current.document.tripTitle, confirmLabel: "Guardar" });
             if (title !== null) await renameTrip(id, title || current.document.tripTitle);
             if (id === store.activeTripId) applyTitle();
+        } else if (action === "collaborators") {
+            const local = store.tripLibrary.find((trip) => trip.id === id);
+            if (canManageCollaborators(local)) await openCollaboratorsDialog(local);
+        } else if (action === "leave") {
+            const ok = await confirmAction({
+                title: "Salir del viaje",
+                message: "Dejarás de verlo y se borrará de este dispositivo. El propietario conserva el viaje y tus cambios en el historial.",
+                confirmLabel: "Salir",
+            });
+            if (ok) {
+                await leaveTrip(id);
+                toast("Has salido del viaje.", "success");
+            }
         } else if (action === "share") {
             const local = store.tripLibrary.find((trip) => trip.id === id);
             if (canShareTrip(local)) await openShareDialog(local.remote.id);

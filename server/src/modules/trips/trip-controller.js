@@ -26,7 +26,7 @@ export function createTripController(tripService) {
             sendJson(res, 200, { trip });
         },
         async deleteTrip(req, res) {
-            const deleted = await tripService.deleteTrip({ userId: res.locals.activeSession.user_id, tripId: req.params.tripId });
+            const deleted = await tripService.deleteTrip({ active: res.locals.activeSession, tripId: req.params.tripId });
             sendJson(res, 200, { ok: true, deleted });
         },
         async listRevisions(req, res) {

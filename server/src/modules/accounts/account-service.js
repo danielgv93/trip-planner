@@ -19,8 +19,12 @@ function validPassword(value) {
 export function createAccountService({ database, now = () => new Date() }) {
     return {
         async exportAccount(active) {
-            const result = await database.query(`SELECT id, title, document, current_revision, archived_at, created_at, updated_at
-                FROM trips WHERE owner_id = $1 AND deleted_at IS NULL ORDER BY created_at`, [active.user_id]);
+            // An export covers the trips this account owns. Trips it merely
+            // collaborates on belong to somebody else's export.
+            const result = await database.query(`SELECT t.id, t.title, t.document, t.current_revision,
+                    m.archived_at, t.created_at, t.updated_at
+                FROM trips t LEFT JOIN trip_members m ON m.trip_id = t.id AND m.user_id = t.owner_id
+                WHERE t.owner_id = $1 AND t.deleted_at IS NULL ORDER BY t.created_at`, [active.user_id]);
             return {
                 version: 1,
                 exportedAt: now().toISOString(),

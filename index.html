@@ -1082,6 +1082,41 @@
                 </div>
             </div>
         </dialog>
+        <dialog id="collaboratorsDialog" class="collaborators-dialog">
+            <div class="modal-head">
+                <div><span class="modal-eyebrow">Colaboración</span><h3>Quién está en este viaje</h3></div>
+                <button class="close" aria-label="Cerrar">×</button>
+            </div>
+            <div class="form collaborators-form">
+                <p id="collaboratorsState" class="collaborators-state" role="status">Cargando colaboradores…</p>
+                <ul id="collaboratorsList" class="collaborators-list"></ul>
+                <form id="collaboratorInviteForm" class="collaborator-invite" hidden>
+                    <label>
+                        <span>Invitar por correo electrónico</span>
+                        <input id="collaboratorEmail" type="email" autocomplete="off" required
+                            placeholder="persona@ejemplo.com" aria-describedby="collaboratorInviteHint" />
+                    </label>
+                    <label>
+                        <span>Puede</span>
+                        <select id="collaboratorRole">
+                            <option value="editor">Editar el viaje</option>
+                            <option value="viewer">Solo verlo</option>
+                        </select>
+                    </label>
+                    <button class="primary" type="submit">Invitar</button>
+                </form>
+                <p id="collaboratorInviteHint" class="collaborators-hint">
+                    La persona tiene que tener ya una cuenta con ese correo. Quien edita
+                    puede cambiar el plan como tú; solo tú, como propietario, puedes
+                    eliminar el viaje o gestionar esta lista.
+                </p>
+                <p id="collaboratorsStatus" class="collaborators-status" role="status"></p>
+                <div class="form-actions">
+                    <button type="button" class="cancel">Cerrar</button
+                    ><button id="collaboratorLeaveBtn" class="confirm-ok" type="button" hidden>Salir del viaje</button>
+                </div>
+            </div>
+        </dialog>
         <dialog id="revisionPreviewDialog" class="revision-preview-dialog">
             <div class="modal-head"><div><span class="modal-eyebrow">Vista de solo lectura</span><h3 id="revisionPreviewTitle">Revisión</h3></div><button class="close" aria-label="Cerrar">×</button></div>
             <div id="revisionPreviewContent" class="revision-preview-content"></div>

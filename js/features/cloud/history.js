@@ -2,9 +2,32 @@ import { store } from "../../core/store.js";
 import { openModal } from "../../shared/modal.js";
 import { confirmAction, toast } from "../../shared/notify.js";
 import { getTripRepository, replaceActiveTrip } from "../library/workspace.js";
-import { getCloudClient } from "./coordinator.js";
+import { getCloudClient, getCurrentUserId } from "./coordinator.js";
+import { memberAvatar } from "./member-avatar.js";
 
 let selectedSnapshot = null;
+
+// This is the blame: every revision already recorded who wrote it, the history
+// simply never showed it. An account deleted since then leaves the row without
+// an author rather than attributing the change to somebody else.
+function authorLine(revision) {
+    const line = document.createElement("span");
+    line.className = "history-author";
+    if (!revision.actor_user_id) {
+        line.textContent = "Cuenta eliminada";
+        return line;
+    }
+    const displayName = revision.actor_display_name || "Viajero";
+    line.append(memberAvatar({
+        userId: revision.actor_user_id,
+        displayName,
+        role: "editor",
+    }));
+    const name = document.createElement("span");
+    name.textContent = revision.actor_user_id === getCurrentUserId() ? `${displayName} (tú)` : displayName;
+    line.append(name);
+    return line;
+}
 
 async function activeRemoteEnvelope() {
     return store.activeTripId ? getTripRepository()?.getTrip(store.activeTripId) : null;
@@ -38,7 +61,7 @@ async function loadHistory() {
             if (revision.summary.daysDelta) parts.push(`${revision.summary.daysDelta > 0 ? "+" : ""}${revision.summary.daysDelta} días`);
             if (revision.summary.spotsDelta) parts.push(`${revision.summary.spotsDelta > 0 ? "+" : ""}${revision.summary.spotsDelta} paradas`);
             summary.textContent = `${revision.origin || "usuario"} · ${parts.join(", ") || "sin cambios estructurales"}`;
-            row.append(heading, summary);
+            row.append(heading, authorLine(revision), summary);
             root.append(row);
         }
         status.textContent = result.revisions.length ? "" : "Todavía no hay revisiones disponibles.";
@@ -70,6 +93,8 @@ document.querySelector("#historyList").addEventListener("click", async (event) =
         }
     }
     selectedSnapshot = snapshot;
+    // A "lector" may read every past version but never write one back.
+    document.querySelector("#revisionRestoreBtn").hidden = store.readOnly;
     document.querySelector("#revisionPreviewTitle").textContent = `Revisión ${revision} · ${snapshot.document.tripTitle}`;
     const content = document.querySelector("#revisionPreviewContent");
     content.replaceChildren();

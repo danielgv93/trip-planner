@@ -31,7 +31,10 @@ export async function bootstrapPublicView(token) {
     // The read-only seal and the hiding class go up before the first byte
     // arrives, so no interaction is possible while the plan loads.
     store.readOnly = true;
-    document.body.classList.add("public-view");
+    // `read-only-plan` carries the editing lockdown shared with a collaborator
+    // in the "lector" role; `public-view` adds what is specific to an anonymous
+    // visitor — no library, no account, no assistant.
+    document.body.classList.add("public-view", "read-only-plan");
     // Native read-only state, not just hidden controls: assistive technology
     // should announce these fields as unmodifiable too.
     for (const selector of ["#tripTitle", "#tripNotes"]) {
