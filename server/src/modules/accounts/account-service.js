@@ -13,7 +13,7 @@ function avatarByteLength(dataUrl) {
 }
 
 function validPassword(value) {
-    return typeof value === "string" && value.length >= 10 && value.length <= 128;
+    return typeof value === "string" && value.length >= 5 && value.length <= 128;
 }
 
 export function createAccountService({ database, now = () => new Date() }) {
@@ -51,7 +51,7 @@ export function createAccountService({ database, now = () => new Date() }) {
         async changePassword(active, input) {
             const currentPassword = typeof input?.currentPassword === "string" && input.currentPassword.length <= 128 ? input.currentPassword : "";
             if (!validPassword(input?.newPassword)) {
-                throw new ApiError(400, "INVALID_PASSWORD", "La nueva contraseña debe tener entre 10 y 128 caracteres");
+                throw new ApiError(400, "INVALID_PASSWORD", "La nueva contraseña debe tener entre 5 y 128 caracteres");
             }
             if (currentPassword === input.newPassword) {
                 throw new ApiError(400, "PASSWORD_UNCHANGED", "La nueva contraseña debe ser diferente de la actual");

@@ -20,7 +20,7 @@ function validCredentials(rawEmail, password) {
         valid: EMAIL_PATTERN.test(email)
             && email.length <= 254
             && typeof password === "string"
-            && password.length >= 10
+            && password.length >= 5
             && password.length <= 128,
     };
 }

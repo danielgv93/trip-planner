@@ -46,9 +46,12 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 9px 2px;
+    padding: 9px 8px;
+    border-radius: 6px;
     border-bottom: 1px solid var(--line, #e6e3dc);
+    transition: background .15s ease;
 }
+.collaborator-row:hover { background: #faf8f4; }
 .collaborator-row:last-child { border-bottom: 0; }
 .collaborator-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .collaborator-identity .member-avatar { width: 34px; height: 34px; font-size: .74rem; }
@@ -56,24 +59,100 @@
 .collaborator-identity small { display: block; color: #71736f; font-size: .7rem; overflow-wrap: anywhere; }
 
 .collaborator-actions { display: flex; align-items: center; gap: 8px; flex: none; }
-.collaborator-role { color: #5f6764; font-size: .7rem; font-weight: 600; white-space: nowrap; }
-.collaborator-actions select { font-size: .74rem; padding: 5px 7px; }
-.collaborator-remove {
-    padding: 5px 10px;
-    border: 1px solid #e2cfc9;
+.collaborator-role {
+    padding: 5px 11px;
+    border: 1px solid var(--line, #e6e3dc);
     border-radius: 999px;
-    background: transparent;
+    background: #f4f1ea;
+    color: #5f6764;
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .01em;
+    white-space: nowrap;
+}
+
+/* Native selects and the invite submit inherit nothing from the dialog form
+ * rules, which only cover input and textarea. Everything the collaborators
+ * dialog draws is therefore styled here, on the same 4px/#d9d8d2/green-focus
+ * grammar the rest of the dialogs use. */
+.collaborators-form select {
+    appearance: none;
+    padding: 8px 30px 8px 11px;
+    border: 1px solid #d9d8d2;
+    border-radius: 4px;
+    background-color: #fff;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%236c7479' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5 6 6.5l5-5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 10px;
+    color: var(--ink, #1d2730);
+    font-size: .76rem;
+    font-weight: 600;
+    line-height: 1.2;
+    outline: none;
+    cursor: pointer;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+.collaborators-form select:hover { border-color: #c3c1b9; }
+.collaborators-form select:focus-visible {
+    border-color: var(--green, #386f66);
+    box-shadow: 0 0 0 3px #386f6615;
+}
+
+.collaborator-remove {
+    padding: 8px 12px;
+    border: 1px solid #e2cfc9;
+    border-radius: 4px;
+    background: #fff;
     color: #9b382a;
-    font-size: .7rem;
+    font-size: .72rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+}
+.collaborator-remove:hover { background: #fbe8e4; border-color: #d9b3aa; }
+.collaborator-remove:focus-visible {
+    outline: none;
+    border-color: var(--red, #d44d43);
+    box-shadow: 0 0 0 3px #d44d431f;
+}
+
+.collaborator-invite {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 9px;
+    align-items: end;
+    padding: 13px;
+    border: 1px solid var(--line, #e6e3dc);
+    border-radius: 7px;
+    background: #faf9f6;
+}
+.collaborator-invite[hidden] { display: none; }
+.collaborator-invite label { display: grid; gap: 5px; min-width: 0; }
+.collaborator-invite span { color: #5f6764; font-size: .7rem; font-weight: 600; }
+.collaborator-invite input { font-size: .8rem; }
+/* The three controls sit on one line, so they share one height instead of
+ * each falling back to its own intrinsic one. */
+.collaborator-invite input,
+.collaborator-invite select,
+.collaborator-invite button { height: 38px; }
+.collaborator-invite button[type="submit"] {
+    padding: 0 18px;
+    border: 1px solid var(--green, #386f66);
+    border-radius: 4px;
+    background: var(--green, #386f66);
+    color: #fff;
+    font-size: .78rem;
     font-weight: 600;
     cursor: pointer;
+    transition: background .15s ease, box-shadow .15s ease;
 }
-.collaborator-remove:hover { background: #fbe8e4; }
-
-.collaborator-invite { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 9px; align-items: end; }
-.collaborator-invite[hidden] { display: none; }
-.collaborator-invite label { display: grid; gap: 4px; min-width: 0; }
-.collaborator-invite span { color: #5f6764; font-size: .7rem; font-weight: 600; }
+.collaborator-invite button[type="submit"]:hover { background: #2d5b54; }
+.collaborator-invite button[type="submit"]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px #386f6633;
+}
 
 /* Blame line inside the revision history. */
 .history-row .history-author {
@@ -87,8 +166,19 @@
 }
 .history-row .history-author .member-avatar { width: 21px; height: 21px; font-size: .54rem; }
 
+/* The invite line loses its third column first: the roster still fits on one
+ * line at this width and wrapping it early only made the actions look
+ * detached from the person they belong to. */
 @media (max-width: 720px) {
     .collaborator-invite { grid-template-columns: 1fr; }
+    .collaborator-invite button[type="submit"] { margin-top: 2px; }
+}
+@media (max-width: 520px) {
     .collaborator-row { flex-wrap: wrap; }
     .collaborator-actions { width: 100%; justify-content: flex-end; }
+    /* A row whose only action is the role badge has nothing to wrap: beside
+     * the name it reads as a label, on its own line as a stray control. */
+    .collaborator-row:has(.collaborator-actions > .collaborator-role) { flex-wrap: nowrap; }
+    .collaborator-actions:has(> .collaborator-role) { width: auto; }
+    .collaborators-form select { font-size: .74rem; }
 }

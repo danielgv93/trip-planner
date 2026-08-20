@@ -1,5 +1,6 @@
 import { store } from "../../core/store.js";
 import { openModal } from "../../shared/modal.js";
+import "../../shared/password-reveal.js";
 import { confirmAction, toast } from "../../shared/notify.js";
 import {
     changeCloudPassword,
