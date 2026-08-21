@@ -16,6 +16,7 @@ import "../features/health/health.js";
 import "../features/github/github.js";
 import "../features/finance/budget.js";
 import "../features/workspace/workspace-resize.js";
+import "../features/workspace/sticky-pane.js";
 import "../features/library/library.js";
 import "../features/library/persistence-status.js";
 import "../features/cloud/account.js";

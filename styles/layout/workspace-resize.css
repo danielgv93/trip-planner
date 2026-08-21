@@ -11,7 +11,7 @@
         top: calc(var(--nav-height) + 20px);
         align-self: start;
         width: 23px;
-        height: min(510px, calc(100vh - var(--nav-height) - 40px));
+        height: min(510px, var(--sticky-pane-height));
         min-height: 180px;
         padding: 0;
         border: 0;

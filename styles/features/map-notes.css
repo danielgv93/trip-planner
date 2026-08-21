@@ -86,6 +86,42 @@
     height: 510px;
     background: #e8ede9;
 }
+/* Desktop: the aside is sticky, so its whole content has to fit inside the
+   sticky slot. With a fixed map height the bar + map + foot + notes entry
+   overflowed short laptop viewports (or any zoom level above 100%) and the
+   notes section fell below the fold. Cap the panel to the slot and let the
+   map absorb whatever is left, so both components are always visible. */
+@media (min-width: 961px) {
+    .map-panel {
+        display: flex;
+        flex-direction: column;
+        max-height: var(--sticky-pane-height);
+    }
+    .map-bar,
+    .map-foot,
+    .trip-notes {
+        flex: none;
+    }
+    #map {
+        flex: 1 1 510px;
+        height: auto;
+        min-height: 160px;
+    }
+    /* Set by js/features/workspace/sticky-pane.js when the budget cannot hold
+       even a minimal panel. Pinning it then would keep the notes permanently
+       off-screen, so let the whole aside scroll with the page instead. */
+    body.sticky-pane-unpinned .map-panel {
+        position: relative;
+        top: 0;
+        max-height: none;
+    }
+    body.sticky-pane-unpinned .workspace-resize-handle {
+        position: relative;
+        top: 0;
+        height: auto;
+        align-self: stretch;
+    }
+}
 .map-foot {
     padding: 13px 15px;
     background: #fff;

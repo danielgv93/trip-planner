@@ -10,6 +10,10 @@
     --card: #fff;
     --shadow: 0 9px 25px #24323a0d;
     --nav-height: 72px;
+    /* Vertical slot a sticky pane may occupy, assuming it is already pinned.
+       js/features/workspace/sticky-pane.js narrows this to the panel's flow
+       position once it can measure; this value covers the first paint. */
+    --sticky-pane-height: calc(100vh - var(--nav-height) - 40px);
     --tag-bar-height: 43px;
     --sticky-gap: 0px;
     --scrollbar-track: color-mix(in srgb, var(--sand) 58%, transparent);

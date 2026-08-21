@@ -110,6 +110,18 @@ export function invalidateMainMap() {
     map.invalidateSize({ pan: false, animate: false });
 }
 
+// On desktop the map absorbs whatever vertical space the sticky panel has left,
+// so its box changes with the viewport height and the browser zoom level, not
+// only with the workspace split. Leaflet caches the container size, so observe
+// the element directly instead of relying on the callers that resize it.
+if (typeof ResizeObserver === "function") {
+    let mapResizeFrame = 0;
+    new ResizeObserver(() => {
+        cancelAnimationFrame(mapResizeFrame);
+        mapResizeFrame = requestAnimationFrame(invalidateMainMap);
+    }).observe(map.getContainer());
+}
+
 // Keyed by `fromCoord|toCoord|profile`. Successful OSRM responses survive page
 // reloads in a bounded device-local cache; approximate fallbacks stay in memory.
 // Persistence is resolved at read/write time rather than at import time, so a
