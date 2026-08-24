@@ -185,14 +185,28 @@ export function createTripService({ database, config, events }) {
     async function listRevisions({ userId, tripId, before, limit }) {
         await readTripAccess(database, tripId, userId);
         const result = await database.query(`SELECT r.revision, r.created_at, r.origin, r.device_id, r.summary,
+                r.document, previous.document AS previous_document,
                 r.actor_user_id, u.display_name AS actor_display_name,
                 (r.revision = t.current_revision) AS current
             FROM trip_revisions r
             JOIN trips t ON t.id = r.trip_id
             LEFT JOIN users u ON u.id = r.actor_user_id
+            LEFT JOIN LATERAL (
+                SELECT prior.document FROM trip_revisions prior
+                WHERE prior.trip_id = r.trip_id AND prior.revision < r.revision
+                ORDER BY prior.revision DESC LIMIT 1
+            ) previous ON true
             WHERE r.trip_id = $1 AND r.revision < $2
             ORDER BY r.revision DESC LIMIT $3`, [tripId, before, limit + 1]);
-        const rows = result.rows.slice(0, limit);
+        const rows = result.rows.slice(0, limit).map((row) => {
+            const { document, previous_document: previousDocument, ...metadata } = row;
+            return {
+                ...metadata,
+                summary: previousDocument || Number(row.revision) === 1
+                    ? summarizePlanRevision(previousDocument, document)
+                    : row.summary,
+            };
+        });
         return { revisions: rows, nextBefore: result.rows.length > limit ? rows.at(-1).revision : null };
     }
 

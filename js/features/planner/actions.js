@@ -186,28 +186,17 @@ $("#exportBtn").onclick = () => {
 };
 
 // Named navigation groups replace the previous catch-all overflow. Keep only
-// one desktop menu open and close it after choosing a concrete action.
+// one desktop menu open and close it after choosing a concrete action. Opening
+// is click-driven so mouse, keyboard and touch all get the same predictable
+// interaction.
 const navGroups = [...document.querySelectorAll(".nav-group")];
-const desktopHoverNavigation = () =>
-    matchMedia("(min-width: 1401px) and (hover: hover) and (pointer: fine)").matches;
 navGroups.forEach((group) => {
-    let hoverCloseTimer;
-    group.addEventListener("toggle", () => {
-        if (!group.open || matchMedia("(max-width: 1400px)").matches) return;
+    group.querySelector("summary").addEventListener("click", () => {
+        if (matchMedia("(max-width: 1400px)").matches) return;
         navGroups.forEach((other) => { if (other !== group) other.open = false; });
     });
     group.addEventListener("click", (e) => {
         if (e.target.closest(".nav-group-items > button")) group.open = false;
-    });
-    group.addEventListener("pointerenter", () => {
-        if (!desktopHoverNavigation()) return;
-        clearTimeout(hoverCloseTimer);
-        group.open = true;
-    });
-    group.addEventListener("pointerleave", () => {
-        if (!desktopHoverNavigation()) return;
-        clearTimeout(hoverCloseTimer);
-        hoverCloseTimer = setTimeout(() => { group.open = false; }, 120);
     });
 });
 document.addEventListener("click", (e) => {
@@ -232,12 +221,14 @@ if (navToggle && topActions) {
     navToggle.addEventListener("click", (e) => {
         e.stopPropagation();
         const open = topActions.classList.toggle("nav-open");
+        if (open && matchMedia("(max-width: 1400px)").matches)
+            navGroups.forEach((group) => { group.open = true; });
         navToggle.setAttribute("aria-expanded", String(open));
         navToggle.setAttribute("aria-label", open ? "Cerrar menú" : "Abrir menú");
     });
     // Close after choosing an action; summaries only expand their group.
     $("#navMenuItems").addEventListener("click", (e) => {
-        if (e.target.closest("button") && !e.target.closest("#githubOpenBtn, #accountBtn")) closeNav();
+        if (e.target.closest("button") && !e.target.closest("#accountBtn")) closeNav();
     });
     document.addEventListener("click", (e) => {
         if (topActions.classList.contains("nav-open") && !topActions.contains(e.target))

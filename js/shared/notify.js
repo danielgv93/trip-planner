@@ -5,8 +5,7 @@ import { openModal } from "./modal.js";
 
 const confirmDialog = $("#confirmDialog");
 
-function renderChangePreview(preview) {
-    const root = $("#confirmPreview");
+export function renderChangePreview(root, preview) {
     root.replaceChildren();
     root.hidden = !preview;
     if (!preview) return;
@@ -98,7 +97,7 @@ export function toast(message, type = "info", ms = 3400) {
 // to false.
 export function confirmAction({ title, message, confirmLabel = "Eliminar" }) {
     return new Promise((resolve) => {
-        renderChangePreview(null);
+        renderChangePreview($("#confirmPreview"), null);
         $("#confirmInputField").hidden = true;
         $("#confirmInput").value = "";
         $("#confirmTitle").textContent = title;
@@ -136,7 +135,7 @@ export function promptAction({
         $("#confirmInputLabel").textContent = inputLabel;
         input.value = "";
         input.placeholder = inputPlaceholder;
-        renderChangePreview(preview);
+        renderChangePreview($("#confirmPreview"), preview);
         $("#confirmTitle").textContent = title;
         $("#confirmMsg").textContent = message;
         $("#confirmOk").textContent = confirmLabel;
@@ -155,7 +154,7 @@ export function promptAction({
             input.onkeydown = null;
             confirmDialog.onclose = null;
             field.hidden = true;
-            renderChangePreview(null);
+            renderChangePreview($("#confirmPreview"), null);
             resolve(result);
         };
         openModal(confirmDialog);

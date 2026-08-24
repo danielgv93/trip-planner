@@ -3,6 +3,7 @@
 // transport and target validation live in github-api.js.
 
 import { store } from "../../core/store.js";
+import { buildPlanChanges } from "../../core/plan-changes.js";
 import { $ } from "../../shared/dom.js";
 import { openModal } from "../../shared/modal.js";
 import { parsePlanJson, serializePlan } from "../../core/plan-json.js";
@@ -111,8 +112,12 @@ function errorMessage(error) {
 const githubDialog = $("#githubDialog");
 const githubForm = $("#githubForm");
 const tokenInput = $("#githubToken");
-const githubOpenBtn = $("#githubOpenBtn");
 const githubMenu = $("#githubMenu");
+const githubMenuState = $("#githubMenuState");
+const githubSettingsState = $("#githubSettingsState");
+const githubSettingsTarget = $("#githubSettingsTarget");
+const githubSettingsConfigureBtn = $("#githubSettingsConfigureBtn");
+const githubSettingsDisconnectBtn = $("#githubSettingsDisconnectBtn");
 const PLAN_SNAPSHOT_KEYS = [
     "version",
     "tripTitle",
@@ -172,227 +177,10 @@ function localPlanHasChanges() {
     );
 }
 
-function sameJson(left, right) {
-    return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function changeGroup(tone, title, items) {
-    const visible = items.slice(0, 4);
-    const remaining = items.length - visible.length;
-    return {
-        tone,
-        title,
-        detail: `${visible.join(" · ")}${remaining > 0 ? ` · +${remaining} más` : ""}`,
-    };
-}
-
-function collectionChanges(remoteItems, localItems, describe, comparable = (item) => item) {
-    const remote = new Map(remoteItems.map((item) => [item.id, item]));
-    const local = new Map(localItems.map((item) => [item.id, item]));
-    return {
-        added: [...local].filter(([id]) => !remote.has(id)).map(([, item]) => describe(item)),
-        removed: [...remote].filter(([id]) => !local.has(id)).map(([, item]) => describe(item)),
-        modified: [...local]
-            .filter(([id, item]) => remote.has(id) && !sameJson(comparable(remote.get(id)), comparable(item)))
-            .map(([id, item]) => ({ before: remote.get(id), after: item })),
-    };
-}
-
-function previewValue(value, empty = "Sin indicar") {
-    if (value === undefined || value === null || value === "") return empty;
-    if (Array.isArray(value)) return value.length ? value.join(", ") : "Ninguna";
-    if (typeof value === "boolean") return value ? "Sí" : "No";
-    const text = String(value).replace(/\s+/g, " ").trim();
-    return text.length > 54 ? `${text.slice(0, 51)}…` : text;
-}
-
-function fieldChanges(before, after, fields) {
-    return fields.flatMap(({ label, read = (item) => item[label], format = previewValue }) => {
-        const previous = read(before);
-        const next = read(after);
-        if (sameJson(previous, next)) return [];
-        return [{ label, before: format(previous), after: format(next) }];
-    });
-}
-
-function modifiedGroup(label, name, changes) {
-    return {
-        tone: "modify",
-        title: `${label} · ${name}`,
-        changes,
-    };
-}
-
 function buildChangesPreview() {
     const remote = JSON.parse(store.githubRemoteSnapshot);
     const local = JSON.parse(planSnapshot(serializePlan({ exportedAt: false })));
-    const groups = [];
-    const totals = { add: 0, modify: 0, remove: 0 };
-    const addGroups = (label, changes) => {
-        for (const [key, tone, action] of [
-            ["added", "add", "Se añaden"],
-            ["removed", "remove", "Se eliminan"],
-        ]) {
-            if (!changes[key].length) continue;
-            totals[tone] += changes[key].length;
-            groups.push(changeGroup(tone, `${label} · ${action}`, changes[key]));
-        }
-    };
-
-    const dayItems = (plan) => (plan.days || []).map((day, index) => ({ ...day, position: index + 1 }));
-    const dayComparable = ({ spots, ...day }) => day;
-    const dayChanges = collectionChanges(
-        dayItems(remote),
-        dayItems(local),
-        (day) => day.title || day.date || "Día sin título",
-        dayComparable,
-    );
-    addGroups("Días", dayChanges);
-    const dayFields = [
-        { label: "Título", read: (day) => day.title },
-        { label: "Fecha", read: (day) => day.date },
-        { label: "Posición", read: (day) => day.position },
-        { label: "Plegado", read: (day) => day.collapsed === true },
-    ];
-    for (const { before, after } of dayChanges.modified) {
-        totals.modify += 1;
-        groups.push(modifiedGroup(
-            "Día modificado",
-            after.title || after.date || "Sin título",
-            fieldChanges(before, after, dayFields),
-        ));
-    }
-
-    const backlogGroupChanges = collectionChanges(
-        remote.backlogGroups || [],
-        local.backlogGroups || [],
-        (group) => group.title || "Grupo sin nombre",
-    );
-    addGroups("Grupos del backlog", backlogGroupChanges);
-    const backlogGroupFields = [
-        { label: "Nombre", read: (group) => group.title },
-        { label: "Plegado", read: (group) => group.collapsed === true },
-    ];
-    for (const { before, after } of backlogGroupChanges.modified) {
-        totals.modify += 1;
-        groups.push(modifiedGroup(
-            "Grupo del backlog modificado",
-            after.title || "Sin nombre",
-            fieldChanges(before, after, backlogGroupFields),
-        ));
-    }
-
-    const dayNames = new Map([
-        ["backlog", "Ideas"],
-        ...[...(remote.days || []), ...(local.days || [])]
-            .map((day) => [day.id, day.title || day.date || "Día sin título"]),
-    ]);
-    const flattenSpots = (plan) => [
-        ...(plan.backlog || []).map((spot, index) => ({ ...spot, dayId: "backlog", position: index + 1 })),
-        ...(plan.days || []).flatMap((day) => (day.spots || []).map((spot, index) => ({
-            ...spot,
-            dayId: day.id,
-            position: index + 1,
-        }))),
-    ];
-    const spotChanges = collectionChanges(
-        flattenSpots(remote),
-        flattenSpots(local),
-        (spot) => spot.name || "Parada sin nombre",
-    );
-    addGroups("Paradas", spotChanges);
-    const spotFields = [
-        { label: "Nombre", read: (spot) => spot.name },
-        { label: "Tipo", read: (spot) => spot.kind, format: (value) => value === "waypoint" ? "Solo paso" : "Visita" },
-        { label: "Día", read: (spot) => spot.dayId, format: (id) => dayNames.get(id) || "Día eliminado" },
-        { label: "Grupo del backlog", read: (spot) => spot.backlogGroupId },
-        { label: "Posición", read: (spot) => spot.position },
-        { label: "Dirección", read: (spot) => spot.address },
-        { label: "Nota", read: (spot) => spot.note },
-        { label: "Etiquetas", read: (spot) => spot.tags || [] },
-        { label: "Categoría", read: (spot) => spot.category },
-        { label: "Coste", read: (spot) => spot.cost, format: (value) => value == null ? "Sin coste" : `${value} ${local.foreignCurrency}` },
-        { label: "Duración", read: (spot) => spot.visitMinutes, format: (value) => value == null ? "Sin estimación" : `${value} min` },
-        { label: "Inicio planificado", read: (spot) => spot.plannedStart },
-        { label: "Apertura", read: (spot) => spot.openingTime },
-        { label: "Cierre", read: (spot) => spot.closingTime },
-        { label: "Opcional", read: (spot) => spot.optional, format: (value) => value ? "Sí" : "No" },
-        { label: "Reserva fija", read: (spot) => spot.fixedStart, format: (value) => value ? "Sí" : "No" },
-        { label: "Posición", read: (spot) => spot.positionConstraint, format: (value) => ({ first: "Primera", last: "Última", locked: "Fija" }[value] || "Flexible") },
-        { label: "Horario", read: (spot) => spot.scheduleNotApplicable, format: (value) => value ? "No aplicable" : "Aplicable" },
-        { label: "Cierre", read: (spot) => spot.closingTime },
-        { label: "Ubicación", read: (spot) => Number.isFinite(spot.lat) && Number.isFinite(spot.lng) ? `${spot.lat.toFixed(5)}, ${spot.lng.toFixed(5)}` : "", },
-        { label: "Visible en el mapa", read: (spot) => spot.mapEnabled !== false },
-    ];
-    for (const { before, after } of spotChanges.modified) {
-        totals.modify += 1;
-        groups.push(modifiedGroup(
-            "Parada modificada",
-            after.name || "Sin nombre",
-            fieldChanges(before, after, spotFields),
-        ));
-    }
-
-    const categoryChanges = collectionChanges(
-        remote.categories || [],
-        local.categories || [],
-        (category) => category.label || "Categoría sin nombre",
-    );
-    addGroups("Categorías", categoryChanges);
-    const categoryFields = [
-        { label: "Nombre", read: (category) => category.label },
-        { label: "Color", read: (category) => category.color },
-        { label: "Conecta la ruta", read: (category) => category.connects !== false },
-        { label: "Tipo sugerido", read: (category) => category.defaultSpotKind, format: (value) => value === "waypoint" ? "Solo paso" : "Visita" },
-    ];
-    for (const { before, after } of categoryChanges.modified) {
-        totals.modify += 1;
-        groups.push(modifiedGroup(
-            "Categoría modificada",
-            after.label || "Sin nombre",
-            fieldChanges(before, after, categoryFields),
-        ));
-    }
-
-    const remoteTags = new Set(remote.tags || []);
-    const localTags = new Set(local.tags || []);
-    addGroups("Etiquetas", {
-        added: [...localTags].filter((tag) => !remoteTags.has(tag)).map((tag) => `#${tag}`),
-        removed: [...remoteTags].filter((tag) => !localTags.has(tag)).map((tag) => `#${tag}`),
-        modified: [],
-    });
-
-    const routeProfiles = { walking: "A pie", driving: "En coche", cycling: "En bicicleta" };
-    const routeTypes = { straight: "Líneas rectas", streets: "Por calles" };
-    const settingFields = [
-        { label: "Título del viaje", read: (plan) => plan.tripTitle },
-        { label: "Moneda local", read: (plan) => plan.localCurrency },
-        { label: "Moneda extranjera", read: (plan) => plan.foreignCurrency },
-        { label: "Tipo de cambio", read: (plan) => plan.exchangeRate },
-        { label: "Fecha del cambio", read: (plan) => plan.exchangeRateDate },
-        {
-            label: "Páginas de notas",
-            read: (plan) => plan.tripNotePages,
-            format: (value) => `${Array.isArray(value) ? value.length : 0} página(s)`,
-        },
-        { label: "Modo de viaje", read: (plan) => plan.routeProfile, format: (value) => routeProfiles[value] || previewValue(value) },
-        { label: "Tipo de ruta", read: (plan) => plan.routeVisualization, format: (value) => routeTypes[value] || previewValue(value) },
-        { label: "Trayectos", read: (plan) => plan.travelLegs || {}, format: (value) => `${Object.keys(value || {}).length} configurados` },
-    ];
-    const changedSettings = fieldChanges(remote, local, settingFields);
-    if (changedSettings.length) {
-        totals.modify += changedSettings.length;
-        groups.push(modifiedGroup("Ajustes modificados", "Viaje", changedSettings));
-    }
-
-    return {
-        stats: [
-            { tone: "add", label: "Añadidos", value: totals.add },
-            { tone: "modify", label: "Modificados", value: totals.modify },
-            { tone: "remove", label: "Eliminados", value: totals.remove },
-        ],
-        groups,
-    };
+    return buildPlanChanges(remote, local);
 }
 
 function createGithubAutocomplete({ input, list, minimumLength = 0, load, select }) {
@@ -575,22 +363,43 @@ function targetFromForm() {
 function renderGithubStatus() {
     const connection = store.githubConnection;
     const tokenAvailable = Boolean(getGithubToken());
-    githubMenu.querySelector('[data-github-action="configure"]').disabled = store.githubBusy;
-    githubMenu.querySelector('[data-github-action="connect"]').disabled = store.githubBusy || !connection;
-    githubMenu.querySelector('[data-github-action="pull"]').disabled = store.githubBusy || !store.githubVerified || !connection?.sha;
-    githubMenu.querySelector('[data-github-action="disconnect"]').disabled = store.githubBusy || !connection;
+    const configureAction = githubMenu.querySelector('[data-github-action="configure"]');
+    const connectAction = githubMenu.querySelector('[data-github-action="connect"]');
+    const pullAction = githubMenu.querySelector('[data-github-action="pull"]');
+    const disconnectAction = githubMenu.querySelector('[data-github-action="disconnect"]');
+    configureAction.disabled = store.githubBusy;
+    configureAction.setAttribute("aria-haspopup", "dialog");
+    configureAction.setAttribute("aria-controls", store.accountSession ? "accountDialog" : "githubDialog");
+    configureAction.querySelector("strong").textContent = store.accountSession ? "Abrir Integraciones" : "Configurar GitHub";
+    configureAction.querySelector("small").textContent = store.accountSession
+        ? "Configuración → Integraciones"
+        : "Repositorio, rama, archivo y token";
+    connectAction.disabled = store.githubBusy || !connection;
+    connectAction.hidden = !connection || store.githubVerified;
+    pullAction.disabled = store.githubBusy || !store.githubVerified || !connection?.sha;
+    pullAction.hidden = !store.githubVerified;
+    disconnectAction.disabled = store.githubBusy || !connection;
+    disconnectAction.hidden = Boolean(store.accountSession) || !connection;
     const publishButton = githubMenu.querySelector('[data-github-action="publish"]');
     const hasChanges = localPlanHasChanges();
-    store.githubSyncState = store.githubBusy
+    const menuState = store.githubBusy
         ? "saving"
         : !connection
           ? "local"
           : store.githubVerified
             ? (hasChanges ? "pending" : "synced")
-            : "pending";
-    document.dispatchEvent(new CustomEvent("github-sync-state"));
+            : "configured";
+    githubMenuState.dataset.state = menuState;
+    githubMenuState.textContent = menuState === "saving"
+        ? "Comunicando…"
+        : menuState === "pending"
+          ? "Cambios pendientes"
+          : menuState === "synced"
+            ? "Sincronizado"
+            : menuState === "configured" ? "Configurado" : "Sin configurar";
     const tokenNeeded = !store.githubBusy && store.githubVerified && Boolean(connection?.sha) && hasChanges && !tokenAvailable;
     publishButton.disabled = store.githubBusy || !store.githubVerified || !connection?.sha || !hasChanges;
+    publishButton.hidden = !store.githubVerified;
     publishButton.classList.toggle("github-needs-token", tokenNeeded);
     publishButton.dataset.needsToken = String(tokenNeeded);
     publishButton.querySelector(".github-menu-icon").textContent = tokenNeeded ? "!" : "↑";
@@ -599,16 +408,22 @@ function renderGithubStatus() {
         : store.githubVerified && !hasChanges
           ? "No hay cambios relevantes que publicar"
           : "Actualizar el archivo en GitHub";
-    githubOpenBtn.disabled = store.githubBusy;
-    githubOpenBtn.classList.toggle("github-configured", Boolean(connection));
-    githubOpenBtn.classList.toggle("github-connected", store.githubVerified);
-    githubOpenBtn.title = store.githubBusy
-        ? "Comunicando con GitHub…"
+    githubSettingsState.textContent = store.githubBusy
+        ? "Comunicando…"
         : store.githubVerified
-          ? `Conectado a ${connection.owner}/${connection.repo}`
-          : connection
-            ? `Configurado para ${connection.owner}/${connection.repo}`
-            : "Configurar GitHub";
+          ? "Conectado"
+          : connection ? "Configurado" : "Sin configurar";
+    githubSettingsState.dataset.state = store.githubBusy
+        ? "pending"
+        : store.githubVerified ? "synced" : connection ? "pending" : "local";
+    githubSettingsTarget.hidden = !connection;
+    $("#githubSettingsRepository").textContent = connection ? `${connection.owner}/${connection.repo}` : "";
+    $("#githubSettingsBranch").textContent = connection?.ref || "";
+    $("#githubSettingsPath").textContent = connection?.path || "";
+    githubSettingsConfigureBtn.disabled = store.githubBusy;
+    githubSettingsConfigureBtn.textContent = connection ? "Editar configuración" : "Configurar GitHub";
+    githubSettingsDisconnectBtn.hidden = !connection;
+    githubSettingsDisconnectBtn.disabled = store.githubBusy;
 }
 
 function setBusy(value) {
@@ -663,62 +478,6 @@ async function runRead(candidate, token) {
     }
 }
 
-function closeGithubMenu({ restoreFocus = false } = {}) {
-    if (githubMenu.hidden) return;
-    githubMenu.hidden = true;
-    githubOpenBtn.setAttribute("aria-expanded", "false");
-    if (restoreFocus) githubOpenBtn.focus();
-}
-
-function positionGithubMenu() {
-    if (githubMenu.hidden) return;
-
-    const margin = 12;
-    const gap = 10;
-    const triggerRect = githubOpenBtn.getBoundingClientRect();
-    const menuRect = githubMenu.getBoundingClientRect();
-    const compact = matchMedia("(max-width: 700px)").matches;
-    const clamp = (value, min, max) => Math.min(Math.max(value, min), Math.max(min, max));
-
-    let side;
-    let left;
-    let top;
-
-    if (compact) {
-        side = "below";
-        left = clamp(triggerRect.right - menuRect.width, margin, innerWidth - menuRect.width - margin);
-        top = clamp(triggerRect.bottom + gap, margin, innerHeight - menuRect.height - margin);
-        githubMenu.style.setProperty(
-            "--github-menu-arrow-left",
-            `${clamp(triggerRect.left + triggerRect.width / 2 - left - 7, 14, menuRect.width - 28)}px`,
-        );
-    } else {
-        const spaceRight = innerWidth - triggerRect.right;
-        const spaceLeft = triggerRect.left;
-        side = spaceRight >= menuRect.width + gap || spaceRight >= spaceLeft ? "right" : "left";
-        left = side === "right" ? triggerRect.right + gap : triggerRect.left - menuRect.width - gap;
-        left = clamp(left, margin, innerWidth - menuRect.width - margin);
-        top = clamp(triggerRect.top - 8, margin, innerHeight - menuRect.height - margin);
-        githubMenu.style.setProperty(
-            "--github-menu-arrow-top",
-            `${clamp(triggerRect.top + triggerRect.height / 2 - top, 16, menuRect.height - 16)}px`,
-        );
-    }
-
-    githubMenu.dataset.side = side;
-    githubMenu.style.right = "auto";
-    githubMenu.style.left = `${left}px`;
-    githubMenu.style.top = `${top}px`;
-}
-
-function openGithubMenu({ focusFirst = false } = {}) {
-    renderGithubStatus();
-    githubMenu.hidden = false;
-    githubOpenBtn.setAttribute("aria-expanded", "true");
-    positionGithubMenu();
-    if (focusFirst) githubMenu.querySelector("button:not(:disabled)")?.focus();
-}
-
 function openGithubDialog({ focusToken = false } = {}) {
     fillTarget(store.githubConnection);
     tokenInput.value = "";
@@ -728,26 +487,6 @@ function openGithubDialog({ focusToken = false } = {}) {
     if (focusToken) requestAnimationFrame(() => tokenInput.focus());
 }
 
-githubOpenBtn.onclick = (event) => {
-    event.stopPropagation();
-    const willOpen = githubMenu.hidden;
-    closeGithubMenu();
-    if (!willOpen) return;
-    openGithubMenu({ focusFirst: true });
-};
-let githubHoverCloseTimer;
-const desktopGithubHover = () =>
-    matchMedia("(min-width: 1401px) and (hover: hover) and (pointer: fine)").matches;
-githubOpenBtn.closest(".github-control")?.addEventListener("pointerenter", () => {
-    if (!desktopGithubHover()) return;
-    clearTimeout(githubHoverCloseTimer);
-    openGithubMenu();
-});
-githubOpenBtn.closest(".github-control")?.addEventListener("pointerleave", () => {
-    if (!desktopGithubHover()) return;
-    clearTimeout(githubHoverCloseTimer);
-    githubHoverCloseTimer = setTimeout(closeGithubMenu, 120);
-});
 githubDialog.addEventListener("close", () => {
     ownerAutocomplete.hide();
     repoAutocomplete.hide();
@@ -874,10 +613,12 @@ githubMenu.addEventListener("click", (event) => {
     const button = event.target.closest("[data-github-action]");
     if (!button || button.disabled) return;
     const action = button.dataset.githubAction;
-    closeGithubMenu();
+    document.querySelector("#syncMenu").open = false;
     document.querySelector(".top-actions")?.classList.remove("nav-open");
     $("#navToggle")?.setAttribute("aria-expanded", "false");
-    if (action === "configure") openGithubDialog();
+    if (action === "configure" && store.accountSession)
+        document.dispatchEvent(new CustomEvent("open-account-settings", { detail: { view: "integrations" } }));
+    else if (action === "configure") openGithubDialog();
     else if (action === "connect") connectGithub();
     else if (action === "pull" && store.githubConnection) runRead(store.githubConnection, getGithubToken());
     else if (action === "publish" && button.dataset.needsToken === "true") openGithubDialog({ focusToken: true });
@@ -885,20 +626,15 @@ githubMenu.addEventListener("click", (event) => {
     else if (action === "disconnect") disconnectGithub();
 });
 
-document.addEventListener("click", (event) => {
-    if (!event.target.closest(".github-control")) closeGithubMenu();
-});
-window.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !githubMenu.hidden) closeGithubMenu({ restoreFocus: true });
-});
-window.addEventListener("resize", positionGithubMenu);
-window.addEventListener("scroll", positionGithubMenu, { capture: true, passive: true });
+githubSettingsConfigureBtn.addEventListener("click", () => openGithubDialog());
+githubSettingsDisconnectBtn.addEventListener("click", disconnectGithub);
 
 store.githubConnection = loadGithubMetadata();
 store.githubVerified = false;
 fillTarget(store.githubConnection);
 renderGithubStatus();
 document.addEventListener("trip-save-state", renderGithubStatus);
+document.addEventListener("cloud-session-changed", renderGithubStatus);
 // Best-effort, one-shot verification on startup. A missing configuration or
 // any remote error simply leaves the optional integration disconnected.
 if (store.githubConnection) void connectGithub({ silent: true });

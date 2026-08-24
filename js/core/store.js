@@ -191,7 +191,6 @@ export const store = {
     githubVerified: false,
     githubBusy: false,
     githubRemoteSnapshot: null,
-    githubSyncState: "local",
 };
 store.travelLegs = migrateLegacyTravelLegs(
     saved?.travelLegs,

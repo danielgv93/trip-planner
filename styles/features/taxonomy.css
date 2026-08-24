@@ -130,6 +130,10 @@
     border-radius: 6px;
     box-shadow: 0 10px 24px #1c283330;
 }
+.nav-group:not(.sync-menu) .nav-group-items {
+    right: auto;
+    left: 0;
+}
 .nav-group-title {
     padding: 5px 9px 7px;
     color: var(--muted);
@@ -138,13 +142,16 @@
     letter-spacing: .09em;
     text-transform: uppercase;
 }
+.nav-group-subtitle {
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
 .nav-group-divider {
     height: 1px;
     margin: 4px 3px;
     background: var(--line);
 }
-.nav-group-items > button,
-.nav-group-items > .github-control > button {
+.nav-group-items > button {
     width: 100%;
     display: grid;
     grid-template-columns: 20px minmax(0, 1fr);
@@ -164,8 +171,12 @@
     font-weight: 700;
     text-align: center;
 }
-.nav-group-items > button:hover:not(:disabled),
-.nav-group-items > .github-control > button:hover:not(:disabled) {
+.nav-group-items > .save-cloud-button svg {
+    width: 17px;
+    height: 17px;
+    color: var(--red);
+}
+.nav-group-items > button:hover:not(:disabled) {
     background: #f3f1ec;
 }
 .nav-group-items button:disabled {
@@ -179,17 +190,24 @@
     background: #fbebe8;
 }
 .sync-menu-items {
-    min-width: 270px;
+    min-width: 310px;
 }
-.sync-status-dot {
-    display: block;
-    width: 8px;
-    height: 8px;
-    flex: 0 0 auto;
-    border-radius: 50%;
-    background: #9db7c3;
-    box-shadow: 0 0 0 3px #9db7c326;
+.sync-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sync-section-state {
+    padding: 3px 6px;
+    border-radius: 999px;
+    background: #edf0ee;
+    color: #747d79;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
 }
+.sync-section-state[data-state="configured"],
+.sync-section-state[data-state="pending"],
+.sync-section-state[data-state="saving"] { background: #fff0ce; color: #785c17; }
+.sync-section-state[data-state="synced"] { background: #e3f2e9; color: #286347; }
 .nav-menu-items > .account-control > .account-button {
     display: inline-flex;
     align-items: center;
@@ -270,27 +288,6 @@
 .account-menu > button { display: flex; width: 100%; align-items: center; gap: 9px; margin-top: 3px; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; color: #354347; text-align: left; font-size: .72rem; }
 .account-menu > button:hover, .account-menu > button:focus-visible { background: #eef1ed; outline: none; }
 .account-menu > .account-menu-logout { color: #a33e36; }
-.sync-menu[data-state="synced"] .sync-status-dot,
-.sync-menu[data-state="saved"] .sync-status-dot {
-    background: #79c7a3;
-    box-shadow: 0 0 0 3px #79c7a326;
-}
-.sync-menu[data-state="pending"] .sync-status-dot,
-.sync-menu[data-state="saving"] .sync-status-dot,
-.sync-menu[data-state="offline"] .sync-status-dot,
-.sync-menu[data-state="auth-required"] .sync-status-dot {
-    background: #f1c865;
-    box-shadow: 0 0 0 3px #f1c86526;
-}
-.sync-menu[data-state="saving"] .sync-status-dot {
-    animation: sync-status-pulse 1s ease-in-out infinite;
-}
-.sync-menu[data-state="error"] .sync-status-dot,
-.sync-menu[data-state="conflict"] .sync-status-dot {
-    background: #ff8f86;
-    box-shadow: 0 0 0 3px #ff8f8626;
-}
-@keyframes sync-status-pulse { 50% { opacity: .4; transform: scale(.75); } }
 .spot-tags {
     display: flex;
     gap: 4px;

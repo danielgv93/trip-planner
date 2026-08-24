@@ -215,8 +215,6 @@ button {
 }
 .nav-menu-items > button,
 .nav-menu-items > .account-control > button,
-.nav-menu-items > .github-control > button,
-.nav-menu-items > .save-cloud-button,
 .top-actions > .hamburger,
 .add-day {
     border: 1px solid #ffffff40;
@@ -228,35 +226,45 @@ button {
 }
 .nav-menu-items > button:hover,
 .nav-menu-items > .account-control > button:hover,
-.nav-menu-items > .github-control > button:hover,
-.nav-menu-items > .save-cloud-button:hover,
 .top-actions > .hamburger:hover {
     background: #ffffff14;
 }
 .nav-menu-items > button:disabled,
-.nav-menu-items > .save-cloud-button:disabled {
+.nav-menu-items .save-cloud-button:disabled {
     cursor: default;
     opacity: 0.42;
 }
 .nav-menu-items > button:disabled:hover,
-.nav-menu-items > .save-cloud-button:disabled:hover {
+.nav-menu-items .save-cloud-button:disabled:hover {
     background: transparent;
 }
-.nav-menu-items > .history-button {
+.history-controls {
+    display: inline-flex;
+    overflow: hidden;
+    border: 1px solid #ffffff40;
+    border-radius: 4px;
+}
+.history-controls .history-button {
     display: inline-grid;
-    width: 38px;
-    height: 36px;
+    width: 36px;
+    height: 34px;
     place-items: center;
     padding: 0;
+    border: 0;
+    background: transparent;
+    color: #fff;
 }
-.nav-menu-items > .save-cloud-button {
-    display: inline-grid;
-    width: 38px;
-    height: 36px;
-    place-items: center;
-    padding: 0;
+.history-controls .history-button + .history-button {
+    border-left: 1px solid #ffffff2e;
 }
-.nav-menu-items > .save-cloud-button > .save-cloud-label {
+.history-controls .history-button:hover:not(:disabled) {
+    background: #ffffff14;
+}
+.history-controls .history-button:disabled {
+    cursor: default;
+    opacity: .42;
+}
+.history-controls .history-button > span {
     display: none;
 }
 .save-cloud-button svg {
@@ -285,119 +293,27 @@ button {
 .top .primary:hover {
     background: #b4352d;
 }
-.github-control {
-    position: relative;
-    display: inline-flex;
+.github-menu {
+    display: grid;
+    gap: 2px;
     width: 100%;
 }
-#githubOpenBtn {
-    grid-template-columns: 20px minmax(0, 1fr) auto;
-}
-.github-submenu-chevron {
-    color: var(--muted);
-    font-size: 20px;
-    font-weight: 400;
-    line-height: 1;
-    transition: transform .16s ease;
-}
-#githubOpenBtn[aria-expanded="true"] .github-submenu-chevron {
-    transform: translateX(2px);
-}
-.github-dot {
-    display: inline-block;
-    width: 7px;
-    height: 7px;
-    margin-right: 4px;
-    border-radius: 50%;
-    background: #ffffff66;
-}
-#githubOpenBtn.github-configured .github-dot {
-    background: #9db7c3;
-    box-shadow: 0 0 0 3px #9db7c326;
-}
-#githubOpenBtn.github-connected .github-dot {
-    background: #79c7a3;
-    box-shadow: 0 0 0 3px #79c7a326;
-}
-.github-menu {
-    position: fixed;
-    z-index: 70;
-    width: min(290px, calc(100vw - 24px));
-    padding: 7px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: #fff;
-    box-shadow: 0 16px 42px #0b141b55;
-    color: var(--ink);
-}
 .github-menu[hidden] { display: none; }
-.github-menu::before,
-.github-menu::after {
-    content: "";
-    position: absolute;
-    top: var(--github-menu-arrow-top, 20px);
-    width: 0;
-    height: 0;
-    border-style: solid;
-    transform: translateY(-50%);
-}
-.github-menu[data-side="left"]::before {
-    right: -8px;
-    border-width: 8px 0 8px 8px;
-    border-color: transparent transparent transparent var(--line);
-}
-.github-menu[data-side="left"]::after {
-    right: -7px;
-    border-width: 7px 0 7px 7px;
-    border-color: transparent transparent transparent #fff;
-}
-.github-menu[data-side="right"]::before {
-    left: -8px;
-    border-width: 8px 8px 8px 0;
-    border-color: transparent var(--line) transparent transparent;
-}
-.github-menu[data-side="right"]::after {
-    left: -7px;
-    border-width: 7px 7px 7px 0;
-    border-color: transparent #fff transparent transparent;
-}
-.github-menu[data-side="below"]::before {
-    top: -8px;
-    left: var(--github-menu-arrow-left, 24px);
-    border-width: 0 8px 8px;
-    border-color: transparent transparent var(--line);
-    transform: none;
-}
-.github-menu[data-side="below"]::after {
-    top: -7px;
-    left: calc(var(--github-menu-arrow-left, 24px) + 1px);
-    border-width: 0 7px 7px;
-    border-color: transparent transparent #fff;
-    transform: none;
-}
-.github-menu-title {
-    display: block;
-    padding: 5px 9px 7px;
-    color: var(--muted);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .09em;
-    text-transform: uppercase;
-}
 .top .github-menu button {
     display: grid;
     grid-template-columns: 25px minmax(0, 1fr);
     align-items: center;
     gap: 9px;
     width: 100%;
-    min-height: 49px;
-    padding: 7px 9px;
+    min-height: 44px;
+    padding: 6px 9px;
     border: 0;
     border-radius: 7px;
     background: transparent;
     color: var(--ink);
     text-align: left;
 }
+.top .github-menu button[hidden] { display: none; }
 .top .github-menu button:hover:not(:disabled),
 .top .github-menu button:focus-visible {
     background: #f7f4ee;

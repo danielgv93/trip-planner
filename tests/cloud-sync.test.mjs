@@ -9,18 +9,10 @@ import {
     stateAfterFailure,
     SYNC_COPY,
 } from "../js/features/cloud/sync-state.js";
-import { combinedSyncState } from "../js/features/cloud/sync-indicator-state.js";
 import { createMemoryStorage, createTripRepository } from "../js/core/trip-repository.js";
 import { createTripEnvelope } from "../js/core/trip-envelope.js";
 
 const plan = (title) => ({ tripTitle: title, days: [{ id: "d", date: "", title: "", spots: [] }] });
-
-test("el indicador combinado muestra el estado más importante", () => {
-    assert.equal(combinedSyncState("local", "synced"), "synced");
-    assert.equal(combinedSyncState("synced", "pending"), "pending");
-    assert.equal(combinedSyncState("saving", "error"), "error");
-    assert.equal(combinedSyncState("error", "conflict"), "conflict");
-});
 
 test("el autómata distingue red, autenticación, error y conflicto con copy español", () => {
     assert.equal(stateAfterFailure({ code: "NETWORK" }), "offline");

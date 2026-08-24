@@ -36,14 +36,16 @@ function selectAuthView(view, { focus = false } = {}) {
 }
 
 function selectSettingsView(view, { focus = false } = {}) {
+    const selectedTab = settingsTabs.find((tab) => tab.dataset.settingsView === view) || settingsTabs[0];
     settingsTabs.forEach((tab) => {
-        const selected = tab.dataset.settingsView === view;
+        const selected = tab === selectedTab;
         tab.setAttribute("aria-selected", String(selected));
         tab.tabIndex = selected ? 0 : -1;
         if (selected && focus) tab.focus();
     });
-    document.querySelector("#accountProfilePanel").hidden = view !== "profile";
-    document.querySelector("#accountDeletePanel").hidden = view !== "delete";
+    document.querySelectorAll(".account-settings-panel").forEach((panel) => {
+        panel.hidden = panel.id !== selectedTab.getAttribute("aria-controls");
+    });
 }
 
 function wireTabs(tabs, select, axisKeys) {
@@ -82,7 +84,7 @@ function openMenu() {
     menu.querySelector('[role="menuitem"]')?.focus();
 }
 
-function prepareSettings() {
+function prepareSettings(view = "profile") {
     const user = store.accountSession?.user;
     avatarSelectionToken += 1;
     pendingAvatarProcessing = null;
@@ -91,7 +93,7 @@ function prepareSettings() {
     paintAvatar(document.querySelector("#accountPhotoPreview"), user, pendingAvatar);
     document.querySelector("#accountProfileStatus").textContent = "";
     document.querySelector("#accountPasswordStatus").textContent = "";
-    selectSettingsView("profile");
+    selectSettingsView(view);
 }
 
 function renderAccount() {
@@ -135,9 +137,9 @@ function renderAccount() {
     if (!session) closeMenu();
 }
 
-function openAccountDialog() {
+function openAccountDialog({ view = "profile" } = {}) {
     renderAccount();
-    if (store.accountSession) prepareSettings();
+    if (store.accountSession) prepareSettings(view);
     openModal(dialog);
     if (store.cloudAvailability === "unavailable") refreshCloudSession();
 }
@@ -160,6 +162,11 @@ button.addEventListener("click", () => {
 document.querySelector("#accountSettingsBtn").addEventListener("click", () => {
     closeMenu();
     openAccountDialog();
+});
+
+document.addEventListener("open-account-settings", (event) => {
+    closeMenu();
+    openAccountDialog({ view: event.detail?.view || "profile" });
 });
 
 document.addEventListener("pointerdown", (event) => {

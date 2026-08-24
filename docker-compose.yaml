@@ -6,8 +6,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-trip_planner}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
     ports:
-      - "${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
-      #- "5432:5432"
+      #- "${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
+      - "5432:5432"
     volumes:
       - trip_planner_postgres_data:/var/lib/postgresql/data
     healthcheck:

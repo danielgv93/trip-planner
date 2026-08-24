@@ -277,22 +277,44 @@
 #accountDeletePanel .account-danger-zone { grid-template-columns: 1fr; margin-top: 4px; }
 #accountDeletePanel .account-danger-zone label, #accountDeletePanel .account-danger-zone .danger { grid-column: 1; grid-row: auto; }
 #accountDeletePanel .account-danger-zone .danger { justify-self: start; }
+.integration-card { display: grid; gap: 16px; padding: 18px; border: 1px solid #dce1dc; border-radius: 13px; background: #fff; box-shadow: 0 5px 18px #1d2d3609; }
+.integration-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 11px; }
+.integration-mark { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 10px; background: #e7efeb; color: var(--green); font: 700 1.1rem "DM Mono"; }
+.integration-card-head > span:nth-child(2) { display: grid; min-width: 0; gap: 2px; }
+.integration-card h5 { margin: 0; color: var(--ink); font-size: .85rem; }
+.integration-card-head small, .integration-card > p, .integration-privacy { color: var(--muted); font-size: .66rem; line-height: 1.5; }
+.integration-card > p { margin: 0; }
+.integration-state { padding: 5px 8px; border-radius: 999px; background: #edf0ee; color: #68716e; font-size: .61rem; font-weight: 700; white-space: nowrap; }
+.integration-state[data-state="pending"] { background: #fff0ce; color: #785c17; }
+.integration-state[data-state="synced"] { background: #e3f2e9; color: #286347; }
+.integration-target { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; overflow: hidden; border: 1px solid #e4e4de; border-radius: 9px; background: #f7f6f2; }
+.integration-target[hidden] { display: none; }
+.integration-target > div { display: grid; min-width: 0; gap: 3px; padding: 10px; border-right: 1px solid #e4e4de; }
+.integration-target > div:last-child { border-right: 0; }
+.integration-target dt { color: #858b88; font-size: .57rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.integration-target dd { min-width: 0; margin: 0; overflow: hidden; color: #3b4948; font: 600 .64rem "DM Mono"; text-overflow: ellipsis; white-space: nowrap; }
+.integration-actions { display: flex; align-items: center; gap: 8px; }
+.integration-actions button { padding: 8px 11px; border-radius: 8px; font-size: .68rem; font-weight: 700; }
+.integration-actions .primary { border: 1px solid var(--green); background: var(--green); color: #fff; }
+.integration-disconnect { border: 1px solid #e3cbc7; background: #fff; color: #98473f; }
+.integration-privacy { display: flex; align-items: center; gap: 6px; padding-top: 12px; border-top: 1px solid #e8e7e1; }
+.integration-privacy > span { color: var(--green); }
 
 .conflict-dialog { width: min(640px, calc(100vw - 28px)); }
 .conflict-content { display: grid; gap: 12px; padding: 22px; }
 .conflict-content > button { display: grid; gap: 4px; padding: 14px; text-align: left; border: 1px solid #d8d0c1; border-radius: 10px; background: #fffdf8; }
 .conflict-content > button small { color: #6f716d; }
 
-.history-dialog, .revision-preview-dialog { width: min(720px, calc(100vw - 28px)); }
+.history-dialog, .revision-preview-dialog { width: min(760px, calc(100vw - 28px)); }
 .history-list { display: grid; padding: 18px 22px 6px; max-height: 62vh; overflow: auto; }
 .history-row { display: grid; gap: 6px; padding: 13px 4px; text-align: left; background: transparent; border: 0; border-bottom: 1px solid #e4ddd0; }
 .history-row > span { display: flex; justify-content: space-between; gap: 12px; }
 .history-row time, .history-row small { color: #71736f; }
 .history-status { padding: 10px 22px 22px; color: #71736f; }
-.revision-preview-content { max-height: 58vh; overflow: auto; padding: 18px 24px; }
-.revision-preview-content section { padding: 10px 0; border-bottom: 1px solid #e4ddd0; }
-.revision-preview-content h4 { margin: 0 0 7px; }
-.revision-preview-content ul { margin: 0; padding-left: 20px; }
+.revision-preview-content { max-height: 62vh; margin: 18px 22px; overflow: hidden; }
+.revision-preview-content .change-preview-list { max-height: min(440px, 46vh); }
+.revision-preview-status { margin: 0; padding: 24px; color: #71736f; text-align: center; }
+.revision-preview-notice { margin: 0; padding: 9px 11px; border-radius: 7px; background: #fbf1dd; color: #76571f; font-size: 12px; }
 
 @media (max-width: 680px) {
     .trip-persistence-bar { text-align: left; }
@@ -328,11 +350,17 @@
     #accountSignedIn.account-settings { display: block; padding: 0; overflow-y: auto; }
     .account-settings-nav { padding: 11px 13px; border-right: 0; border-bottom: 1px solid #dfe3de; }
     .account-settings-identity, .account-settings-future { display: none; }
-    .account-settings-nav [role="tablist"] { grid-template-columns: 1fr 1fr; }
+    .account-settings-nav [role="tablist"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .account-settings-nav [role="tab"] { justify-content: center; padding-inline: 6px; }
     .account-settings-panels { max-height: none; overflow: visible; }
     .account-settings-panel { padding: 22px 19px 27px; }
     .account-password-form { grid-template-columns: 1fr; }
     .account-password-form > label:first-child, .account-password-form .account-settings-save, .account-password-form .account-feedback { grid-column: 1; }
+    .integration-card-head { grid-template-columns: auto minmax(0, 1fr); }
+    .integration-state { grid-column: 2; justify-self: start; }
+    .integration-target { grid-template-columns: 1fr; }
+    .integration-target > div { border-right: 0; border-bottom: 1px solid #e4e4de; }
+    .integration-target > div:last-child { border-bottom: 0; }
     .account-session-card { grid-template-columns: auto minmax(0, 1fr); }
     .account-connected { grid-column: 2; justify-self: start; }
     .account-danger-zone { grid-template-columns: 1fr; }

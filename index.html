@@ -91,84 +91,88 @@
                 </button>
                 <div id="navMenuItems" class="nav-menu-items">
                     <details class="nav-group" id="tripsMenu">
-                        <summary>Viajes <svg class="nav-group-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></summary>
+                        <summary>Viaje <svg class="nav-group-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></summary>
                         <div class="nav-group-items">
-                            <span class="nav-group-title">Viajes</span>
+                            <span class="nav-group-title">Tu viaje</span>
                             <button id="libraryBtn" type="button" aria-haspopup="dialog" aria-controls="libraryDialog"><span aria-hidden="true">▣</span> Mis viajes</button>
-                            <button id="companionEnterBtn" type="button" aria-controls="companionView"><span aria-hidden="true">➜</span> En ruta</button>
-                            <button id="importBtn"><span aria-hidden="true">↑</span> Importar</button>
-                            <button id="exportBtn"><span aria-hidden="true">↓</span> Exportar</button>
+                            <button id="companionEnterBtn" type="button" aria-controls="companionView"><span aria-hidden="true">➜</span> Modo en ruta</button>
                             <span class="nav-group-divider" aria-hidden="true"></span>
-                            <button id="resetBtn" class="nav-group-danger"><span aria-hidden="true">↺</span> Restaurar ejemplo</button>
+                            <span class="nav-group-title nav-group-subtitle">Archivo</span>
+                            <button id="importBtn"><span aria-hidden="true">↑</span> Importar viaje</button>
+                            <button id="exportBtn"><span aria-hidden="true">↓</span> Exportar copia</button>
+                            <span class="nav-group-divider" aria-hidden="true"></span>
+                            <button id="resetBtn" class="nav-group-danger"><span aria-hidden="true">↺</span> Restaurar viaje de ejemplo</button>
                         </div>
                     </details>
                     <details class="nav-group" id="planningMenu">
-                        <summary>Planificar <svg class="nav-group-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></summary>
+                        <summary>Itinerario <svg class="nav-group-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></summary>
                         <div class="nav-group-items">
-                            <span class="nav-group-title">Preparar el viaje</span>
+                            <span class="nav-group-title">Planificación</span>
                             <button id="remindersOpenBtn" type="button" aria-haspopup="dialog" aria-controls="remindersDialog"><span aria-hidden="true">◷</span> Fechas clave</button>
-                            <button id="healthCheckBtn" type="button" aria-haspopup="dialog" aria-controls="healthDialog"><span aria-hidden="true">✓</span> Comprobar plan</button>
-                            <button id="manageTags"><span aria-hidden="true">#</span> Etiquetas</button>
+                            <button id="healthCheckBtn" type="button" aria-haspopup="dialog" aria-controls="healthDialog"><span aria-hidden="true">✓</span> Revisar itinerario</button>
+                            <span class="nav-group-divider" aria-hidden="true"></span>
+                            <span class="nav-group-title nav-group-subtitle">Clasificación</span>
                             <button id="manageCategories"><span aria-hidden="true">◈</span> Categorías</button>
+                            <button id="manageTags"><span aria-hidden="true">#</span> Etiquetas</button>
                         </div>
                     </details>
-                    <details class="nav-group sync-menu" id="syncMenu" data-state="local">
-                        <summary><span class="sync-status-dot" aria-hidden="true"></span> Sincronización <svg class="nav-group-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></summary>
+                    <details class="nav-group sync-menu" id="syncMenu">
+                        <summary>Guardado <svg class="nav-group-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></summary>
                         <div class="nav-group-items sync-menu-items">
+                            <span class="nav-group-title sync-section-title">Online</span>
                             <div id="tripPersistenceBar" class="trip-persistence-bar" role="status">
                                 <span id="tripPersistenceStatus">Solo en este dispositivo</span>
                                 <button id="tripPersistenceExport" type="button" hidden>Exportar ahora</button>
                             </div>
-                            <button id="historyOpenBtn" type="button" aria-haspopup="dialog" aria-controls="historyDialog"><span aria-hidden="true">↶</span> Historial remoto</button>
-                            <div class="github-control">
-                                <button id="githubOpenBtn" type="button" aria-haspopup="menu" aria-controls="githubMenu" aria-expanded="false">
-                                    <span class="github-dot" aria-hidden="true"></span>
-                                    <span>GitHub</span>
-                                    <span class="github-submenu-chevron" aria-hidden="true">›</span>
+                            <button
+                                id="saveCloudBtn"
+                                class="save-cloud-button"
+                                type="button"
+                                aria-label="Guardar en la nube"
+                                title="Guardar en la nube (Ctrl/Cmd + S)"
+                                disabled
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4 4 0 0 1 .3-8 5.5 5.5 0 0 1 10.5 1.4A3.6 3.6 0 0 1 17.5 18"/><path d="M12 21v-8"/><path d="m9 15.5 3-3 3 3"/></svg>
+                                <span class="save-cloud-label">Guardar en la nube</span>
+                            </button>
+                            <button id="historyOpenBtn" type="button" aria-haspopup="dialog" aria-controls="historyDialog"><span aria-hidden="true">↶</span> Historial de versiones</button>
+                            <span class="nav-group-divider" aria-hidden="true"></span>
+                            <span class="nav-group-title sync-section-title sync-section-heading">
+                                <span>GitHub</span>
+                                <small id="githubMenuState" class="sync-section-state" data-state="local">Sin configurar</small>
+                            </span>
+                            <div id="githubMenu" class="github-menu" role="group" aria-label="Acciones de GitHub">
+                                <button type="button" data-github-action="configure">
+                                    <span class="github-menu-icon" aria-hidden="true">⚙</span>
+                                    <span><strong>Gestionar integración</strong><small>Configuración, destino y credenciales</small></span>
                                 </button>
-                                <div id="githubMenu" class="github-menu" role="menu" aria-label="Acciones de GitHub" hidden>
-                                    <span class="github-menu-title">GitHub</span>
-                                    <button type="button" role="menuitem" data-github-action="configure">
-                                        <span class="github-menu-icon" aria-hidden="true">⚙</span>
-                                        <span><strong>Configurar GitHub</strong><small>Repositorio, rama, archivo y token</small></span>
-                                    </button>
-                                    <button type="button" role="menuitem" data-github-action="connect" disabled>
-                                        <span class="github-menu-icon" aria-hidden="true">⌁</span>
-                                        <span><strong>Conectar a GitHub</strong><small>Verificar el acceso al archivo</small></span>
-                                    </button>
-                                    <button type="button" role="menuitem" data-github-action="pull" disabled>
-                                        <span class="github-menu-icon" aria-hidden="true">↓</span>
-                                        <span><strong>Pull y sincronizar</strong><small>Traer los cambios del plan remoto</small></span>
-                                    </button>
-                                    <button type="button" role="menuitem" data-github-action="publish" disabled>
-                                        <span class="github-menu-icon" aria-hidden="true">↑</span>
-                                        <span><strong>Publicar cambios</strong><small>Actualizar el archivo en GitHub</small></span>
-                                    </button>
-                                    <button type="button" role="menuitem" data-github-action="disconnect" disabled>
-                                        <span class="github-menu-icon" aria-hidden="true">×</span>
-                                        <span><strong>Desconectar GitHub</strong><small>Eliminar configuración y token guardados</small></span>
-                                    </button>
-                                </div>
+                                <button type="button" data-github-action="connect" disabled hidden>
+                                    <span class="github-menu-icon" aria-hidden="true">⌁</span>
+                                    <span><strong>Conectar a GitHub</strong><small>Verificar el acceso al archivo</small></span>
+                                </button>
+                                <button type="button" data-github-action="pull" disabled hidden>
+                                    <span class="github-menu-icon" aria-hidden="true">↓</span>
+                                    <span><strong>Traer cambios</strong><small>Importar la versión del archivo remoto</small></span>
+                                </button>
+                                <button type="button" data-github-action="publish" disabled hidden>
+                                    <span class="github-menu-icon" aria-hidden="true">↑</span>
+                                    <span><strong>Publicar cambios</strong><small>Actualizar el archivo en GitHub</small></span>
+                                </button>
+                                <button type="button" data-github-action="disconnect" disabled hidden>
+                                    <span class="github-menu-icon" aria-hidden="true">×</span>
+                                    <span><strong>Desconectar GitHub</strong><small>Eliminar configuración y token guardados</small></span>
+                                </button>
                             </div>
                         </div>
                     </details>
-                    <button
-                        id="saveCloudBtn"
-                        class="save-cloud-button"
-                        type="button"
-                        aria-label="Guardar en la nube"
-                        title="Guardar en la nube (Ctrl/Cmd + S)"
-                        disabled
-                    >
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4 4 0 0 1 .3-8 5.5 5.5 0 0 1 10.5 1.4A3.6 3.6 0 0 1 17.5 18"/><path d="M12 21v-8"/><path d="m9 15.5 3-3 3 3"/></svg>
-                        <span class="save-cloud-label">Guardar en la nube</span>
-                    </button>
-                    <button id="undoBtn" class="history-button" type="button" aria-label="Deshacer" title="Deshacer (Ctrl/Cmd + Z)" disabled>
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7-5 5 5 5"/><path d="M4 12h9a7 7 0 0 1 7 7"/></svg>
-                    </button>
-                    <button id="redoBtn" class="history-button" type="button" aria-label="Rehacer" title="Rehacer (Ctrl/Cmd + Mayús + Z)" disabled>
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5"/><path d="M20 12h-9a7 7 0 0 0-7 7"/></svg>
-                    </button>
+                    <div class="history-controls" role="group" aria-label="Historial de edición">
+                        <button id="undoBtn" class="history-button" type="button" aria-label="Deshacer" title="Deshacer (Ctrl/Cmd + Z)" disabled>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7-5 5 5 5"/><path d="M4 12h9a7 7 0 0 1 7 7"/></svg><span>Deshacer</span>
+                        </button>
+                        <button id="redoBtn" class="history-button" type="button" aria-label="Rehacer" title="Rehacer (Ctrl/Cmd + Mayús + Z)" disabled>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5"/><path d="M20 12h-9a7 7 0 0 0-7 7"/></svg><span>Rehacer</span>
+                        </button>
+                    </div>
                     <div id="accountControl" class="account-control">
                         <button id="accountBtn" class="account-button" type="button" data-session="checking" aria-label="Comprobando sesión" aria-busy="true" aria-expanded="false" disabled><span id="accountNavAvatar" class="account-nav-avatar" aria-hidden="true" hidden></span><span class="account-label">Comprobando sesión…</span></button>
                         <div id="accountMenu" class="account-menu" role="menu" aria-label="Menú de cuenta" hidden>
@@ -1004,9 +1008,10 @@
                     </div>
                     <div role="tablist" aria-orientation="vertical">
                         <button id="accountProfileTab" type="button" role="tab" aria-selected="true" aria-controls="accountProfilePanel" data-settings-view="profile"><span aria-hidden="true">○</span> Perfil</button>
+                        <button id="accountIntegrationsTab" type="button" role="tab" aria-selected="false" aria-controls="accountIntegrationsPanel" data-settings-view="integrations" tabindex="-1"><span aria-hidden="true">⌁</span> Integraciones</button>
                         <button id="accountDeleteTab" type="button" role="tab" aria-selected="false" aria-controls="accountDeletePanel" data-settings-view="delete" tabindex="-1"><span aria-hidden="true">△</span> Eliminar cuenta</button>
                     </div>
-                    <small class="account-settings-future">Aquí aparecerán más opciones de cuenta en el futuro.</small>
+                    <small class="account-settings-future">Ajustes de tu cuenta y de las conexiones de esta aplicación.</small>
                 </aside>
                 <div class="account-settings-panels">
                     <section id="accountProfilePanel" class="account-settings-panel" role="tabpanel" aria-labelledby="accountProfileTab">
@@ -1029,6 +1034,27 @@
                             <button class="primary account-settings-save" type="submit">Actualizar contraseña</button>
                             <p id="accountPasswordStatus" class="account-feedback" role="status" aria-live="polite"></p>
                         </form>
+                    </section>
+                    <section id="accountIntegrationsPanel" class="account-settings-panel" role="tabpanel" aria-labelledby="accountIntegrationsTab" hidden>
+                        <div class="account-panel-heading"><span class="account-kicker">Conexiones</span><h4>Integraciones</h4><p>Configura servicios externos y decide cuándo utilizarlos.</p></div>
+                        <article class="integration-card" aria-labelledby="githubIntegrationTitle">
+                            <div class="integration-card-head">
+                                <span class="integration-mark" aria-hidden="true">⌁</span>
+                                <span><h5 id="githubIntegrationTitle">GitHub</h5><small>Sincronización manual de una copia JSON</small></span>
+                                <span id="githubSettingsState" class="integration-state" data-state="local">Sin configurar</span>
+                            </div>
+                            <p>Vincula este navegador con un archivo de un repositorio para traer o publicar el viaje cuando tú lo decidas.</p>
+                            <dl id="githubSettingsTarget" class="integration-target" hidden>
+                                <div><dt>Repositorio</dt><dd id="githubSettingsRepository"></dd></div>
+                                <div><dt>Rama</dt><dd id="githubSettingsBranch"></dd></div>
+                                <div><dt>Archivo</dt><dd id="githubSettingsPath"></dd></div>
+                            </dl>
+                            <div class="integration-actions">
+                                <button id="githubSettingsConfigureBtn" class="primary" type="button" aria-haspopup="dialog" aria-controls="githubDialog">Configurar GitHub</button>
+                                <button id="githubSettingsDisconnectBtn" class="integration-disconnect" type="button" hidden>Desconectar</button>
+                            </div>
+                            <small class="integration-privacy"><span aria-hidden="true">◇</span> La configuración se guarda en este navegador. El token solo permanece durante la sesión.</small>
+                        </article>
                     </section>
                     <section id="accountDeletePanel" class="account-settings-panel" role="tabpanel" aria-labelledby="accountDeleteTab" hidden>
                         <div class="account-panel-heading"><span class="account-kicker">Zona de riesgo</span><h4>Eliminar cuenta</h4><p>Esta acción borra definitivamente tu cuenta y todos sus viajes remotos. Las copias guardadas en este dispositivo permanecerán disponibles en local.</p></div>
@@ -1118,8 +1144,8 @@
             </div>
         </dialog>
         <dialog id="revisionPreviewDialog" class="revision-preview-dialog">
-            <div class="modal-head"><div><span class="modal-eyebrow">Vista de solo lectura</span><h3 id="revisionPreviewTitle">Revisión</h3></div><button class="close" aria-label="Cerrar">×</button></div>
-            <div id="revisionPreviewContent" class="revision-preview-content"></div>
+            <div class="modal-head"><div><span class="modal-eyebrow">Cambios de esta revisión</span><h3 id="revisionPreviewTitle">Revisión</h3></div><button class="close" aria-label="Cerrar">×</button></div>
+            <div id="revisionPreviewContent" class="revision-preview-content change-preview"></div>
             <div class="form-actions"><button class="cancel" type="button">Cerrar</button><button id="revisionRestoreBtn" class="primary" type="button">Restaurar esta versión</button></div>
         </dialog>
         <dialog id="confirmDialog">

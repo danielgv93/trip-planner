@@ -93,10 +93,6 @@
     .top-actions.nav-open .nav-menu-items > .account-control { width: 100%; }
     .top-actions.nav-open .nav-menu-items > .account-control > .account-button { width: 100%; }
     .top-actions.nav-open .account-menu { position: static; width: 100%; margin-top: 4px; box-shadow: none; }
-    .top-actions.nav-open .github-menu {
-        top: calc(100% + 6px);
-        right: 0;
-    }
     .nav-menu-items .nav-group > summary {
         width: 100%;
         justify-content: space-between;
@@ -113,8 +109,7 @@
         border-top: 1px solid #ffffff26;
         box-shadow: none;
     }
-    .nav-menu-items .nav-group-items > button,
-    .nav-menu-items .nav-group-items > .github-control > button {
+    .nav-menu-items .nav-group-items > button {
         color: #fff;
         border: 0;
         padding: 9px 12px;
@@ -276,10 +271,6 @@ body.preview-mode .spot.travel-card {
     .top-actions.nav-open .nav-menu-items > .account-control { width: 100%; }
     .top-actions.nav-open .nav-menu-items > .account-control > .account-button { width: 100%; }
     .top-actions.nav-open .account-menu { position: static; width: 100%; margin-top: 4px; box-shadow: none; }
-    .top-actions.nav-open .github-menu {
-        top: calc(100% + 6px);
-        right: 0;
-    }
     .nav-menu-items .nav-group > summary {
         width: 100%;
         justify-content: space-between;
@@ -297,8 +288,7 @@ body.preview-mode .spot.travel-card {
         padding-top: 4px;
         border-top: 1px solid #ffffff26;
     }
-    .nav-menu-items .nav-group-items > button,
-    .nav-menu-items .nav-group-items > .github-control > button {
+    .nav-menu-items .nav-group-items > button {
         color: #fff;
         border: 0;
         padding: 9px 12px;
@@ -476,6 +466,97 @@ body.preview-mode .spot.travel-card {
     .top-actions {
         grid-column: 2;
         grid-row: 1;
+    }
+}
+
+/* The compact header is one navigation panel, not a stack of dropdowns. Keep
+   its semantic sections visible so every action is one tap away. */
+@media (max-width: 1400px) {
+    .top-actions.nav-open .nav-menu-items {
+        width: min(340px, calc(100vw - 24px));
+        gap: 0;
+        padding: 8px;
+    }
+    .top-actions.nav-open .nav-group {
+        width: 100%;
+        padding: 4px 0;
+        border-bottom: 1px solid #ffffff1f;
+    }
+    .top-actions.nav-open .nav-group > summary {
+        justify-content: flex-start;
+        gap: 7px;
+        padding: 3px 10px 5px;
+        color: #a9c0be;
+        font: 700 10px "DM Mono", monospace;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        pointer-events: none;
+    }
+    .top-actions.nav-open .nav-group > summary .nav-group-chevron {
+        display: none;
+    }
+    .top-actions.nav-open .nav-group-items {
+        display: flex;
+        margin: 0;
+        padding: 0;
+        border: 0;
+    }
+    .top-actions.nav-open .nav-group-title {
+        display: none;
+    }
+    .top-actions.nav-open .nav-group-divider {
+        margin-block: 1px;
+    }
+    .top-actions.nav-open .nav-group-items > button {
+        padding-block: 7px;
+    }
+    .top-actions.nav-open .sync-section-title {
+        display: block;
+        padding: 5px 10px 4px;
+        color: #a9c0be;
+    }
+    .top-actions.nav-open .sync-section-heading {
+        display: flex;
+    }
+    .top-actions.nav-open .github-menu button {
+        color: #fff;
+    }
+    .top-actions.nav-open .github-menu button:hover:not(:disabled),
+    .top-actions.nav-open .github-menu button:focus-visible {
+        background: #ffffff14;
+    }
+    .top-actions.nav-open .github-menu small {
+        color: #b9c8c6;
+    }
+    .top-actions.nav-open .github-menu-icon {
+        background: #ffffff10;
+        color: #ffaaa3;
+    }
+    .top-actions.nav-open .trip-persistence-bar {
+        min-height: 36px;
+        padding-block: 6px;
+    }
+    .top-actions.nav-open .history-controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        width: 100%;
+        margin-top: 8px;
+        border-color: #ffffff26;
+    }
+    .top-actions.nav-open .history-controls .history-button {
+        display: flex;
+        width: auto;
+        height: auto;
+        justify-content: center;
+        gap: 8px;
+        padding: 9px 12px;
+    }
+    .top-actions.nav-open .history-controls .history-button > span {
+        display: inline;
+        font-size: 12px;
+    }
+    .top-actions.nav-open .account-control {
+        margin-top: 8px;
     }
 }
 
