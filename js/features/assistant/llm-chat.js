@@ -582,14 +582,14 @@ function addActionCard(messageEl, proposal, fingerprint) {
         discard.disabled = true;
         title.textContent = label;
     };
-    apply.addEventListener("click", () => {
+    apply.addEventListener("click", async () => {
         const currentFingerprint = JSON.stringify(serializePlan({ exportedAt: false }));
         if (currentFingerprint !== fingerprint) {
             finish("Propuesta caducada");
             addMessage("system", "El planning cambió después de esta propuesta. Vuelve a pedírmela para no sobrescribir cambios recientes.");
             return;
         }
-        applyImportedPlan(proposal.plan);
+        await applyImportedPlan(proposal.plan);
         finish("Cambios aplicados");
         toast("Cambios del asistente aplicados.", "success");
     });

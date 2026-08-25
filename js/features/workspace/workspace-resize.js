@@ -2,7 +2,7 @@
 // local presentation state, expressed as a ratio so it survives viewport
 // changes without becoming an awkward fixed pixel width.
 
-import { store, save } from "../../core/store.js";
+import { store, saveLocalPreferences } from "../../core/store.js";
 import { invalidateMainMap } from "../map/map.js";
 
 const workspace = document.querySelector(".workspace");
@@ -63,7 +63,7 @@ function applyPreference() {
 
 function commit(width, available) {
     store.workspaceSplit = available > 0 ? width / available : null;
-    save();
+    saveLocalPreferences();
 }
 
 handle.addEventListener("pointerdown", (event) => {
@@ -110,7 +110,7 @@ handle.addEventListener("keydown", (event) => {
 
 handle.addEventListener("dblclick", () => {
     store.workspaceSplit = null;
-    save();
+    saveLocalPreferences();
     applyPreference();
 });
 

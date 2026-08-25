@@ -10,7 +10,7 @@ export class CloudError extends Error {
 }
 
 export function createCloudClient({ baseUrl = "", timeoutMs = 12_000, csrfToken = () => null } = {}) {
-    async function request(path, { method = "GET", body, signal } = {}) {
+    async function request(path, { method = "GET", body, signal, keepalive = false } = {}) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         signal?.addEventListener("abort", () => controller.abort(), { once: true });
@@ -24,13 +24,14 @@ export function createCloudClient({ baseUrl = "", timeoutMs = 12_000, csrfToken 
                 credentials: "include",
                 body: body === undefined ? undefined : JSON.stringify(body),
                 signal: controller.signal,
+                keepalive,
             });
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) {
                 const code = payload.error?.code || `HTTP_${response.status}`;
                 throw new CloudError(code, payload.error?.message || "No se pudo completar la solicitud", {
                     status: response.status,
-                    details: payload.error?.details,
+                    details: payload.error?.details ?? payload.error,
                     retryable: response.status >= 500 || response.status === 429,
                 });
             }
@@ -45,6 +46,7 @@ export function createCloudClient({ baseUrl = "", timeoutMs = 12_000, csrfToken 
     }
 
     return {
+        health: () => request("/api/health"),
         register: (email, password, deviceLabel) => request("/api/auth/register", { method: "POST", body: { email, password, deviceLabel } }),
         login: (email, password, deviceLabel) => request("/api/auth/login", { method: "POST", body: { email, password, deviceLabel } }),
         session: () => request("/api/session"),
@@ -55,6 +57,12 @@ export function createCloudClient({ baseUrl = "", timeoutMs = 12_000, csrfToken 
         patchTrip: (id, patch) => request(`/api/trips/${encodeURIComponent(id)}`, { method: "PATCH", body: patch }),
         deleteTrip: (id) => request(`/api/trips/${encodeURIComponent(id)}`, { method: "DELETE" }),
         mutateTrip: (id, mutation) => request(`/api/trips/${encodeURIComponent(id)}/mutations`, { method: "POST", body: mutation }),
+        activateTripOperations: (id, activation) => request(`/api/v1/trips/${encodeURIComponent(id)}/operations/activate`, { method: "POST", body: activation }),
+        mutateTripOperation: (id, operation) => request(`/api/v1/trips/${encodeURIComponent(id)}/operations`, { method: "POST", body: operation }),
+        catchUpTripOperations: (id, { after = 0, limit = 100 } = {}) => request(`/api/v1/trips/${encodeURIComponent(id)}/operations?after=${encodeURIComponent(after)}&limit=${encodeURIComponent(limit)}`),
+        getTripPresence: (id) => request(`/api/v1/trips/${encodeURIComponent(id)}/presence`),
+        upsertTripPresence: (id, sessionId, presence) => request(`/api/v1/trips/${encodeURIComponent(id)}/presence/${encodeURIComponent(sessionId)}`, { method: "PUT", body: presence }),
+        leaveTripPresence: (id, sessionId, sequence, { keepalive = false } = {}) => request(`/api/v1/trips/${encodeURIComponent(id)}/presence/${encodeURIComponent(sessionId)}`, { method: "DELETE", body: { sequence }, keepalive }),
         listTripMembers: (id) => request(`/api/trips/${encodeURIComponent(id)}/members`),
         inviteTripMember: (id, email, role) => request(`/api/trips/${encodeURIComponent(id)}/members`, { method: "POST", body: { email, role } }),
         updateTripMemberRole: (id, memberId, role) => request(`/api/trips/${encodeURIComponent(id)}/members/${encodeURIComponent(memberId)}`, { method: "PATCH", body: { role } }),

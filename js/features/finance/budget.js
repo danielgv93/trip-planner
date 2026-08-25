@@ -4,7 +4,7 @@
 import { store, spotIsEnabled } from "../../core/store.js";
 import { $, esc } from "../../shared/dom.js";
 import { openModal } from "../../shared/modal.js";
-import { sumCosts, sumTravelCosts } from "../planner/render.js";
+import { sumCosts, sumTravelCosts } from "./totals.js";
 import { travelLeg } from "../../core/store.js";
 import { foreignAmount, localAmount } from "./currency.js";
 

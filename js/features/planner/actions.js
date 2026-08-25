@@ -1,7 +1,7 @@
 // Header / top-bar actions: trip title editing, add day, preview toggle, reset,
 // import/export. Side-effect module — importing it wires the top-bar listeners.
 
-import { store, save, clearTagFilter } from "../../core/store.js";
+import { store, saveLocalPreferences, clearTagFilter } from "../../core/store.js";
 import { $, slug, id } from "../../shared/dom.js";
 import { openModal } from "../../shared/modal.js";
 import { render, applyTitle } from "./render.js";
@@ -12,23 +12,30 @@ import { syncTripNotes } from "../notes/notes.js";
 import { CURRENCIES, refreshExchangeRate } from "../finance/currency.js";
 import { serializePlan, parsePlanJson } from "../../core/plan-json.js";
 import { applyImportedPlan } from "./import-plan.js";
-import { pushUndo } from "./history.js";
+import { createDraftAutosaveController } from "../../shared/draft-autosave.js";
+import {
+    derivedPlanOperation,
+    insertEntityIntent,
+    replacePlanIntent,
+    setFieldIntent,
+    updateFieldsIntent,
+} from "../../core/plan-operation-commit.js";
 
-let titleEditCaptured = false;
-$("#tripTitle").addEventListener("focus", () => {
-    titleEditCaptured = false;
+const tripTitleInput = $("#tripTitle");
+tripTitleInput.addEventListener("input", (e) => {
+    const value = e.target.value;
+    document.title = (value || "Viaje") + " · Planificador de ruta";
 });
-$("#tripTitle").addEventListener("input", (e) => {
-    if (!titleEditCaptured) {
-        pushUndo();
-        titleEditCaptured = true;
-    }
-    store.tripTitle = e.target.value;
-    document.title = (store.tripTitle || "Viaje") + " · Planificador de ruta";
-    save();
-});
-$("#tripTitle").addEventListener("blur", () => {
-    titleEditCaptured = false;
+createDraftAutosaveController({
+    root: tripTitleInput,
+    read: () => ({ value: tripTitleInput.value }),
+    disabled: () => store.readOnly,
+    debounceMs: 400,
+    commit: ({ value }) => derivedPlanOperation((document) => setFieldIntent(
+        document,
+        { type: "plan", id: "plan", field: "tripTitle" },
+        value,
+    )),
 });
 
 function fillCurrencySelect(select) {
@@ -69,7 +76,7 @@ document.querySelectorAll("[data-density]").forEach((button) => {
             return;
         store.itineraryDensity = density;
         syncItineraryDensity();
-        save();
+        saveLocalPreferences();
         // Compact markup omits secondary route-source copy entirely, so the
         // destructive render keeps the DOM aligned with the chosen density.
         render({ persist: false });
@@ -78,24 +85,23 @@ document.querySelectorAll("[data-density]").forEach((button) => {
 syncItineraryDensity();
 
 async function changeCurrency(key, value) {
-    store[key] = value;
-    store.exchangeRate = null;
-    store.exchangeRateDate = "";
     $("#exchangeRateStatus").textContent = "Actualizando cambio…";
-    save();
+    await derivedPlanOperation((document) => updateFieldsIntent(
+        document,
+        { type: "plan", id: "plan" },
+        { [key]: value, exchangeRate: null, exchangeRateDate: "" },
+    ));
     syncCurrencyUi();
-    render({ persist: false });
     const ok = await refreshExchangeRate();
     $("#exchangeRateStatus").textContent = ok
         ? `Cambio del ${store.exchangeRateDate}`
         : "Sin conexión · conversión no disponible";
     syncCurrencyUi();
-    render({ persist: false });
 }
 $("#localCurrency").addEventListener("change", (e) => changeCurrency("localCurrency", e.target.value));
 $("#foreignCurrency").addEventListener("change", (e) => changeCurrency("foreignCurrency", e.target.value));
 
-$("#addDay").onclick = () => {
+$("#addDay").onclick = async () => {
     const date = store.state.length
         ? new Date(store.state[store.state.length - 1].date + "T12:00:00")
         : new Date();
@@ -106,12 +112,12 @@ $("#addDay").onclick = () => {
         title: "Nuevo día",
         spots: [],
     };
-    pushUndo();
-    store.state.push(d);
+    await derivedPlanOperation(() => insertEntityIntent(
+        { type: "day", id: d.id },
+        d,
+        { containerId: "days" },
+    ));
     store.active = d.id;
-    save();
-    render();
-    drawMap();
 };
 
 function togglePreview() {
@@ -121,7 +127,7 @@ function togglePreview() {
     btn.textContent = store.previewMode ? "Editar plan" : "Vista completa";
     btn.classList.toggle("active", store.previewMode);
     btn.setAttribute("aria-pressed", String(store.previewMode));
-    render();
+    render({ persist: false });
     drawMap();
 }
 $("#previewBtn").onclick = togglePreview;
@@ -134,38 +140,33 @@ $("#resetBtn").onclick = () => {
         confirmLabel: "Restaurar",
     }).then((ok) => {
         if (!ok) return;
-        pushUndo();
-        store.state = structuredClone(sample);
-        store.backlog = [];
-        store.backlogGroups = [];
-        store.tags = ["comida", "templo", "reserva", "compras"];
-        store.categories = structuredClone(DEFAULT_CATEGORIES);
-        store.tripTitle = DEFAULT_TITLE;
-        store.localCurrency = "EUR";
-        store.foreignCurrency = "JPY";
-        store.exchangeRate = null;
-        store.exchangeRateDate = "";
-        store.tripNotePages = [{
-            id: "notes-general",
-            title: "General",
-            content: "",
-        }];
-        store.activeTripNotePageId = "notes-general";
-        store.travelLegs = {};
-        store.reminders = [];
-        store.routeTimeOverrides = {};
-        store.routeTimeProfiles = {};
-        store.routeVisualization = "straight";
-        $("#routeVisualization").value = store.routeVisualization;
-        syncRouteVisualizationControl();
-        store.active = "d1";
-        clearTagFilter();
-        applyTitle();
-        syncTripNotes();
-        save();
-        render();
-        drawMap();
-        toast("Ejemplo restaurado.", "info");
+        void derivedPlanOperation((document) => replacePlanIntent(document, {
+            ...document,
+            days: structuredClone(sample),
+            backlog: [],
+            backlogGroups: [],
+            tags: ["comida", "templo", "reserva", "compras"],
+            categories: structuredClone(DEFAULT_CATEGORIES),
+            tripTitle: DEFAULT_TITLE,
+            localCurrency: "EUR",
+            foreignCurrency: "JPY",
+            exchangeRate: null,
+            exchangeRateDate: "",
+            tripNotePages: [{ id: "notes-general", title: "General", content: "" }],
+            travelLegs: {},
+            reminders: [],
+            routeVisualization: "straight",
+        })).then(() => {
+            store.activeTripNotePageId = "notes-general";
+            store.active = "d1";
+            clearTagFilter();
+            $("#routeVisualization").value = store.routeVisualization;
+            syncRouteVisualizationControl();
+            applyTitle();
+            syncTripNotes();
+            saveLocalPreferences();
+            toast("Ejemplo restaurado.", "info");
+        });
     });
 };
 
@@ -250,7 +251,7 @@ $("#importFile").onchange = async (e) => {
             e.target.value = "";
             return;
         }
-        applyImportedPlan(plan);
+        await applyImportedPlan(plan);
         toast("Plan importado correctamente.", "success");
     } catch {
         toast("Ese archivo no parece un plan válido.", "error");

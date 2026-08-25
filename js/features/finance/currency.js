@@ -1,4 +1,5 @@
-import { store, save } from "../../core/store.js";
+import { store } from "../../core/store.js";
+import { derivedPlanOperation, updateFieldsIntent } from "../../core/plan-operation-commit.js";
 
 export const CURRENCIES = [
     ["EUR", "Euro"], ["USD", "Dólar estadounidense"], ["GBP", "Libra esterlina"],
@@ -31,9 +32,12 @@ export const localAmount = (amount) => store.exchangeRate
 
 export async function refreshExchangeRate() {
     if (store.foreignCurrency === store.localCurrency) {
-        store.exchangeRate = 1;
-        store.exchangeRateDate = new Date().toISOString().slice(0, 10);
-        save();
+        const date = new Date().toISOString().slice(0, 10);
+        await derivedPlanOperation((document) => updateFieldsIntent(
+            document,
+            { type: "plan", id: "plan" },
+            { exchangeRate: 1, exchangeRateDate: date },
+        ), { undo: false });
         return true;
     }
     try {
@@ -41,9 +45,11 @@ export async function refreshExchangeRate() {
         if (!response.ok) throw new Error();
         const data = await response.json(), rate = Number(data?.rates?.[store.localCurrency]);
         if (!Number.isFinite(rate) || rate <= 0) throw new Error();
-        store.exchangeRate = rate;
-        store.exchangeRateDate = data.date || new Date().toISOString().slice(0, 10);
-        save();
+        await derivedPlanOperation((document) => updateFieldsIntent(
+            document,
+            { type: "plan", id: "plan" },
+            { exchangeRate: rate, exchangeRateDate: data.date || new Date().toISOString().slice(0, 10) },
+        ), { undo: false });
         return true;
     } catch {
         return false;

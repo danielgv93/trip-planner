@@ -1,14 +1,12 @@
 // The add/edit place dialog (with Nominatim search) and the tag / category
 // manager dialogs. Wires its own listeners on module load.
 
-import { store, save, dayBy } from "../../core/store.js";
+import { store, dayBy } from "../../core/store.js";
 import { $, esc, safeColor, slug, id } from "../../shared/dom.js";
 import { openModal } from "../../shared/modal.js";
 import { toast, confirmAction } from "../../shared/notify.js";
-import { render } from "./render.js";
-import { pushUndo } from "./history.js";
 import { categoryDefaultSpotKind, dayPositionConstraintViolation, positionConstraintInsertionIndex, spotKind, spotPositionConstraint } from "../../core/itinerary.js";
-import { buildTimelineProjection } from "../companion/timeline.js";
+import { buildTimelineProjection } from "../timeline/timeline.js";
 import {
     PLACE_FOCUS_TARGETS,
     buildPlaceSummary,
@@ -17,13 +15,22 @@ import {
     placeDraftChanged,
 } from "./place-inspector.js";
 import {
-    drawMap,
     setPreview,
     openPreview,
     openReadPreview,
     clearPreviewMarker,
 } from "../map/map.js";
-import { reminderReadMarkup } from "../reminders/reminders.js";
+import { reminderReadMarkup } from "../reminders/presentation.js";
+import { registerActiveEditor } from "./active-editor.js";
+import { createDraftAutosaveController } from "../../shared/draft-autosave.js";
+import { targetFingerprint } from "../../core/plan-operations.js";
+import {
+    commandIntent,
+    derivedPlanOperation,
+    insertEntityIntent,
+    setFieldIntent,
+    updateFieldsIntent,
+} from "../../core/plan-operation-commit.js";
 
 const dialog = $("#placeDialog");
 const tagDialog = $("#tagDialog");
@@ -38,6 +45,8 @@ let initialDraft = null;
 let returnFocus = null;
 let searchTimer;
 let searchController;
+let unregisterActiveEditor = null;
+let placeAutosave = null;
 
 // Google Maps exposes copied coordinates as "latitude, longitude". Recognize
 // that exact shape locally so choosing a point does not depend on geocoding.
@@ -317,7 +326,7 @@ function updatePlaceEditorState() {
     const dirty = initialDraft ? placeDraftChanged(initialDraft, placeFormDraft()) : false;
     const errors = placeValidation({ reveal: true, focus: false });
     $("#placeSaveButton").disabled = !dirty || errors.length > 0;
-    $("#placeSaveButton").title = !dirty ? "No hay cambios que guardar" : errors.length ? "Corrige los campos indicados" : "Guardar cambios";
+    $("#placeSaveButton").title = !dirty ? "Completa la nueva parada" : errors.length ? "Corrige los campos indicados" : "Añadir parada";
     dialog.classList.toggle("is-dirty", dirty);
 }
 
@@ -362,30 +371,57 @@ document.addEventListener("reminders-changed", () => {
         renderPlaceReadPanel(editing.spot);
 });
 
+document.addEventListener("trip-remote-plan-applied", (event) => {
+    if (!dialog.open || !editing?.spot) return;
+    const spotKey = `spot:${editing.spot.id}`;
+    if (!(event.detail?.targetKeys || []).some((key) => key === spotKey || key.startsWith(`${spotKey}:`))) return;
+    const current = editing.dayId === "backlog"
+        ? store.backlog.find((spot) => spot.id === editing.spot.id)
+        : dayBy(editing.dayId)?.spots.find((spot) => spot.id === editing.spot.id);
+    if (!current) {
+        $("#placeDialogStatus").textContent = "Otro colaborador eliminó esta parada; puedes copiar tu borrador antes de cerrar";
+        return;
+    }
+    editing.spot = current;
+    if (placeMode === "read") populatePlaceForm(current, {});
+    else $("#placeDialogStatus").textContent = "Hay cambios remotos; tu borrador local se conserva";
+});
+
 function setPlaceMode(mode, { focus = true } = {}) {
     // Single choke point for every route into the editor (the footer button,
     // the read-panel shortcuts, and openDialog itself), so a public visitor
     // keeps the read card and never reaches an editable form.
     if (store.readOnly && mode !== "read") return;
+    unregisterActiveEditor?.();
+    unregisterActiveEditor = null;
     placeMode = mode;
     const read = mode === "read";
     $("#placeReadPanel").hidden = !read; $("#placeForm").hidden = read;
     $("#placeReadActions").hidden = !read; $("#placeEditActions").hidden = read;
     $("#dialogTitle").textContent = read ? "Parada" : mode === "create" ? "Añadir una parada" : "Editar parada";
     $("#placeDialogEyebrow").textContent = read ? "Ficha de parada" : mode === "create" ? "Nueva parada" : "Edición de parada";
-    $("#placeSaveButton").textContent = mode === "create" ? "Añadir parada" : "Guardar cambios";
+    $("#placeSaveButton").textContent = mode === "create" ? "Añadir parada" : "Autoguardado activo";
+    $("#placeSaveButton").hidden = mode === "edit";
+    $("#placeDiscardButton").textContent = mode === "edit" ? "Cerrar" : "Descartar";
     dialog.dataset.mode = mode;
     $("#placeDialogStatus").textContent = read ? "Modo lectura" : mode === "create" ? "Modo creación" : "Modo edición";
     if (read) { renderPlaceReadPanel(editing.spot); if (focus) $("#placeEditButton").focus(); }
     else {
+        unregisterActiveEditor = registerActiveEditor(() => commitPlaceEditor({ stayOpen: true }));
         openPlaceGroup("essential");
         initialDraft = mode === "create" ? normalizePlaceDraft({}) : normalizePlaceDraft(placeFormDraft());
+        placeAutosave?.reset(placeFormDraft());
         updatePlaceEditorState();
         if (focus) $("#placeName").focus();
     }
 }
 
 async function confirmDiscardIfNeeded() {
+    if (placeMode === "edit" && placeAutosave) {
+        const result = await placeAutosave.flush("close");
+        if (result.status !== "invalid") return true;
+        return confirmAction({ title: "Descartar borrador inválido", message: "Hay valores que no se pueden autoguardar. ¿Quieres cerrar y descartarlos?" });
+    }
     if (placeMode === "read" || !initialDraft || !placeDraftChanged(initialDraft, placeFormDraft())) return true;
     return confirmAction({ title: "Descartar cambios", message: "Hay cambios sin guardar. ¿Quieres descartarlos?" });
 }
@@ -416,16 +452,29 @@ function populatePlaceForm(spot, prefill) {
 export function openDialog(dayId, spot, prefill = {}) {
     cancelPendingSearch();
     returnFocus = document.activeElement;
+    const pageScroll = { left: window.scrollX, top: window.scrollY };
     editing = { dayId, spot, backlogGroupId: prefill.backlogGroupId, onSave: typeof prefill.onSave === "function" ? prefill.onSave : null };
+    dialog.dataset.presenceTarget = spot?.id ? `spot:${spot.id}` : dayId === "backlog" ? "backlog:all" : `day:${dayId}`;
     populatePlaceForm(spot, prefill);
     const focusTarget = PLACE_FOCUS_TARGETS[prefill.focus];
     const mode = spot && !focusTarget ? "read" : spot ? "edit" : "create";
     setPlaceMode(mode, { focus: false });
     openModal(dialog);
+    // Native dialog focus can scroll the document to the top while promoting
+    // the modal into the top layer. Keep the itinerary exactly where it was.
+    window.scrollTo({ ...pageScroll, behavior: "auto" });
     if (focusTarget) {
         openPlaceGroup(focusTarget.group);
-        requestAnimationFrame(() => dialog.querySelector(focusTarget.selector)?.focus());
-    } else requestAnimationFrame(() => (mode === "read" ? $("#placeEditButton") : $("#placeName")).focus());
+    }
+    requestAnimationFrame(() => {
+        const control = focusTarget
+            ? dialog.querySelector(focusTarget.selector)
+            : mode === "read"
+              ? $("#placeEditButton")
+              : $("#placeName");
+        control?.focus({ preventScroll: true });
+        window.scrollTo({ ...pageScroll, behavior: "auto" });
+    });
     const prefilledName = !spot && typeof prefill?.name === "string" && prefill.name.trim();
     if (prefilledName) queueSearch(prefilledName, { clearsLocation: false });
 }
@@ -611,9 +660,9 @@ $("#placeScheduleNotApplicable").addEventListener("change", (event) => {
     }),
 );
 
-$("#placeForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (placeValidation({ reveal: true }).length) return;
+async function commitPlaceEditor({ stayOpen = false } = {}) {
+    if (!editing || placeMode === "read") return { status: "none" };
+    if (placeValidation({ reveal: true }).length) return { status: "invalid", reason: "validation" };
     const name = $("#placeName").value.trim(),
         address = $("#placeAddress").value.trim(),
         note = $("#placeNote").value.trim(),
@@ -647,7 +696,7 @@ $("#placeForm").addEventListener("submit", async (e) => {
     if (fixedStart && !plannedStart) {
         toast("Añade una hora planificada antes de marcar la reserva como fija.", "error");
         $("#placePlannedStart").focus();
-        return;
+        return { status: "invalid", reason: "validation" };
     }
     const target =
         editing.dayId === "backlog" ? store.backlog : dayBy(editing.dayId).spots;
@@ -658,7 +707,7 @@ $("#placeForm").addEventListener("submit", async (e) => {
     ) {
         toast(`Este día ya tiene una ${positionConstraint === "first" ? "primera" : "última"} parada anclada.`, "error");
         focusPositionConstraint();
-        return;
+        return { status: "invalid", reason: "position-constraint" };
     }
     if (spot && editing.dayId !== "backlog") {
         const before = target.map((candidate) => candidate === spot
@@ -677,7 +726,7 @@ $("#placeForm").addEventListener("submit", async (e) => {
         if (violation) {
             toast(violation, "error");
             focusPositionConstraint();
-            return;
+            return { status: "invalid", reason: "position-constraint" };
         }
     }
     const newSpotInsertAt = (spot || editing.dayId === "backlog")
@@ -689,76 +738,107 @@ $("#placeForm").addEventListener("submit", async (e) => {
           );
     if (!spot && newSpotInsertAt === null) {
         toast("No hay una posición compatible con los anclajes actuales.", "error");
-        return;
+        return { status: "invalid", reason: "position-constraint" };
     }
-    pushUndo();
+    const spotId = spot?.id || id();
+    const nextSpot = {
+        ...(spot || {}),
+        id: spotId,
+        name,
+        address,
+        note,
+        tags: spotTags,
+        kind,
+    };
+    if (editing.dayId === "backlog" && editing.backlogGroupId) nextSpot.backlogGroupId = editing.backlogGroupId;
+    if (coordinates) Object.assign(nextSpot, { lat: coordinates.lat, lng: coordinates.lng });
+    else { delete nextSpot.lat; delete nextSpot.lng; }
+    if (category) nextSpot.category = category; else delete nextSpot.category;
+    const optionalFields = {
+        cost,
+        visitMinutes,
+        openingTime,
+        closingTime,
+        plannedStart,
+        fixedStart: fixedStart || undefined,
+        optional: optional || undefined,
+        positionConstraint: positionConstraint || undefined,
+        scheduleNotApplicable: scheduleNotApplicable || undefined,
+    };
+    Object.entries(optionalFields).forEach(([key, value]) => {
+        if (value === undefined) delete nextSpot[key];
+        else nextSpot[key] = value;
+    });
     if (spot) {
-        Object.assign(spot, {
-            name,
-            address,
-            note,
-            tags: spotTags,
-            kind,
-        });
-        if (coordinates)
-            Object.assign(spot, {
-                lat: coordinates.lat,
-                lng: coordinates.lng,
-            });
-        else (delete spot.lat, delete spot.lng);
-        if (category) spot.category = category;
-        else delete spot.category;
+        const fields = Object.fromEntries(Object.entries(nextSpot).filter(([key, value]) =>
+            key !== "id" && JSON.stringify(spot[key]) !== JSON.stringify(value),
+        ));
+        const remove = Object.keys(spot).filter((key) => key !== "id" && !(key in nextSpot));
+        if (!Object.keys(fields).length && !remove.length) return { status: "unchanged", spotId };
+        await derivedPlanOperation((document) => updateFieldsIntent(
+            document,
+            { type: "spot", id: spotId },
+            fields,
+            { remove },
+        ));
     } else {
-        spot = { id: id(), name, address, note, tags: spotTags, kind };
-        if (editing.dayId === "backlog" && editing.backlogGroupId)
-            spot.backlogGroupId = editing.backlogGroupId;
-        if (coordinates)
-            Object.assign(spot, {
-                lat: coordinates.lat,
-                lng: coordinates.lng,
-            });
-        if (category) spot.category = category;
-        target.splice(newSpotInsertAt, 0, spot);
-    }
-    if (cost === undefined) delete spot.cost;
-    else spot.cost = cost;
-    if (visitMinutes === undefined) delete spot.visitMinutes;
-    else spot.visitMinutes = visitMinutes;
-    if (openingTime === undefined) delete spot.openingTime;
-    else spot.openingTime = openingTime;
-    if (closingTime === undefined) delete spot.closingTime;
-    else spot.closingTime = closingTime;
-    if (plannedStart === undefined) delete spot.plannedStart;
-    else spot.plannedStart = plannedStart;
-    if (fixedStart) spot.fixedStart = true; else delete spot.fixedStart;
-    if (optional) spot.optional = true; else delete spot.optional;
-    if (positionConstraint) spot.positionConstraint = positionConstraint;
-    else delete spot.positionConstraint;
-    if (scheduleNotApplicable) spot.scheduleNotApplicable = true; else delete spot.scheduleNotApplicable;
-    const currentIndex = target.indexOf(spot);
-    if (positionConstraint === "first" && currentIndex > 0) {
-        target.splice(currentIndex, 1);
-        target.unshift(spot);
-    } else if (positionConstraint === "last" && currentIndex >= 0 && currentIndex < target.length - 1) {
-        target.splice(currentIndex, 1);
-        target.push(spot);
+        const beforeId = target[newSpotInsertAt]?.id ?? null;
+        await derivedPlanOperation(() => insertEntityIntent(
+            { type: "spot", id: spotId },
+            nextSpot,
+            {
+                containerId: editing.dayId,
+                beforeId,
+                backlogGroupId: editing.backlogGroupId,
+            },
+        ));
     }
     const onSave = editing.onSave;
     store.active = editing.dayId;
-    save();
-    render();
-    drawMap();
+    const committedTarget = editing.dayId === "backlog" ? store.backlog : dayBy(editing.dayId).spots;
+    spot = committedTarget.find((candidate) => candidate.id === spotId);
     editing.spot = spot;
+    if (stayOpen) {
+        initialDraft = normalizePlaceDraft(placeFormDraft());
+        dialog.classList.remove("is-dirty");
+        $("#placeDialogStatus").textContent = "Cambios autoguardados";
+        return { status: "committed", spotId: spot.id };
+    }
     populatePlaceForm(spot, {});
     if (onSave) {
         dialog.close();
         onSave();
     } else setPlaceMode("read");
+    return { status: "committed", spotId: spot.id };
+}
+
+$("#placeForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await commitPlaceEditor();
+});
+
+placeAutosave = createDraftAutosaveController({
+    root: $("#placeForm"),
+    read: placeFormDraft,
+    validate: () => placeValidation({ reveal: true, focus: false }).map((error) => error.message),
+    disabled: () => store.readOnly || placeMode !== "edit" || !editing?.spot,
+    debounceMs: 450,
+    commit: () => commitPlaceEditor({ stayOpen: true }),
+    onState: ({ state }) => {
+        if (placeMode !== "edit") return;
+        if (state === "dirty" || state === "saving") $("#placeDialogStatus").textContent = "Autoguardando…";
+        else if (state === "saved") $("#placeDialogStatus").textContent = "Cambios autoguardados";
+        else if (state === "invalid") $("#placeDialogStatus").textContent = "Corrige los campos marcados; el borrador sigue aquí";
+        else if (state === "error") $("#placeDialogStatus").textContent = "No se pudo autoguardar; se reintentará al salir del campo";
+    },
 });
 
 dialog.addEventListener("close", () => {
+    unregisterActiveEditor?.();
+    unregisterActiveEditor = null;
     cancelPendingSearch();
     dialog.classList.remove("is-dirty");
+    placeAutosave?.reset({});
     const focusTarget = returnFocus;
     returnFocus = null;
     if (focusTarget?.isConnected) requestAnimationFrame(() => focusTarget.focus({ preventScroll: true }));
@@ -806,33 +886,17 @@ function renderManagerTags() {
             if (nextTag === currentTag) return;
 
             const previousTag = currentTag;
-            pushUndo();
-            const index = store.tags.indexOf(previousTag);
-            if (index !== -1) store.tags[index] = nextTag;
-            [...store.state.flatMap((d) => d.spots), ...store.backlog].forEach(
-                (spot) => {
-                    if (!(spot.tags || []).includes(previousTag)) return;
-                    spot.tags = [
-                        ...new Set(
-                            (spot.tags || []).map((spotTag) =>
-                                spotTag === previousTag ? nextTag : spotTag,
-                            ),
-                        ),
-                    ];
-                },
-            );
-            if (store.activeTagFilter.delete(previousTag))
-                store.activeTagFilter.add(nextTag);
-            currentTag = nextTag;
-            nameInput.setAttribute(
-                "aria-label",
-                `Nombre de la etiqueta ${nextTag}`,
-            );
-            delBtn.setAttribute("aria-label", `Borrar etiqueta ${nextTag}`);
-            save();
-            render();
-            drawMap();
-            toast(`Etiqueta #${previousTag} renombrada a #${nextTag}.`, "info");
+            void derivedPlanOperation(() => commandIntent({
+                target: { type: "plan", id: "plan" },
+                command: "rename-tag",
+                payload: { from: previousTag, to: nextTag },
+            })).then(() => {
+                if (store.activeTagFilter.delete(previousTag)) store.activeTagFilter.add(nextTag);
+                currentTag = nextTag;
+                nameInput.setAttribute("aria-label", `Nombre de la etiqueta ${nextTag}`);
+                delBtn.setAttribute("aria-label", `Borrar etiqueta ${nextTag}`);
+                toast(`Etiqueta #${previousTag} renombrada a #${nextTag}.`, "info");
+            });
         };
         nameInput.addEventListener("blur", commitRename);
         nameInput.addEventListener("keydown", (event) => {
@@ -855,20 +919,15 @@ function renderManagerTags() {
                 message: `¿Borrar la etiqueta #${currentTag} de todas las paradas?`,
             }).then((ok) => {
                 if (!ok) return;
-                pushUndo();
-                store.tags = store.tags.filter((t) => t !== currentTag);
-                [...store.state.flatMap((d) => d.spots), ...store.backlog].forEach(
-                    (s) =>
-                        (s.tags = (s.tags || []).filter(
-                            (t) => t !== currentTag,
-                        )),
-                );
-                store.activeTagFilter.delete(currentTag);
-                save();
-                render();
-                drawMap();
-                renderManagerTags();
-                toast(`Etiqueta #${currentTag} eliminada.`, "info");
+                void derivedPlanOperation(() => commandIntent({
+                    target: { type: "plan", id: "plan" },
+                    command: "delete-tag",
+                    payload: { tag: currentTag },
+                })).then(() => {
+                    store.activeTagFilter.delete(currentTag);
+                    renderManagerTags();
+                    toast(`Etiqueta #${currentTag} eliminada.`, "info");
+                });
             });
         };
         row.append(prefix, nameInput, delBtn);
@@ -883,12 +942,11 @@ $("#manageTags").onclick = () => {
 $("#addTag").onclick = () => {
     const value = $("#newTag").value.trim().replace(/^#/, "").toLowerCase();
     if (value && !store.tags.includes(value)) {
-        pushUndo();
-        store.tags.push(value);
         $("#newTag").value = "";
-        save();
-        render();
-        renderManagerTags();
+        void derivedPlanOperation(() => insertEntityIntent(
+            { type: "tag", id: value },
+            value,
+        )).then(renderManagerTags);
     }
 };
 
@@ -900,25 +958,30 @@ function renderManagerCategories() {
     store.categories.forEach((c) => {
         const row = document.createElement("div");
         row.className = "manager-category";
+        row.dataset.presenceTarget = `category:${c.id}`;
         const nameInput = document.createElement("input");
         nameInput.type = "text";
         nameInput.className = "manager-category-name";
         nameInput.value = c.label;
+        nameInput.dataset.presenceTarget = `category:${c.id}:label`;
         let lastValid = c.label;
         nameInput.addEventListener("input", (e) => {
-            c.label = e.target.value;
-            save();
-            render();
-            drawMap();
+            const value = e.target.value;
+            void derivedPlanOperation((document) => setFieldIntent(
+                document,
+                { type: "category", id: c.id, field: "label" },
+                value,
+            ), { undo: false });
         });
         nameInput.addEventListener("blur", (e) => {
             const trimmed = e.target.value.trim();
             if (!trimmed) {
                 e.target.value = lastValid;
-                c.label = lastValid;
-                save();
-                render();
-                drawMap();
+                void derivedPlanOperation((document) => setFieldIntent(
+                    document,
+                    { type: "category", id: c.id, field: "label" },
+                    lastValid,
+                ), { undo: false });
             } else {
                 lastValid = trimmed;
             }
@@ -928,11 +991,14 @@ function renderManagerCategories() {
         colorInput.className = "cat-swatch";
         colorInput.title = "Color de la categoría";
         colorInput.value = c.color;
+        colorInput.dataset.presenceTarget = `category:${c.id}:color`;
         colorInput.addEventListener("input", (e) => {
-            c.color = e.target.value;
-            save();
-            render();
-            drawMap();
+            const value = e.target.value;
+            void derivedPlanOperation((document) => setFieldIntent(
+                document,
+                { type: "category", id: c.id, field: "color" },
+                value,
+            ), { undo: false });
         });
         const connectToggle = document.createElement("label");
         connectToggle.className = "connect-toggle";
@@ -941,6 +1007,7 @@ function renderManagerCategories() {
         const swInput = document.createElement("input");
         swInput.type = "checkbox";
         swInput.checked = c.connects !== false;
+        swInput.dataset.presenceTarget = `category:${c.id}:connects`;
         const slider = document.createElement("span");
         slider.className = "slider";
         const swIcon = document.createElement("span");
@@ -959,10 +1026,13 @@ function renderManagerCategories() {
             swInput.setAttribute("aria-label", msg);
         };
         swInput.addEventListener("change", (e) => {
-            c.connects = e.target.checked;
+            const value = e.target.checked;
             syncConnect();
-            save();
-            drawMap();
+            void derivedPlanOperation((document) => setFieldIntent(
+                document,
+                { type: "category", id: c.id, field: "connects" },
+                value,
+            ));
         });
         sw.append(swInput, slider);
         connectToggle.append(sw, swIcon);
@@ -973,9 +1043,14 @@ function renderManagerCategories() {
         kindSelect.setAttribute("aria-label", `Tipo sugerido de ${c.label}`);
         kindSelect.innerHTML = '<option value="activity">Visita</option><option value="waypoint">Solo paso</option>';
         kindSelect.value = categoryDefaultSpotKind(c);
+        kindSelect.dataset.presenceTarget = `category:${c.id}:defaultSpotKind`;
         kindSelect.addEventListener("change", (event) => {
-            c.defaultSpotKind = event.target.value === "waypoint" ? "waypoint" : "activity";
-            save();
+            const value = event.target.value === "waypoint" ? "waypoint" : "activity";
+            void derivedPlanOperation((document) => setFieldIntent(
+                document,
+                { type: "category", id: c.id, field: "defaultSpotKind" },
+                value,
+            ));
         });
         const delBtn = document.createElement("button");
         delBtn.type = "button";
@@ -993,18 +1068,14 @@ function renderManagerCategories() {
                 message: `¿Borrar la categoría "${c.label}"? ${n} parada(s) quedarán sin categoría.`,
             }).then((ok) => {
                 if (!ok) return;
-                store.categories = store.categories.filter((x) => x.id !== c.id);
-                [
-                    ...store.state.flatMap((d) => d.spots),
-                    ...store.backlog,
-                ].forEach((s) => {
-                    if (s.category === c.id) delete s.category;
+                void derivedPlanOperation((document) => commandIntent({
+                    target: { type: "category", id: c.id },
+                    command: "delete-category",
+                    precondition: { expectedFingerprint: targetFingerprint(document, { type: "category", id: c.id }) },
+                })).then(() => {
+                    renderManagerCategories();
+                    toast(`Categoría "${c.label}" eliminada.`, "info");
                 });
-                save();
-                render();
-                drawMap();
-                renderManagerCategories();
-                toast(`Categoría "${c.label}" eliminada.`, "info");
             });
         };
         const controls = document.createElement("div");
@@ -1026,10 +1097,10 @@ $("#addCategory").onclick = () => {
     let catId = slug(name);
     if (store.categories.some((c) => c.id === catId))
         catId += "-" + Date.now().toString(36);
-    store.categories.push({ id: catId, label: name, color, connects: true, defaultSpotKind: $("#newCategoryKind").value === "waypoint" ? "waypoint" : "activity" });
+    const category = { id: catId, label: name, color, connects: true, defaultSpotKind: $("#newCategoryKind").value === "waypoint" ? "waypoint" : "activity" };
     $("#newCategoryName").value = "";
-    save();
-    render();
-    drawMap();
-    renderManagerCategories();
+    void derivedPlanOperation(() => insertEntityIntent(
+        { type: "category", id: catId },
+        category,
+    )).then(renderManagerCategories);
 };

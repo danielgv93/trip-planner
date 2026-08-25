@@ -1,0 +1,85 @@
+{
+  "fixtureVersion": 1,
+  "operation": {
+    "protocolVersion": 1,
+    "clientMutationId": "10000000-0000-4000-8000-000000000001",
+    "deviceId": "device-fixture-01",
+    "baseRevision": 7,
+    "kind": "set-field",
+    "target": {
+      "type": "spot",
+      "id": "spot-museo",
+      "field": "cost"
+    },
+    "precondition": {
+      "expectedValue": 12
+    },
+    "payload": {
+      "value": 18
+    }
+  },
+  "targetKeys": [
+    "day:day-1",
+    "spot:spot-museo",
+    "spot:spot-museo:cost"
+  ],
+  "responses": {
+    "accepted": {
+      "status": "accepted",
+      "revision": 8,
+      "hash": "sha256:fixture-revision-8",
+      "clientMutationId": "10000000-0000-4000-8000-000000000001",
+      "noOp": false,
+      "idempotent": false,
+      "targetKeys": [
+        "day:day-1",
+        "spot:spot-museo",
+        "spot:spot-museo:cost"
+      ]
+    },
+    "noOp": {
+      "status": "no-op",
+      "revision": 7,
+      "hash": "sha256:fixture-revision-7",
+      "clientMutationId": "10000000-0000-4000-8000-000000000001",
+      "noOp": true,
+      "idempotent": false,
+      "targetKeys": [
+        "day:day-1",
+        "spot:spot-museo",
+        "spot:spot-museo:cost"
+      ]
+    },
+    "conflict": {
+      "status": "conflict",
+      "error": {
+        "code": "TARGET_CONFLICT",
+        "message": "El campo cambió en otra sesión.",
+        "target": {
+          "type": "spot",
+          "id": "spot-museo",
+          "field": "cost"
+        },
+        "currentRevision": 8,
+        "currentValue": 14
+      }
+    }
+  },
+  "event": {
+    "type": "operation",
+    "revision": 8,
+    "hash": "sha256:fixture-revision-8",
+    "clientMutationId": "10000000-0000-4000-8000-000000000001",
+    "deviceId": "device-fixture-01",
+    "kind": "set-field",
+    "targetKeys": [
+      "day:day-1",
+      "spot:spot-museo",
+      "spot:spot-museo:cost"
+    ],
+    "actor": {
+      "userId": "20000000-0000-4000-8000-000000000002",
+      "displayName": "Colaboradora"
+    }
+  }
+}

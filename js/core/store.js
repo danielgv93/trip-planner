@@ -23,10 +23,17 @@ import {
     normalizeTripNotePages,
 } from "./note-pages.js";
 import { normalizeReminders } from "./reminders.js";
+import { canonicalPlanHash } from "./plan-hash.js";
+import { portablePlanFrom } from "./portable-plan.js";
+import {
+    createPortableMutationGuard,
+    mutationInstrumentationMode,
+} from "./mutation-instrumentation.js";
 
 export const STORAGE_VERSION = 31;
 
 let tripCommitter = null;
+let localPreferencesCommitter = null;
 
 function emitSaveState() {
     if (globalThis.document && typeof globalThis.CustomEvent === "function") {
@@ -75,6 +82,12 @@ export const store = {
     accountSession: null,
     cloudAvailability: "checking",
     cloudError: null,
+    // Runtime-only collaboration health; never persisted or exported.
+    liveTripConnectionState: "closed",
+    liveTripSyncState: "idle",
+    liveTripSyncError: null,
+    presenceSessions: new Map(),
+    presenceConnectionState: "closed",
     tripTitle:
         typeof saved?.tripTitle === "string" ? saved.tripTitle : DEFAULT_TITLE,
     localCurrency:
@@ -206,6 +219,11 @@ store.reminders = normalizeReminders(saved?.reminders, {
 });
 store.active = store.state[0]?.id;
 
+const portableMutationGuard = createPortableMutationGuard(
+    canonicalPlanHash(portablePlanFrom(store)),
+    { mode: mutationInstrumentationMode(), allowLegacyFallback: false },
+);
+
 export function toggleTagFilter(tag) {
     if (store.activeTagFilter.has(tag)) store.activeTagFilter.delete(tag);
     else store.activeTagFilter.add(tag);
@@ -230,71 +248,116 @@ export function spotIsEnabled(spot) {
     return spot?.mapEnabled !== false;
 }
 
-export function save() {
+function localRecoveryValue() {
+    return {
+        version: STORAGE_VERSION,
+        tripTitle: store.tripTitle,
+        localCurrency: store.localCurrency,
+        foreignCurrency: store.foreignCurrency,
+        exchangeRate: store.exchangeRate,
+        exchangeRateDate: store.exchangeRateDate,
+        tripNotePages: store.tripNotePages,
+        activeTripNotePageId: store.activeTripNotePageId,
+        days: store.state,
+        backlog: store.backlog,
+        backlogCollapsed: store.backlogCollapsed,
+        backlogGroups: store.backlogGroups,
+        tags: store.tags,
+        categories: store.categories,
+        routeProfile: store.routeProfile,
+        routeVisualization: store.routeVisualization,
+        basemap: store.basemap,
+        travelLegs: store.travelLegs,
+        reminders: store.reminders,
+        workspaceSplit: store.workspaceSplit,
+        itineraryDensity: store.itineraryDensity,
+    };
+}
+
+export function persistLocalRecoverySnapshot({ described = false } = {}) {
+    if (store.readOnly) return { skipped: "read-only" };
+    const fingerprint = canonicalPlanHash(portablePlanFrom(store));
+    const inspection = portableMutationGuard.inspect(fingerprint, { described });
+    if (inspection.error) {
+        if (globalThis.document && typeof globalThis.CustomEvent === "function") {
+            document.dispatchEvent(new CustomEvent("trip-mutation-instrumentation-error", {
+                detail: { error: inspection.error, legacyFallback: inspection.legacyFallback },
+            }));
+        }
+        if (inspection.shouldThrow) throw inspection.error;
+    }
     // A visitor reading somebody else's public link must never overwrite their
     // own workspace, so persistence stops here rather than in the UI layer.
-    if (store.readOnly) return;
     try {
-        localStorage.setItem(
-            "trip-planner",
-            JSON.stringify({
-                version: STORAGE_VERSION,
-                tripTitle: store.tripTitle,
-                localCurrency: store.localCurrency,
-                foreignCurrency: store.foreignCurrency,
-                exchangeRate: store.exchangeRate,
-                exchangeRateDate: store.exchangeRateDate,
-                tripNotePages: store.tripNotePages,
-                activeTripNotePageId: store.activeTripNotePageId,
-                days: store.state,
-                backlog: store.backlog,
-                backlogCollapsed: store.backlogCollapsed,
-                backlogGroups: store.backlogGroups,
-                tags: store.tags,
-                categories: store.categories,
-                routeProfile: store.routeProfile,
-                routeVisualization: store.routeVisualization,
-                basemap: store.basemap,
-                travelLegs: store.travelLegs,
-                reminders: store.reminders,
-                workspaceSplit: store.workspaceSplit,
-                itineraryDensity: store.itineraryDensity,
-            }),
-        );
+        localStorage.setItem("trip-planner", JSON.stringify(localRecoveryValue()));
+        portableMutationGuard.checkpoint(fingerprint);
+        return { persisted: "localStorage", inspection };
     } catch (error) {
         console.warn("No se pudo actualizar la copia localStorage de recuperación.", error);
+        throw error;
+    }
+}
+
+export function configureMutationInstrumentation(mode) {
+    portableMutationGuard.configure(mode);
+}
+
+export function acceptPortablePlanCheckpoint() {
+    portableMutationGuard.checkpoint(canonicalPlanHash(portablePlanFrom(store)));
+}
+
+export function save() {
+    if (store.readOnly) return Promise.resolve({ skipped: "read-only" });
+    let recovery;
+    try {
+        recovery = persistLocalRecoverySnapshot();
+    } catch (error) {
         if (!tripCommitter) {
             store.saveStatus = "error";
             store.saveError = error;
             emitSaveState();
         }
+        throw error;
     }
     if (tripCommitter) {
         store.saveStatus = "saving";
         store.saveError = null;
         emitSaveState();
-        Promise.resolve()
-            .then(() => tripCommitter())
-            .then(() => {
+        const persistence = Promise.resolve().then(() => tripCommitter());
+        persistence.then(
+            () => {
                 if (store.saveStatus === "saving") store.saveStatus = "saved";
                 emitSaveState();
-            })
-            .catch((error) => {
+            },
+            (error) => {
                 store.saveStatus = "error";
                 store.saveError = error;
                 emitSaveState();
-            });
+            },
+        );
+        return persistence;
     }
+    return Promise.resolve(recovery);
+}
+
+export function saveLocalPreferences() {
+    if (store.readOnly) return Promise.resolve({ skipped: "read-only" });
+    const recovery = persistLocalRecoverySnapshot();
+    if (!localPreferencesCommitter) return Promise.resolve(recovery);
+    return Promise.resolve().then(() => localPreferencesCommitter()).then(() => recovery);
 }
 
 export function registerTripCommitter(callback) {
     tripCommitter = callback;
 }
 
-export function replacePlanState(plan) {
+export function registerLocalPreferencesCommitter(callback) {
+    localPreferencesCommitter = callback;
+}
+
+export function applyPortablePlanState(plan) {
     store.state = plan.days;
     store.backlog = plan.backlog;
-    store.backlogCollapsed = plan.backlogCollapsed;
     store.backlogGroups = plan.backlogGroups;
     store.tags = plan.tags;
     store.categories = plan.categories;
@@ -304,13 +367,24 @@ export function replacePlanState(plan) {
     store.exchangeRate = plan.exchangeRate;
     store.exchangeRateDate = plan.exchangeRateDate;
     store.tripNotePages = plan.tripNotePages;
-    store.activeTripNotePageId = plan.activeTripNotePageId;
     store.routeProfile = plan.routeProfile;
     store.routeVisualization = plan.routeVisualization;
-    store.routeTimeOverrides = plan.routeTimeOverrides;
-    store.routeTimeProfiles = plan.routeTimeProfiles;
     store.travelLegs = plan.travelLegs;
     store.reminders = plan.reminders;
+    if (!store.tripNotePages.some((page) => page.id === store.activeTripNotePageId)) {
+        store.activeTripNotePageId = store.tripNotePages[0]?.id;
+    }
+    const keepsSelection = store.active === "backlog"
+        || store.state.some((day) => day.id === store.active);
+    if (!keepsSelection) store.active = store.state[0]?.id || "backlog";
+}
+
+export function replacePlanState(plan, { persisted = false } = {}) {
+    applyPortablePlanState(plan);
+    store.backlogCollapsed = plan.backlogCollapsed;
+    store.activeTripNotePageId = plan.activeTripNotePageId;
+    store.routeTimeOverrides = plan.routeTimeOverrides;
+    store.routeTimeProfiles = plan.routeTimeProfiles;
     store.previewMode = false;
     store.selectedLocation = null;
     const keepsSelection =
@@ -318,6 +392,7 @@ export function replacePlanState(plan) {
         store.state.some((day) => day.id === store.active);
     if (!keepsSelection) store.active = store.state[0]?.id || "backlog";
     clearTagFilter();
+    if (persisted) acceptPortablePlanCheckpoint();
 }
 
 export function routeTimeOverrideKey(fromId, toId, profile = "walking") {

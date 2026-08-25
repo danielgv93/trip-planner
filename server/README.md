@@ -35,10 +35,10 @@ src/
 Un viaje se autoriza siempre por su fila en `trip_members`, nunca por
 `trips.owner_id`: `trip-access.js` resuelve el rol (`owner`, `editor` o
 `viewer`) y responde 404 —no 403— cuando quien pregunta no colabora en él, para
-no confirmar que ese identificador existe. `realtime/trip-events.js` es un bus
-en proceso, correcto mientras la API sea un único contenedor; es la costura que
-hay que cambiar por `LISTEN`/`NOTIFY` de Postgres antes de escalar a varias
-instancias.
+no confirmar que ese identificador existe. `realtime/trip-events.js` conserva
+un bus en memoria para unidades, pero producción usa un listener dedicado de
+PostgreSQL `LISTEN/NOTIFY`. Cada réplica recibe el aviso y lo reparte solo a sus
+streams locales; el documento nunca viaja por `NOTIFY` ni por SSE.
 
 `create-api.js` sólo construye dependencias y compone los módulos. Cada archivo `*-routes.js` declara endpoints, cada `*-controller.js` traduce peticiones y respuestas, y cada `*-service.js` contiene los casos de uso. Postgres, correo y configuración permanecen fuera de la capa HTTP.
 
@@ -76,12 +76,20 @@ El cliente muestra siempre la interfaz cloud y comprueba `/api/session` al arran
 - `FRONTEND_PORT`: puerto publicado por el frontend en Docker Compose.
 - `POSTGRES_BIND_ADDRESS`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`: publicación y credenciales del servicio Postgres en Docker Compose.
 - `CLOUD_ENABLED`: feature flag del servidor; su valor seguro por defecto es `false`.
+- `GRANULAR_SYNC_ENABLED`: anuncia el protocolo colaborativo v1; permanece en
+  `false` hasta que API, migraciones y cliente compatibles estén desplegados.
 - `PORT`: puerto HTTP, por defecto `8787`.
 - `HOST`: interfaz de escucha; el valor seguro por defecto es `127.0.0.1`. Un despliegue en contenedor puede establecer explícitamente `0.0.0.0` detrás de su proxy.
 - `APP_ORIGIN`: origen exacto permitido para registro y mutaciones.
 - `DATABASE_URL`: conexión Postgres; obligatoria si cloud está habilitada.
 - `DATABASE_POOL_MAX`, `DATABASE_IDLE_TIMEOUT_MS`, `DATABASE_CONNECTION_TIMEOUT_MS`, `DATABASE_STATEMENT_TIMEOUT_MS`: límites del pool y consultas.
 - `BODY_LIMIT_BYTES`: límite del cuerpo y del documento portable antes de persistir.
+- `OPERATION_BODY_LIMIT_BYTES`, `OPERATION_CATCHUP_LIMIT`: tamaño máximo de un
+  comando granular y máximo de operaciones por lote de recuperación.
+- `OPERATION_RATE_LIMIT`, `OPERATION_RATE_WINDOW_MS`: límite reintentable de
+  operaciones por usuario y viaje.
+- `PRESENCE_TTL_MS`, `PRESENCE_RATE_LIMIT`, `PRESENCE_RATE_WINDOW_MS`,
+  `PRESENCE_CLEANUP_LIMIT`: caducidad, límites y limpieza acotada de presencia.
 - `SESSION_DAYS`: caducidad fija de la sesión revocable (máximo 90).
 - `TRUST_PROXY`: solo debe activarse detrás de un proxy controlado que reescriba `X-Forwarded-For`.
 
@@ -105,7 +113,36 @@ Ante un fallo de IndexedDB, la aplicación conserva el guardado `localStorage` l
 
 ## Rollback
 
-1. Cambia el meta del cliente a `content="disabled"` y despliega el frontend.
-2. Establece `CLOUD_ENABLED=false` en la API.
-3. No reviertas ni elimines tablas durante la ventana de rollback.
-4. Conserva IndexedDB y Postgres intactos. Todos los viajes descargados siguen abriéndose y exportándose localmente; la cola queda pendiente para una reactivación posterior.
+El despliegue compatible se hace en este orden:
+
+1. Ejecuta las migraciones aditivas y despliega la API con
+   `GRANULAR_SYNC_ENABLED=false`. Comprueba salud, esquema y endpoints legacy.
+2. Despliega el cliente compatible. Con el flag apagado no activa viajes y sigue
+   usando snapshots; las tablas y rutas v1 permanecen inertes.
+3. Activa el flag en una réplica y en viajes de prueba. Después valida dos
+   réplicas y dos cuentas, observando `operationLatencyAverageMs`,
+   `operationConflicts`, `automaticRebases`, `snapshotFallbacks`, profundidad de
+   cola y sesiones de presencia, además de carga y bloqueos de PostgreSQL.
+4. Amplía por etapas. No retires el endpoint snapshot ni las columnas legacy en
+   este lanzamiento.
+
+El proxy mantiene `proxy_buffering off` y `proxy_read_timeout 300s`, por encima
+del heartbeat de 25 segundos. Los logs y métricas contienen solo ids y estados
+técnicos, nunca documentos, borradores, correos ni tokens.
+
+Para volver atrás sin migración de datos:
+
+1. Apaga `GRANULAR_SYNC_ENABLED`. No se activan más viajes y las operaciones de
+   clientes ya cargados reciben un error reintentable; la cola granular se
+   conserva en IndexedDB y no se convierte ni se descarta.
+2. Espera a que los clientes actuales drenen antes de desplegar el cliente
+   anterior cuando sea posible. Si no lo es, conserva IndexedDB: el cliente
+   anterior ignora la cola y la versión nueva podrá retomarla al reactivarse.
+3. Si se vuelve al bus en memoria, reduce la API a una sola réplica antes del
+   cambio para no perder fan-out entre procesos.
+4. No reviertas ni elimines `trip_revisions`, `trip_mutations`,
+   `trip_presence`, sus columnas ni los endpoints v1. Todas las revisiones ya
+   confirmadas siguen siendo documentos portables válidos en Postgres.
+5. `STORAGE_VERSION` sigue en 31, `PLAN_VERSION` en 28 y el JSON portable no
+   contiene cola, presencia ni conflictos; una exportación sigue siendo la vía
+   de recuperación independiente del protocolo.

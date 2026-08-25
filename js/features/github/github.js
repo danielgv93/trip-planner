@@ -453,7 +453,7 @@ async function readAndImport(candidate, candidateToken) {
         configuredAt: store.githubConnection?.configuredAt || new Date().toISOString(),
         connectedAt: new Date().toISOString(),
     };
-    applyImportedPlan(plan);
+    await applyImportedPlan(plan);
     store.githubRemoteSnapshot = planSnapshot(plan);
     saveGithubMetadata(connection);
     setGithubToken(candidateToken);

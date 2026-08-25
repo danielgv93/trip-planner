@@ -36,7 +36,7 @@ export function createCorsPreflight(config) {
         res.status(204).set({
             "access-control-allow-origin": config.appOrigin,
             "access-control-allow-credentials": "true",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
             "access-control-allow-headers": "content-type, x-csrf-token, x-request-id",
             "access-control-max-age": "600",
             vary: "Origin",

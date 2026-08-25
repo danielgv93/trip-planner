@@ -7,6 +7,7 @@ import {
     conflictResolutionEffects,
     nextRetryDelay,
     stateAfterFailure,
+    stateFromOperationQueue,
     SYNC_COPY,
 } from "../js/features/cloud/sync-state.js";
 import { createMemoryStorage, createTripRepository } from "../js/core/trip-repository.js";
@@ -22,6 +23,17 @@ test("el autómata distingue red, autenticación, error y conflicto con copy esp
     for (const state of ["local", "saving", "synced", "pending", "offline", "auth-required", "error", "conflict"]) {
         assert.equal(typeof SYNC_COPY[state], "string");
     }
+});
+
+test("el estado visible procede de la cola granular real y localiza conflictos", () => {
+    const queued = [{ status: "queued" }];
+    assert.equal(stateFromOperationQueue([], { fallback: "saved" }), "saved");
+    assert.equal(stateFromOperationQueue(queued, { online: false }), "offline");
+    assert.equal(stateFromOperationQueue(queued, { authenticated: false }), "auth-required");
+    assert.equal(stateFromOperationQueue([{ status: "sending" }]), "saving");
+    assert.equal(stateFromOperationQueue(queued), "pending");
+    assert.equal(stateFromOperationQueue([{ status: "conflict" }, ...queued]), "localized-conflict");
+    assert.match(SYNC_COPY["localized-conflict"], /localizado/i);
 });
 
 test("la disponibilidad cloud distingue una API caída de un error de usuario", () => {
@@ -72,4 +84,31 @@ test("una mutación de documento y un archivado pendiente se coalescen sin perde
     assert.equal(pending.clientMutationId, "document-id");
     assert.deepEqual(pending.patch, { archived: true });
     assert.equal(pending.document.tripTitle, "A");
+});
+
+test("confirmar una mutación elimina la outbox atómicamente", async () => {
+    const repository = createTripRepository(createMemoryStorage());
+    const envelope = createTripEnvelope({ id: "a", document: plan("A"), remoteId: "remote", baseRevision: 1, syncState: "pending" });
+    const mutation = { type: "document", clientMutationId: "m-1", document: envelope.document, baseRevision: 1 };
+    await repository.commitTrip(envelope, mutation);
+    const result = await repository.confirmMutation({ tripId: "a", sent: mutation, revision: 2, remoteHash: "hash-2", nextClientMutationId: "m-2" });
+    assert.equal(result.pending, false);
+    assert.equal(await repository.getOutbox("a"), undefined);
+    assert.equal((await repository.getTrip("a")).remote.baseRevision, 2);
+});
+
+test("una edición coalescida durante el envío conserva outbox con nueva idempotencia y base", async () => {
+    const repository = createTripRepository(createMemoryStorage());
+    const envelope = createTripEnvelope({ id: "a", document: plan("A"), remoteId: "remote", baseRevision: 1, syncState: "pending" });
+    const sent = { type: "document", clientMutationId: "m-1", document: envelope.document, baseRevision: 1 };
+    await repository.commitTrip(envelope, sent);
+    envelope.document = plan("A más reciente");
+    await repository.commitTrip(envelope, { ...sent, clientMutationId: "m-ignored", document: envelope.document });
+    const result = await repository.confirmMutation({ tripId: "a", sent, revision: 2, remoteHash: "hash-2", nextClientMutationId: "m-2" });
+    const pending = await repository.getOutbox("a");
+    assert.equal(result.pending, true);
+    assert.equal(pending.clientMutationId, "m-2");
+    assert.equal(pending.baseRevision, 2);
+    assert.equal(pending.document.tripTitle, "A más reciente");
+    assert.equal((await repository.getTrip("a")).syncState, "pending");
 });

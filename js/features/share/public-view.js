@@ -51,7 +51,7 @@ export async function bootstrapPublicView(token) {
             : "No se pudo cargar el viaje compartido. Vuelve a intentarlo más tarde.");
         return { loaded: false };
     }
-    replacePlanState(normalizePlan(trip.document));
+    replacePlanState(normalizePlan(trip.document), { persisted: true });
     // `replacePlanState` resets the flag, so the full-trip view is forced after
     // it: a visitor has no way back to an editing view.
     store.previewMode = true;

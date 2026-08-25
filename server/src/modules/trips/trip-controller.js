@@ -21,6 +21,31 @@ export function createTripController(tripService) {
             const result = await tripService.mutateTrip({ active: res.locals.activeSession, tripId: req.params.tripId, input: req.body || {} });
             sendJson(res, 200, result);
         },
+        async activateTripOperations(req, res) {
+            const result = await tripService.activateTripOperations({
+                active: res.locals.activeSession,
+                tripId: req.params.tripId,
+                input: req.body || {},
+            });
+            sendJson(res, 200, result);
+        },
+        async mutateTripOperation(req, res) {
+            const result = await tripService.mutateTripOperation({
+                active: res.locals.activeSession,
+                tripId: req.params.tripId,
+                input: req.body || {},
+            });
+            sendJson(res, result.statusCode, result.body);
+        },
+        async catchUpOperations(req, res) {
+            const result = await tripService.catchUpOperations({
+                userId: res.locals.activeSession.user_id,
+                tripId: req.params.tripId,
+                after: Number(req.query.after),
+                limit: Number(req.query.limit || 100),
+            });
+            sendJson(res, 200, result);
+        },
         async updateTrip(req, res) {
             const trip = await tripService.updateTrip({ active: res.locals.activeSession, tripId: req.params.tripId, input: req.body || {} });
             sendJson(res, 200, { trip });

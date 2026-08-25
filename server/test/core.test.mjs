@@ -9,6 +9,7 @@ import { AVATAR_MAX_BYTES, createAccountService } from "../src/modules/accounts/
 import { createTripShareService } from "../src/modules/trips/trip-share-service.js";
 import { createTripService } from "../src/modules/trips/trip-service.js";
 import { passwordHash, SlidingWindowLimiter, secretHash, safeEqualHash, sessionCookie, verifyPassword } from "../src/security/session-security.js";
+import { createMetrics } from "../src/observability/request-metrics.js";
 
 const config = loadConfig({ CLOUD_ENABLED: "false", APP_ORIGIN: "http://localhost:8000" });
 
@@ -32,7 +33,33 @@ test("el perfil admite un avatar de exactamente 500 KB", async () => {
 
 test("cloud permanece deshabilitada por defecto y valida configuración peligrosa", () => {
     assert.equal(config.cloudEnabled, false);
+    assert.equal(config.granularSyncEnabled, false);
     assert.throws(() => loadConfig({ CLOUD_ENABLED: "true" }), /DATABASE_URL/);
+    const granular = loadConfig({
+        CLOUD_ENABLED: "true",
+        GRANULAR_SYNC_ENABLED: "true",
+        DATABASE_URL: "postgres://test",
+    });
+    assert.equal(granular.granularSyncEnabled, true);
+    assert.equal(granular.granularProtocolVersion, 1);
+    assert.equal(granular.presenceTtlMs, 45_000);
+    assert.equal(granular.operationRateLimit, 240);
+});
+
+test("las métricas colaborativas son acotadas y no aceptan contenido", () => {
+    const metrics = createMetrics();
+    metrics.observeOperation({ durationMs: 12, rebased: true });
+    metrics.observeOperation({ durationMs: 20, conflict: true });
+    metrics.observeCatchup({ operationCount: 4, snapshotFallback: true });
+    metrics.observePresenceUpdate();
+    metrics.setPresenceSessions(3);
+    assert.deepEqual(metrics.snapshot(), {
+        requests: 0, errors: 0, conflicts: 0, latencyAverageMs: 0, latencyMaxMs: 0,
+        queueDepth: 0, operationConfirmations: 1, operationConflicts: 1,
+        operationLatencyAverageMs: 16, operationLatencyMaxMs: 20,
+        automaticRebases: 1, snapshotFallbacks: 1, catchupOperations: 4,
+        presenceUpdates: 1, presenceSessions: 3,
+    });
 });
 
 test("los documentos se validan, normalizan y limitan antes de persistir", () => {
@@ -185,6 +212,9 @@ test("Express sirve salud, CORS y errores JSON con el contrato público", async 
         assert.deepEqual(await health.json(), {
             ok: true,
             cloudEnabled: false,
+            capabilities: {
+                liveCollaboration: { enabled: false, protocolVersion: null },
+            },
             database: { ok: true, disabled: true },
         });
 

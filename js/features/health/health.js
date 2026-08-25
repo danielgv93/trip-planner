@@ -1,14 +1,18 @@
-import { store, save, dayBy, routeTimeProfile, routeTimeOverride, travelLeg } from "../../core/store.js";
+import { store, dayBy, routeTimeProfile, routeTimeOverride, travelLeg } from "../../core/store.js";
 import { AUTOMATIC_TRAVEL_MODES, disconnectedTravelLegs, parseTravelLegKey } from "../../core/travel-legs.js";
 import { $, esc } from "../../shared/dom.js";
 import { openModal } from "../../shared/modal.js";
 import { toast } from "../../shared/notify.js";
-import { buildTimelineProjection } from "../companion/timeline.js";
-import { cachedRouteTravelMinutes, drawMap } from "../map/map.js";
+import { buildTimelineProjection } from "../timeline/timeline.js";
+import { cachedRouteTravelMinutes } from "../map/map.js";
 import { openDialog } from "../planner/dialogs.js";
-import { pushUndo } from "../planner/history.js";
-import { relocateSpot } from "../planner/move-spot.js";
 import { render, openTravelLegDialog } from "../planner/render.js";
+import {
+    commandIntent,
+    derivedPlanOperation,
+    moveEntityIntent,
+    setFieldIntent,
+} from "../../core/plan-operation-commit.js";
 import { diagnoseDay } from "./diagnostics.js";
 import { generateSuggestions } from "./suggestions.js";
 import { getHealthResult, HEALTH_STATES, healthSignature, setHealthResult } from "./session.js";
@@ -209,12 +213,29 @@ async function applySuggestion(button) {
     const resolved = resolveSuggestion(button);
     if (!resolved) return;
     const { day, item } = resolved;
-    pushUndo();
-    if (item.kind === "start-earlier" || item.kind === "add-margin") day.startTime = item.payload.startTime;
-    else if (item.kind === "remove-optional") relocateSpot(store, item.payload.spotId, "backlog", store.backlog.length);
-    else if (item.kind === "reorder") day.spots = item.payload.order.map((id) => day.spots.find((spot) => spot.id === id));
-    else if (item.kind === "move-day") relocateSpot(store, item.payload.spotId, item.payload.toDay, item.payload.at);
-    save(); render(); drawMap();
+    await derivedPlanOperation((document) => {
+        if (item.kind === "start-earlier" || item.kind === "add-margin") {
+            return setFieldIntent(document, { type: "day", id: day.id, field: "startTime" }, item.payload.startTime);
+        }
+        if (item.kind === "reorder") {
+            const source = document.days.find((candidate) => candidate.id === day.id);
+            return commandIntent({
+                target: { type: "day", id: day.id },
+                command: "reorder-day-spots",
+                precondition: { expectedOrder: source.spots.map((spot) => spot.id) },
+                payload: { order: item.payload.order },
+            });
+        }
+        const containerId = item.kind === "remove-optional" ? "backlog" : item.payload.toDay;
+        const destination = containerId === "backlog"
+            ? document.backlog
+            : document.days.find((candidate) => candidate.id === containerId)?.spots || [];
+        const withoutMoving = destination.filter((spot) => spot.id !== item.payload.spotId);
+        const beforeId = item.kind === "remove-optional"
+            ? null
+            : withoutMoving[Math.max(0, Math.min(item.payload.at, withoutMoving.length))]?.id ?? null;
+        return moveEntityIntent(document, { type: "spot", id: item.payload.spotId }, { containerId, beforeId });
+    });
     await checkPlan({ focusDayId: day.id });
     toast("Mejora aplicada. Puedes deshacerla desde la cabecera.", "success");
 }
@@ -228,9 +249,14 @@ document.addEventListener("click", (event) => {
 resultsEl.addEventListener("change", async (event) => {
     const day = dayBy(event.target.dataset.healthStart);
     if (!day) return;
-    pushUndo();
-    if (event.target.value) day.startTime = event.target.value; else delete day.startTime;
-    save(); render(); drawMap(); renderCenter(day.id);
+    const value = event.target.value;
+    await derivedPlanOperation((document) => setFieldIntent(
+        document,
+        { type: "day", id: day.id, field: "startTime" },
+        value || undefined,
+        { remove: !value },
+    ));
+    renderCenter(day.id);
 });
 resultsEl.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-health-action]");

@@ -5,6 +5,7 @@ import { confirmAction, promptAction, toast } from "../../shared/notify.js";
 import { drawMap, syncRouteVisualizationControl } from "../map/map.js";
 import { syncTripNotes } from "../notes/notes.js";
 import { applyTitle, render } from "../planner/render.js";
+import { preflightActiveEditor } from "../planner/active-editor.js";
 import {
     archiveTrip,
     createTrip,
@@ -28,6 +29,7 @@ import { canManageCollaborators, openCollaboratorsDialog } from "../cloud/collab
 import { memberAvatar } from "../cloud/member-avatar.js";
 import { canShareTrip, openShareDialog } from "../share/share-dialog.js";
 import { SYNC_COPY } from "../cloud/sync-state.js";
+import { classifyCloudSaveResult, runExplicitCloudSave } from "../cloud/live-sync-contracts.js";
 
 const dialog = document.querySelector("#libraryDialog");
 const list = document.querySelector("#libraryList");
@@ -399,7 +401,7 @@ function renderGlobalCloudAction() {
     saveCloudButton.hidden = !state.visible;
     saveCloudButton.disabled = state.disabled;
     saveCloudButton.setAttribute("aria-label", state.label);
-    saveCloudButton.title = `${state.title}${state.title ? " · " : ""}Ctrl/Cmd + S`;
+    saveCloudButton.title = state.title;
     saveCloudButton.querySelector(".save-cloud-label").textContent = state.label;
 }
 
@@ -548,8 +550,32 @@ cardMenu.addEventListener("keydown", (event) => {
 list.addEventListener("scroll", closeCardMenu, { passive: true });
 dialog.addEventListener("close", closeCardMenu);
 
-async function saveActiveToCloud() {
-    await waitForActiveCommit();
+async function cloudSnapshot(id) {
+    const repository = getTripRepository();
+    const [envelope, outbox] = await Promise.all([repository.getTrip(id), repository.getOutbox(id)]);
+    return {
+        baseRevision: Number(envelope?.remote.baseRevision || 0),
+        remoteHash: envelope?.remote.hash || null,
+        hasOutbox: Boolean(outbox),
+    };
+}
+
+async function synchronizeActiveTrip(activeTripId) {
+    const activeTrip = await getTripRepository().getTrip(activeTripId);
+    if (!store.accountSession) throw Object.assign(new Error("AUTH_REQUIRED"), { code: "AUTH_REQUIRED", status: 401 });
+    if (!activeTrip || activeTrip.pendingDeletion) throw new Error("TRIP_NOT_AVAILABLE");
+    const before = await cloudSnapshot(activeTripId);
+    let summary = {};
+    if (activeTrip.remote.id) summary = await drainOutbox();
+    else {
+        await uploadLocalTrip(activeTripId);
+        summary = { confirmed: [{ tripId: activeTripId }] };
+    }
+    const after = await cloudSnapshot(activeTripId);
+    return classifyCloudSaveResult({ before, after, summary });
+}
+
+async function saveActiveToCloud({ explicit = false } = {}) {
     const activeTripId = store.activeTripId;
     const activeTrip = store.tripLibrary.find((trip) => trip.id === activeTripId);
     const action = cloudSaveActionState({
@@ -559,22 +585,29 @@ async function saveActiveToCloud() {
         cloudAvailability: store.cloudAvailability,
         uploadingTripId,
     });
-    if (!activeTrip || action.disabled || activeTrip.pendingDeletion) return false;
+    if (!activeTrip || activeTrip.pendingDeletion || (!explicit && action.disabled)) return false;
     uploadingTripId = activeTripId;
     renderGlobalCloudAction();
     try {
-        if (activeTrip.remote.id) {
-            await drainOutbox();
-            const stillPending = (await getTripRepository().listOutbox())
-                .some((item) => item.tripId === activeTripId);
-            if (stillPending) throw new Error("CLOUD_SAVE_PENDING");
-        } else {
-            await uploadLocalTrip(activeTripId);
+        const outcome = await runExplicitCloudSave({
+            readOnly: store.readOnly,
+            preflight: () => preflightActiveEditor({ readOnly: store.readOnly }),
+            waitForCommit: waitForActiveCommit,
+            synchronize: () => synchronizeActiveTrip(activeTripId),
+        });
+        if (!outcome.synchronized) {
+            const result = classifyCloudSaveResult({
+                readOnly: outcome.preflight.reason === "read-only",
+                validationFailed: outcome.preflight.status === "invalid" && outcome.preflight.reason !== "read-only",
+            });
+            toast(result.message, result.tone);
+            return false;
         }
-        toast("Viaje guardado en tu cuenta.", "success");
-        return true;
-    } catch {
-        toast("No se pudo guardar el viaje en la nube. Sigue disponible en este dispositivo.", "error");
+        toast(outcome.result.message, outcome.result.tone);
+        return ["confirmed", "no-op"].includes(outcome.result.status);
+    } catch (error) {
+        const result = classifyCloudSaveResult({ error });
+        toast(result.message, result.tone);
         return false;
     } finally {
         if (uploadingTripId === activeTripId) uploadingTripId = null;
@@ -587,7 +620,8 @@ saveCloudButton.addEventListener("click", () => void saveActiveToCloud());
 document.addEventListener("keydown", (event) => {
     if (typeof event.key !== "string" || event.key.toLowerCase() !== "s" || (!event.ctrlKey && !event.metaKey) || event.altKey || event.shiftKey) return;
     event.preventDefault();
-    void saveActiveToCloud();
+    const activeTrip = store.tripLibrary.find((trip) => trip.id === store.activeTripId);
+    toast(SYNC_COPY[activeTrip?.syncState] || "Los cambios se guardan automáticamente.", "info");
 });
 
 document.addEventListener("trip-library-changed", () => {

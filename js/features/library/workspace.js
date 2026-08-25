@@ -3,10 +3,16 @@ import { migrateLegacyTrip } from "../../core/legacy-trip-migration.js";
 import { normalizePlan, portablePlanFrom } from "../../core/plan-json.js";
 import { randomUUID } from "../../core/random-id.js";
 import { canonicalPlanHash } from "../../core/plan-hash.js";
-import { store, registerTripCommitter, replacePlanState } from "../../core/store.js";
+import { store, registerLocalPreferencesCommitter, registerTripCommitter, replacePlanState } from "../../core/store.js";
 import { createTripEnvelope } from "../../core/trip-envelope.js";
 import { openTripRepository } from "../../core/trip-repository.js";
-import { clearHistory, pushUndo } from "../planner/history.js";
+import { clearHistory, recordPlanOperation } from "../planner/history.js";
+import {
+    configurePlanOperationCommit,
+    derivedPlanOperation,
+    replacePlanIntent,
+    waitForPlanOperationCommits,
+} from "../../core/plan-operation-commit.js";
 
 let repository = null;
 let lastCommit = Promise.resolve();
@@ -72,6 +78,7 @@ async function envelopeForActive() {
         remoteId: existing?.remote.id,
         baseRevision: existing?.remote.baseRevision,
         remoteHash: existing?.remote.hash,
+        protocolVersion: existing?.remote.protocolVersion,
         role: existing?.remote.role,
         ownerId: existing?.remote.ownerId,
         members: existing?.remote.members,
@@ -102,8 +109,19 @@ export function commitActiveTrip() {
     return lastCommit;
 }
 
+async function commitActivePreferences() {
+    if (!repository || !store.activeTripId || store.readOnly) return;
+    const envelope = await repository.getTrip(store.activeTripId);
+    if (!envelope) return;
+    envelope.preferences = { ...envelope.preferences, ...preferencesFromStore() };
+    envelope.updatedAt = new Date().toISOString();
+    await repository.putTrip(envelope);
+    await refreshTripLibrary();
+}
+
 export async function waitForActiveCommit() {
     await lastCommit;
+    await waitForPlanOperationCommits();
 }
 
 export async function initializeTripWorkspace() {
@@ -127,6 +145,12 @@ export async function initializeTripWorkspace() {
         if (active) await loadTrip(active);
         else store.activeTripId = null;
         registerTripCommitter(commitActiveTrip);
+        registerLocalPreferencesCommitter(commitActivePreferences);
+        configurePlanOperationCommit({
+            getRepository: () => repository,
+            recordUndo: recordPlanOperation,
+            refreshLibrary: refreshTripLibrary,
+        });
         await refreshTripLibrary();
         return { available: true, migration, hasActiveTrip: Boolean(active) };
     } catch (error) {
@@ -146,7 +170,7 @@ export function applyTripPermissions(envelope) {
 }
 
 async function loadTrip(envelope) {
-    replacePlanState(normalizePlan(envelope.document));
+    replacePlanState(normalizePlan(envelope.document), { persisted: true });
     applyPreferences(envelope.preferences);
     applyTripPermissions(envelope);
     store.activeTripId = envelope.id;
@@ -185,21 +209,14 @@ export async function switchTrip(id) {
 export async function renameTrip(id, title) {
     const envelope = await repository.getTrip(id);
     if (!envelope) throw new Error("TRIP_NOT_FOUND");
-    envelope.document.tripTitle = title.trim() || "Viaje sin título";
-    envelope.updatedAt = new Date().toISOString();
-    envelope.syncState = envelope.remote.id ? "pending" : "local";
-    const mutation = envelope.remote.id ? {
-        type: "document",
-        remoteId: envelope.remote.id,
-        baseRevision: envelope.remote.baseRevision,
-        clientMutationId: randomUUID(),
-        hash: canonicalPlanHash(envelope.document),
-        document: envelope.document,
-    } : null;
-    await repository.commitTrip(envelope, mutation);
-    if (id === store.activeTripId) store.tripTitle = envelope.document.tripTitle;
-    await refreshTripLibrary();
-    if (mutation) document.dispatchEvent(new CustomEvent("trip-sync-needed"));
+    const nextTitle = title.trim() || "Viaje sin título";
+    if (envelope.remote?.role === "viewer") throw new Error("TRIP_READ_ONLY");
+    await derivedPlanOperation((document) => ({
+        kind: "set-field",
+        target: { type: "plan", id: "plan", field: "tripTitle" },
+        precondition: { expectedValue: document.tripTitle },
+        payload: { value: nextTitle },
+    }), { tripId: id, undo: id === store.activeTripId });
 }
 
 export async function archiveTrip(id, archived) {
@@ -236,9 +253,8 @@ export async function importAsNewTrip(document) {
 }
 
 export async function replaceActiveTrip(planDocument) {
-    pushUndo();
-    replacePlanState(normalizePlan(planDocument));
-    await commitActiveTrip();
+    const normalized = normalizePlan(planDocument);
+    await derivedPlanOperation((document) => replacePlanIntent(document, normalized));
     document.dispatchEvent(new CustomEvent("active-trip-changed"));
 }
 
@@ -249,6 +265,7 @@ export async function attachRemote(id, remote) {
         id: remote.id,
         baseRevision: Number(remote.revision),
         hash: remote.hash,
+        protocolVersion: Number(remote.protocolVersion) || 0,
         role: remote.role || "owner",
         ownerId: remote.ownerId || null,
         members: remote.members || [],
@@ -260,16 +277,19 @@ export async function attachRemote(id, remote) {
     return envelope;
 }
 
-export async function updateEnvelope(envelope, { removeOutbox = false } = {}) {
+export async function updateEnvelope(envelope, { removeOutbox = false, remoteTargetKeys = null } = {}) {
     await repository.putTrip(envelope);
     if (removeOutbox) await repository.deleteOutbox(envelope.id);
     const changed = envelope.id === store.activeTripId
         && canonicalPlanHash(envelope.document) !== canonicalPlanHash(portablePlanFrom(store));
     if (envelope.id === store.activeTripId) applyTripPermissions(envelope);
     if (changed) {
-        replacePlanState(normalizePlan(envelope.document));
+        replacePlanState(normalizePlan(envelope.document), { persisted: true });
         applyPreferences(envelope.preferences);
-        document.dispatchEvent(new CustomEvent("active-trip-changed"));
+        document.dispatchEvent(new CustomEvent(
+            remoteTargetKeys ? "trip-remote-plan-applied" : "active-trip-changed",
+            remoteTargetKeys ? { detail: { tripId: envelope.id, targetKeys: remoteTargetKeys } } : undefined,
+        ));
     }
     await refreshTripLibrary();
 }
@@ -293,7 +313,7 @@ export async function detachRemoteTrips() {
     const trips = await repository.listTrips({ includeArchived: true, includePendingDeletion: true });
     for (const envelope of trips) {
         if (!envelope.remote.id) continue;
-        envelope.remote = { id: null, baseRevision: 0, hash: null, role: null, ownerId: null, members: [] };
+        envelope.remote = { id: null, baseRevision: 0, hash: null, protocolVersion: 0, role: null, ownerId: null, members: [] };
         envelope.syncState = "local";
         envelope.pendingDeletion = false;
         await repository.putTrip(envelope);

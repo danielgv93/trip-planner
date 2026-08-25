@@ -16,15 +16,22 @@ import {
 import { cloudClientConfig } from "./config.js";
 import { createCloudClient } from "./client.js";
 import { cloudAvailabilityAfterError, conflictResolutionEffects, nextRetryDelay, stateAfterFailure } from "./sync-state.js";
+import { createSingleFlight, reconciliationDecision } from "./live-sync-contracts.js";
+import { createOperationOutboxDrain } from "./operation-outbox.js";
+import { LIVE_COLLABORATION_PROTOCOL_VERSION } from "./protocol-capability.js";
 
 let csrf = null;
 let client = null;
-let draining = false;
 let retryTimer = null;
 let attempts = 0;
 let remoteLibrary = [];
 const conflicts = new Map();
+const reconciliationFlights = new Map();
 let deviceIdentifier = null;
+let liveCollaborationCapability = { enabled: false, protocolVersion: 0 };
+let granularDrain = null;
+let operationRetryTimer = null;
+let operationAttempts = 0;
 
 // Resolved lazily so that merely loading the page — as an anonymous visitor
 // following a share link does — never stamps a device identifier on storage.
@@ -49,12 +56,16 @@ function emitRemoteLibrary() {
     document.dispatchEvent(new CustomEvent("remote-trip-library", { detail: remoteLibrary }));
 }
 
+function setLiveSyncState(state, error = null, detail = {}) {
+    store.liveTripSyncState = state;
+    store.liveTripSyncError = error;
+    document.dispatchEvent(new CustomEvent("trip-live-state", { detail: { state, ...detail } }));
+}
+
 async function setEnvelopeState(id, state) {
     const repository = getTripRepository();
-    const envelope = await repository?.getTrip(id);
+    const envelope = await repository?.setSyncState(id, state);
     if (!envelope) return;
-    envelope.syncState = state;
-    await repository.putTrip(envelope);
     await refreshTripLibrary();
 }
 
@@ -164,6 +175,7 @@ export async function uploadLocalTrip(localId) {
         id: trip.id,
         revision: trip.current_revision,
         hash: trip.document_hash,
+        protocolVersion: trip.sync_protocol_version,
         role: trip.role,
         ownerId: trip.owner_id,
         members: trip.members,
@@ -184,6 +196,7 @@ export async function openRemoteTrip(remoteId) {
         remoteId: remote.id,
         baseRevision: Number(remote.current_revision),
         remoteHash: remote.document_hash,
+        protocolVersion: Number(remote.sync_protocol_version) || 0,
         role: remote.role,
         ownerId: remote.owner_id,
         members: remote.members,
@@ -198,15 +211,20 @@ export async function openRemoteTrip(remoteId) {
 async function drainItem(item) {
     const repository = getTripRepository();
     const envelope = await repository.getTrip(item.tripId);
-    if (!envelope) return repository.deleteOutbox(item.tripId);
+    if (!envelope) {
+        await repository.deleteOutbox(item.tripId);
+        return { removed: true };
+    }
     if (item.type === "delete") {
         await client.deleteTrip(item.remoteId);
         await repository.deleteTripPermanently(item.tripId);
         await refreshTripLibrary();
-        return;
+        return { deleted: true };
     }
+    let result = null;
+    let patched = null;
     if (item.type === "document") {
-        const result = await client.mutateTrip(item.remoteId, {
+        result = await client.mutateTrip(item.remoteId, {
             baseRevision: item.baseRevision,
             clientMutationId: item.clientMutationId,
             hash: item.hash || canonicalPlanHash(item.document),
@@ -214,23 +232,36 @@ async function drainItem(item) {
             deviceId: deviceId(),
             origin: item.origin,
         });
-        envelope.remote.baseRevision = Number(result.revision);
-        envelope.remote.hash = result.hash;
-        envelope.document = item.document;
     }
     if (item.patch) {
-        const patched = await client.patchTrip(item.remoteId, item.patch);
-        envelope.archived = Boolean(patched.trip.archivedAt);
-        envelope.remote.baseRevision = Number(patched.trip.revision);
-        envelope.remote.hash = patched.trip.hash;
+        patched = await client.patchTrip(item.remoteId, item.patch);
     }
-    envelope.syncState = "synced";
-    await updateEnvelope(envelope, { removeOutbox: true });
+    if (!result && !patched) return { pending: true };
+    const revision = Number(patched?.trip.revision ?? result.revision);
+    const hash = patched?.trip.hash ?? result.hash;
+    const accepted = await repository.confirmMutation({
+        tripId: item.tripId,
+        sent: item,
+        revision,
+        remoteHash: hash,
+        archived: patched ? Boolean(patched.trip.archivedAt) : undefined,
+        nextClientMutationId: randomUUID(),
+    });
+    await refreshTripLibrary();
+    return {
+        revision,
+        hash,
+        noOp: result ? result.noOp === true && !patched?.trip.renamed : !patched?.trip.renamed,
+        pending: accepted.pending,
+    };
 }
 
-export async function drainOutbox() {
-    if (draining || !client || !store.accountSession) return;
-    draining = true;
+async function drainOutboxOnce() {
+    const summary = { processed: [], confirmed: [], noOps: [], pending: [], conflicts: [], terminalError: null };
+    if (!client || !store.accountSession) {
+        summary.terminalError = Object.assign(new Error("AUTH_REQUIRED"), { code: "AUTH_REQUIRED", status: 401 });
+        return summary;
+    }
     clearTimeout(retryTimer);
     try {
         const repository = getTripRepository();
@@ -238,14 +269,23 @@ export async function drainOutbox() {
         if (!csrf) {
             const state = store.accountSession.offline ? "offline" : "auth-required";
             for (const item of pending) await setEnvelopeState(item.tripId, state);
-            return;
+            summary.pending.push(...pending.map((item) => item.tripId));
+            summary.terminalError = Object.assign(new Error(state), {
+                code: state === "auth-required" ? "AUTH_REQUIRED" : "NETWORK",
+                status: state === "auth-required" ? 401 : undefined,
+            });
+            return summary;
         }
         client.reportQueueDepth(pending.length).catch(() => {});
         for (const item of pending) {
+            summary.processed.push(item.tripId);
             try {
                 await setEnvelopeState(item.tripId, navigator.onLine ? "pending" : "offline");
                 if (!navigator.onLine) throw Object.assign(new Error("offline"), { code: "NETWORK" });
-                await drainItem(item);
+                const result = await drainItem(item);
+                if (result.pending) summary.pending.push(item.tripId);
+                else if (result.noOp) summary.noOps.push({ tripId: item.tripId, revision: result.revision, hash: result.hash });
+                else summary.confirmed.push({ tripId: item.tripId, revision: result.revision, hash: result.hash });
                 attempts = 0;
             } catch (error) {
                 const state = stateAfterFailure(error, { online: navigator.onLine, authenticated: Boolean(store.accountSession) });
@@ -253,28 +293,209 @@ export async function drainOutbox() {
                 if (state === "conflict") {
                     const remote = await client.getTrip(item.remoteId);
                     conflicts.set(item.tripId, { item, remote: remote.trip });
+                    summary.conflicts.push(item.tripId);
                     document.dispatchEvent(new CustomEvent("trip-conflict", { detail: { tripId: item.tripId } }));
                     continue;
                 }
                 if (state === "auth-required") {
+                    summary.pending.push(item.tripId);
+                    summary.terminalError = error;
                     store.accountSession = null;
                     emitSession();
                     break;
                 }
                 attempts += 1;
+                summary.pending.push(item.tripId);
+                summary.terminalError = error;
                 retryTimer = setTimeout(drainOutbox, nextRetryDelay(attempts));
                 break;
             }
         }
         await refreshRemoteTrips().catch(() => {});
-    } finally {
-        draining = false;
+        if (store.activeTripId) await reconcileRemoteTrip(store.activeTripId, "drain-complete").catch(() => {});
+        return summary;
+    } catch (error) {
+        summary.terminalError = error;
+        return summary;
     }
+}
+
+const sharedDrain = createSingleFlight(drainOutboxOnce);
+
+export function drainOutbox() {
+    return sharedDrain();
+}
+
+function operationDrainForCurrentClient() {
+    if (granularDrain) return granularDrain;
+    const repository = getTripRepository();
+    if (!repository || !client) return null;
+    granularDrain = createOperationOutboxDrain({
+        repository,
+        publish: async (entry) => {
+            if (!store.accountSession) throw Object.assign(new Error("AUTH_REQUIRED"), { code: "AUTH_REQUIRED", status: 401 });
+            if (globalThis.navigator?.onLine === false) throw Object.assign(new Error("NETWORK"), { code: "NETWORK" });
+            const envelope = await repository.getTrip(entry.tripId);
+            if (!envelope?.remote.id) throw new Error("TRIP_NOT_AVAILABLE");
+            return client.mutateTripOperation(envelope.remote.id, entry.operation);
+        },
+        onState: ({ tripId: localId, state, entry, error, result }) => {
+            if (state === "conflict") {
+                document.dispatchEvent(new CustomEvent("trip-operation-conflict", {
+                    detail: { tripId: localId, localSequence: entry.localSequence, conflict: result?.error || error?.details },
+                }));
+            }
+            if (state === "pending" && error) {
+                const next = stateAfterFailure(error, {
+                    online: globalThis.navigator?.onLine !== false,
+                    authenticated: Boolean(store.accountSession),
+                });
+                void repository.setSyncState(localId, next);
+                if (next !== "auth-required") {
+                    clearTimeout(operationRetryTimer);
+                    operationRetryTimer = setTimeout(
+                        () => void drainOperationOutbox(localId),
+                        nextRetryDelay(operationAttempts++),
+                    );
+                }
+            } else if (state === "confirmed") {
+                operationAttempts = 0;
+                clearTimeout(operationRetryTimer);
+            }
+            document.dispatchEvent(new CustomEvent("trip-save-state"));
+        },
+    });
+    return granularDrain;
+}
+
+export async function drainOperationOutbox(tripId = null) {
+    const drain = operationDrainForCurrentClient();
+    if (!drain) return [];
+    const result = tripId ? [await drain.drainTrip(tripId)] : await drain.drainAll();
+    await refreshTripLibrary();
+    return result;
+}
+
+async function activateEligibleTrips() {
+    if (!liveCollaborationCapability.enabled || Number(liveCollaborationCapability.protocolVersion) < LIVE_COLLABORATION_PROTOCOL_VERSION) return;
+    const repository = getTripRepository();
+    for (const envelope of await repository.listTrips({ includeArchived: true })) {
+        if (!envelope.remote.id || envelope.remote.protocolVersion >= LIVE_COLLABORATION_PROTOCOL_VERSION) continue;
+        if (envelope.remote.role === "viewer" || await repository.hasLegacyOutbox(envelope.id)) continue;
+        const result = await client.activateTripOperations(envelope.remote.id, {
+            expectedRevision: Number(envelope.remote.baseRevision),
+            legacyOutboxEmpty: true,
+        }).catch(() => null);
+        if (!result) continue;
+        envelope.remote.protocolVersion = Number(result.protocolVersion) || 0;
+        await repository.putTrip(envelope);
+    }
+    await refreshTripLibrary();
+}
+
+async function reconcileRemoteTripOnce(localId, reason, { targetRevision = 0, isCurrent = () => true } = {}) {
+    const repository = getTripRepository();
+    const envelope = await repository?.getTrip(localId);
+    if (!client || !store.accountSession || !envelope?.remote.id) return { status: "unavailable", reason };
+    if (targetRevision && Number(targetRevision) <= Number(envelope.remote.baseRevision)) {
+        return { status: "up-to-date", reason, revision: Number(envelope.remote.baseRevision) };
+    }
+    if (envelope.remote.protocolVersion >= LIVE_COLLABORATION_PROTOCOL_VERSION) {
+        setLiveSyncState("pulling", null, { reason, tripId: localId, targetRevision: Number(targetRevision) || null });
+        try {
+            const { catchUpLiveTripOperations } = await import("./live-trip.js");
+            const result = await catchUpLiveTripOperations(localId, Number(targetRevision) || 0);
+            setLiveSyncState(result.status === "applied" || result.status === "snapshot" ? "applied" : "idle", null, {
+                reason, tripId: localId, revision: result.revision,
+            });
+            return { ...result, reason };
+        } catch (error) {
+            setLiveSyncState("pull-error", error, { reason, tripId: localId, targetRevision: Number(targetRevision) || null });
+            throw error;
+        }
+    }
+    setLiveSyncState("pulling", null, { reason, tripId: localId, targetRevision: Number(targetRevision) || null });
+    try {
+        const [outbox, response] = await Promise.all([
+            repository.getOutbox(localId),
+            client.getTrip(envelope.remote.id),
+        ]);
+        const remote = response.trip;
+        const latest = await repository.getTrip(localId);
+        if (!latest || latest.remote.id !== remote.id) return { status: "stale", reason };
+        const decision = reconciliationDecision({
+            baseRevision: latest.remote.baseRevision,
+            remoteRevision: remote.current_revision,
+            hasOutbox: Boolean(outbox),
+        });
+        latest.remote.role = remote.role;
+        latest.remote.ownerId = remote.owner_id;
+        latest.remote.members = remote.members || [];
+        if (decision === "pending-local") {
+            latest.syncState = latest.syncState === "conflict" ? "conflict" : "pending";
+            await repository.putTrip(latest);
+            await refreshTripLibrary();
+            setLiveSyncState("pending", null, { reason, tripId: localId, revision: Number(remote.current_revision) });
+            return { status: decision, reason, revision: Number(remote.current_revision) };
+        }
+        if (decision === "apply-remote") {
+            latest.document = remote.document;
+            latest.remote.baseRevision = Number(remote.current_revision);
+            latest.remote.hash = remote.document_hash;
+            latest.syncState = "synced";
+        }
+        if (isCurrent()) await updateEnvelope(latest);
+        else {
+            await repository.putTrip(latest);
+            await refreshTripLibrary();
+        }
+        setLiveSyncState(decision === "apply-remote" ? "applied" : "idle", null, {
+            reason,
+            tripId: localId,
+            revision: Number(remote.current_revision),
+        });
+        return { status: decision, reason, revision: Number(remote.current_revision) };
+    } catch (error) {
+        setLiveSyncState("pull-error", error, { reason, tripId: localId, targetRevision: Number(targetRevision) || null });
+        console.warn("live_trip_reconcile_failed", {
+            reason,
+            tripId: localId,
+            revision: Number(targetRevision) || null,
+            state: store.liveTripConnectionState,
+            code: error?.code || null,
+            status: error?.status || null,
+        });
+        throw error;
+    }
+}
+
+export function reconcileRemoteTrip(localId, reason = "manual", options = {}) {
+    if (!localId) return Promise.resolve({ status: "unavailable", reason });
+    const existing = reconciliationFlights.get(localId);
+    if (existing) {
+        existing.targetRevision = Math.max(existing.targetRevision, Number(options.targetRevision) || 0);
+        return existing.promise;
+    }
+    const state = { targetRevision: Number(options.targetRevision) || 0, promise: null };
+    state.promise = (async () => {
+        let result;
+        let handledTarget = -1;
+        do {
+            handledTarget = state.targetRevision;
+            result = await reconcileRemoteTripOnce(localId, reason, { ...options, targetRevision: handledTarget });
+        } while (state.targetRevision > handledTarget && result.status !== "pending-local");
+        return result;
+    })().finally(() => reconciliationFlights.delete(localId));
+    reconciliationFlights.set(localId, state);
+    return state.promise;
 }
 
 async function resumeSync() {
     if (store.accountSession?.offline || !csrf) await refreshCloudSession();
     await drainOutbox();
+    await activateEligibleTrips();
+    await drainOperationOutbox();
+    if (store.activeTripId) await reconcileRemoteTrip(store.activeTripId, "resume");
 }
 
 export async function resolveConflict(localId, action) {
@@ -314,23 +535,14 @@ export async function resolveConflict(localId, action) {
     if (action === "local") drainOutbox();
 }
 
-// Role and collaborator list can change while a trip sits idle in the library,
-// so they are refreshed even when the document itself did not move.
-function applyRemoteMembership(envelope, remote) {
-    const changed = envelope.remote.role !== remote.role
-        || envelope.remote.ownerId !== remote.owner_id
-        || JSON.stringify(envelope.remote.members) !== JSON.stringify(remote.members || []);
-    envelope.remote.role = remote.role;
-    envelope.remote.ownerId = remote.owner_id;
-    envelope.remote.members = remote.members || [];
-    return changed;
-}
-
 export async function checkRemoteUpdates() {
     if (!store.accountSession || !navigator.onLine) return;
     await refreshRemoteTrips();
     const repository = getTripRepository();
-    const pendingIds = new Set((await repository.listOutbox()).map((item) => item.tripId));
+    const pendingIds = new Set([
+        ...(await repository.listOutbox()).map((item) => item.tripId),
+        ...(await repository.listOperations()).map((item) => item.tripId),
+    ]);
     for (const local of await repository.listTrips({ includeArchived: true })) {
         if (!local.remote.id) continue;
         const remote = remoteLibrary.find((item) => item.id === local.remote.id);
@@ -340,17 +552,9 @@ export async function checkRemoteUpdates() {
             if (!pendingIds.has(local.id)) await dropRevokedTrip(local.id);
             continue;
         }
-        const membershipChanged = applyRemoteMembership(local, remote);
-        const documentChanged = !pendingIds.has(local.id)
-            && Number(remote.current_revision) > Number(local.remote.baseRevision);
-        if (documentChanged) {
-            const response = await client.getTrip(remote.id);
-            local.document = response.trip.document;
-            local.remote.baseRevision = Number(response.trip.current_revision);
-            local.remote.hash = response.trip.document_hash;
-            local.syncState = "synced";
-        }
-        if (documentChanged || membershipChanged) await updateEnvelope(local);
+        await reconcileRemoteTrip(local.id, "library-refresh", {
+            targetRevision: Number(remote.current_revision),
+        });
     }
 }
 
@@ -409,6 +613,8 @@ export async function leaveTrip(localId) {
 export async function initializeCloud() {
     const config = cloudClientConfig();
     client = createCloudClient({ ...config, csrfToken: () => csrf });
+    liveCollaborationCapability = (await client.health().catch(() => null))?.capabilities?.liveCollaboration
+        || { enabled: false, protocolVersion: 0 };
     const repository = getTripRepository();
     const cachedSession = await repository?.getPreference("accountSessionHint");
     if (cachedSession) {
@@ -420,12 +626,22 @@ export async function initializeCloud() {
     await refreshCloudSession();
     if (store.accountSession) {
         await refreshRemoteTrips().catch(() => {});
-        drainOutbox();
+        await drainOutbox();
+        await activateEligibleTrips();
+        await repository?.recoverSendingOperations();
+        await drainOperationOutbox();
+        if (store.activeTripId) await reconcileRemoteTrip(store.activeTripId, "startup").catch(() => {});
     }
     addEventListener("online", resumeSync);
     addEventListener("focus", async () => {
         await resumeSync();
         await checkRemoteUpdates();
+    });
+    document.addEventListener("active-trip-changed", () => {
+        if (store.activeTripId) void reconcileRemoteTrip(store.activeTripId, "active-trip").catch(() => {});
+    });
+    document.addEventListener("trip-operation-needed", (event) => {
+        void drainOperationOutbox(event.detail?.tripId || store.activeTripId);
     });
     return { available: store.cloudAvailability === "available", authenticated: Boolean(store.accountSession) };
 }

@@ -8,8 +8,22 @@ export const SYNC_COPY = {
     "auth-required": "Vuelve a iniciar sesión para sincronizar",
     error: "No se pudo sincronizar · puedes reintentar",
     conflict: "Conflicto · elige qué versión conservar",
+    "localized-conflict": "Conflicto localizado · revisa solo el cambio afectado",
     "pending-deletion": "Eliminación pendiente",
 };
+
+export function stateFromOperationQueue(entries = [], {
+    online = true,
+    authenticated = true,
+    fallback = "synced",
+} = {}) {
+    if (entries.some((entry) => entry.status === "conflict")) return "localized-conflict";
+    if (!entries.length) return fallback;
+    if (!online) return "offline";
+    if (!authenticated) return "auth-required";
+    if (entries.some((entry) => entry.status === "sending")) return "saving";
+    return "pending";
+}
 
 export const CLOUD_AVAILABILITY_COPY = {
     checking: "Comprobando la conexión con la nube…",

@@ -7,7 +7,8 @@
 
 import { daysEl } from "../../shared/dom.js";
 import { store } from "../../core/store.js";
-import { moveDay, moveSpot, moveTravelCard, render } from "./render.js";
+import { render } from "./render.js";
+import { moveDay, moveSpot, moveTravelCard } from "./commands.js";
 import { toast } from "../../shared/notify.js";
 
 let dragEl = null,
@@ -40,6 +41,23 @@ let dayDragEl = null,
 
 export function isDragInProgress() {
     return dragging || dayDragging;
+}
+
+export function activeDragTargetKeys() {
+    const keys = [];
+    if (dragSpotId) keys.push(`spot:${dragSpotId}`);
+    if (dragTravelKey) keys.push(`travel-leg:${dragTravelKey}`);
+    if (dragDayId) keys.push(`day:${dragDayId}`);
+    return keys;
+}
+
+export function cancelActiveDrag(message = "El plan cambió durante el arrastre.") {
+    const active = dragging || dayDragging || dragEl || dayDragEl;
+    if (!active) return false;
+    if (dragEl) onCancel();
+    if (dayDragEl) onDayCancel();
+    toast(message, "info");
+    return true;
 }
 
 function insertionPoint(list, y) {
@@ -89,6 +107,28 @@ function playFlip(first, elements, draggedElement, companionElement = null) {
     );
 }
 
+function createGhost(element, className, width) {
+    const clone = element.cloneNode(true);
+    clone.classList.add(className);
+    clone.classList.remove(
+        "presence-badge-host",
+        "has-collaborator-presence",
+        "has-same-target-presence",
+        "remote-change-highlight",
+    );
+    clone.removeAttribute("data-presence-target");
+    clone.removeAttribute("data-remote-change-by");
+    clone.style.removeProperty("--presence-color");
+    clone.style.removeProperty("--remote-change-color");
+    clone
+        .querySelectorAll("[data-presence-decoration]")
+        .forEach((decoration) => decoration.remove());
+    clone.setAttribute("aria-hidden", "true");
+    clone.style.width = `${width}px`;
+    document.body.append(clone);
+    return clone;
+}
+
 function endCleanup() {
     ghost?.remove();
     ghost = null;
@@ -120,10 +160,7 @@ function onMove(e) {
             endCleanup();
             return;
         }
-        ghost = dragEl.cloneNode(true);
-        ghost.classList.add("spot-ghost");
-        ghost.style.width = cardW + "px";
-        document.body.append(ghost);
+        ghost = createGhost(dragEl, "spot-ghost", cardW);
         // The connector rendered immediately after a stop is its outgoing
         // route. Keep that visual unit with the stop while the DOM is being
         // reordered; render() will replace it with the correct new pair on
@@ -267,10 +304,7 @@ function onDayMove(e) {
             Math.hypot(e.clientX - dayStartX, e.clientY - dayStartY) <= 5
         )
             return;
-        dayGhost = dayDragEl.cloneNode(true);
-        dayGhost.classList.add("day-ghost");
-        dayGhost.style.width = dayCardW + "px";
-        document.body.append(dayGhost);
+        dayGhost = createGhost(dayDragEl, "day-ghost", dayCardW);
         dayDragEl.classList.add("dragging");
         daysEl.classList.add("is-day-dragging");
         document.body.style.userSelect = "none";

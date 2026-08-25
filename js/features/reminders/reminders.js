@@ -1,4 +1,4 @@
-import { store, save } from "../../core/store.js";
+import { store } from "../../core/store.js";
 import {
     isCanonicalDate,
     localDateString,
@@ -10,9 +10,18 @@ import {
 import { $, esc, id } from "../../shared/dom.js";
 import { openModal } from "../../shared/modal.js";
 import { confirmAction, toast } from "../../shared/notify.js";
-import { drawMap } from "../map/map.js";
-import { pushUndo } from "../planner/history.js";
 import { render } from "../planner/render.js";
+import { createDraftAutosaveController } from "../../shared/draft-autosave.js";
+import {
+    deleteEntityIntent,
+    derivedPlanOperation,
+    insertEntityIntent,
+    updateFieldsIntent,
+} from "../../core/plan-operation-commit.js";
+import {
+    formatReminderDate as formatDate,
+    reminderSpotById as spotById,
+} from "./presentation.js";
 
 const dashboardDialog = $("#remindersDialog");
 const editorDialog = $("#reminderEditorDialog");
@@ -24,29 +33,10 @@ let editorReturnFocus = null;
 let renderedToday = localDateString();
 let spotOptionIndex = -1;
 
-const dateFormatter = new Intl.DateTimeFormat("es-ES", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-});
 const monthFormatter = new Intl.DateTimeFormat("es-ES", {
     month: "long",
     year: "numeric",
 });
-
-function dateObject(date) {
-    const [year, month, day] = date.split("-").map(Number);
-    return new Date(year, month - 1, day, 12);
-}
-
-function formatDate(date) {
-    return isCanonicalDate(date) ? dateFormatter.format(dateObject(date)) : "Fecha pendiente";
-}
-
-function spotById(spotId) {
-    return [...store.state.flatMap((day) => day.spots), ...store.backlog]
-        .find((spot) => spot.id === spotId);
-}
 
 function monthKey(date) {
     return isCanonicalDate(date) ? date.slice(0, 7) : localDateString().slice(0, 7);
@@ -60,40 +50,13 @@ function moveMonth(key, delta) {
 
 function reminderCard(item, { compact = false } = {}) {
     const linked = item.reminder.spotId ? spotById(item.reminder.spotId) : null;
-    return `<article class="reminder-card is-${item.status}${compact ? " is-compact" : ""}">
+    return `<article class="reminder-card is-${item.status}${compact ? " is-compact" : ""}" data-presence-target="reminder:${esc(item.reminder.id)}">
         <button type="button" data-reminder-edit="${esc(item.reminder.id)}" aria-label="Editar ${esc(item.reminder.title)}">
             <span class="reminder-card-state">${esc(item.countdown?.label || "Pendiente de fecha")}</span>
             <strong>${esc(item.reminder.title)}</strong>
             <small>${item.date ? esc(formatDate(item.date)) : "Asigna una fecha de referencia"}${linked ? ` · ${esc(linked.name)}` : ""}</small>
         </button>
     </article>`;
-}
-
-export function remindersForSpot(spotId) {
-    return sortPresentedReminders(
-        store.reminders.filter((reminder) => reminder.spotId === spotId),
-        store.state,
-        localDateString(),
-    );
-}
-
-function compactCountdownLabel(countdown) {
-    if (!countdown) return "Pendiente";
-    return countdown.days > 0 ? `${countdown.days}d` : countdown.label;
-}
-
-export function reminderStripMarkup(spotId) {
-    const reminders = remindersForSpot(spotId);
-    if (!reminders.length) return "";
-    return `<span class="spot-reminders" aria-label="Fechas clave">${reminders.map((item) => {
-        const fullCountdown = item.countdown?.label || "Pendiente";
-        return `<button type="button" data-reminder-edit="${esc(item.reminder.id)}" aria-label="${esc(`${item.reminder.title}, ${fullCountdown}`)}"><span aria-hidden="true">◷</span><b>${esc(item.reminder.title)}</b><small class="reminder-countdown-full">${esc(fullCountdown)}</small><small class="reminder-countdown-compact" aria-hidden="true">${esc(compactCountdownLabel(item.countdown))}</small></button>`;
-    }).join("")}</span>`;
-}
-
-export function reminderReadMarkup(spotId) {
-    const reminders = remindersForSpot(spotId);
-    return `<section class="place-read-card place-read-reminders"><div class="place-read-card-head"><span>Fechas clave</span><b>${reminders.length ? `${reminders.length} ${reminders.length === 1 ? "aviso" : "avisos"}` : "Sin avisos"}</b></div>${reminders.length ? `<div class="place-reminder-list">${reminders.map((item) => `<button type="button" data-reminder-edit="${esc(item.reminder.id)}"><span><strong>${esc(item.reminder.title)}</strong><small>${item.date ? esc(formatDate(item.date)) : "Pendiente de asignar la parada a un día"}</small></span><b>${esc(item.countdown?.label || "Pendiente")}</b></button>`).join("")}</div>` : ""}<div class="place-reminder-actions"><button type="button" data-reminder-create="${esc(spotId)}">＋ Crear aviso</button><button type="button" data-reminders-open>Abrir calendario</button></div></section>`;
 }
 
 function renderDashboard(items) {
@@ -267,6 +230,9 @@ export function openReminderEditor(reminderId, { spotId } = {}) {
     editorReturnFocus = document.activeElement;
     const reminder = store.reminders.find((item) => item.id === reminderId);
     editingId = reminder?.id || null;
+    editorDialog.dataset.presenceTarget = reminder?.id
+        ? `reminder:${reminder.id}`
+        : spotId ? `spot:${spotId}` : "section:reminders";
     $("#reminderEditorTitle").textContent = reminder ? "Editar recordatorio" : "Nuevo recordatorio";
     $("#reminderTitle").value = reminder?.title || "";
     $("#reminderNote").value = reminder?.note || "";
@@ -281,29 +247,42 @@ export function openReminderEditor(reminderId, { spotId } = {}) {
     $("#reminderAnchorDate").value = offset && anchor === "date" ? reminder.timing.anchor.date : "";
     $("#reminderDeleteBtn").hidden = !reminder;
     syncEditor();
+    reminderAutosave?.reset(editorCandidate());
     openModal(editorDialog);
     requestAnimationFrame(() => $("#reminderTitle").focus());
 }
 
-function commitMutation(mutator, message) {
-    pushUndo();
-    mutator();
-    save();
-    render();
-    drawMap();
+async function commitReminder(reminder, previousId, message) {
+    if (previousId) {
+        const fields = Object.fromEntries(Object.entries(reminder).filter(([key]) => key !== "id"));
+        const existing = store.reminders.find((item) => item.id === previousId);
+        const remove = ["note", "spotId", "pendingSpotAnchor"].filter((field) => !(field in reminder) && field in existing);
+        await derivedPlanOperation((document) => updateFieldsIntent(
+            document,
+            { type: "reminder", id: previousId },
+            fields,
+            { remove },
+        ));
+    } else {
+        await derivedPlanOperation(() => insertEntityIntent(
+            { type: "reminder", id: reminder.id },
+            reminder,
+        ));
+        editingId = reminder.id;
+        $("#reminderDeleteBtn").hidden = false;
+    }
     refreshRemindersView();
     document.dispatchEvent(new CustomEvent("reminders-changed"));
     toast(message, "info");
 }
 
-$("#reminderForm").addEventListener("submit", (event) => {
-    event.preventDefault();
+async function saveReminderEditor({ close = false } = {}) {
     const candidate = editorCandidate();
     const normalized = normalizeReminder(candidate);
     if (!candidate.title.trim()) {
         $("#reminderError").textContent = "Escribe un título para el recordatorio.";
         $("#reminderTitle").focus();
-        return;
+        return { status: "invalid" };
     }
     if (!normalized) {
         $("#reminderError").textContent = timingType() === "fixed"
@@ -311,25 +290,56 @@ $("#reminderForm").addEventListener("submit", (event) => {
             : anchorType() === "spot" && !candidate.spotId
               ? "Selecciona una parada para usar su día."
               : "Revisa la antelación y la fecha objetivo.";
-        return;
+        return { status: "invalid" };
     }
     const previousId = editingId;
-    commitMutation(() => {
-        const index = store.reminders.findIndex((item) => item.id === previousId);
-        if (index === -1) store.reminders.push(normalized);
-        else store.reminders[index] = normalized;
-    }, previousId ? "Recordatorio actualizado." : "Recordatorio creado.");
-    editorDialog.close();
+    await commitReminder(normalized, previousId, previousId ? "Recordatorio actualizado." : "Recordatorio creado.");
+    if (close) editorDialog.close();
+    return { status: "saved" };
+}
+
+$("#reminderForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await saveReminderEditor({ close: true });
 });
+
+const reminderAutosave = createDraftAutosaveController({
+    root: $("#reminderForm"),
+    read: editorCandidate,
+    validate: (candidate) => {
+        if (!candidate.title.trim()) return ["Escribe un título para el recordatorio."];
+        return normalizeReminder(candidate) ? [] : ["Completa una fecha o antelación válida."];
+    },
+    disabled: () => store.readOnly || !editorDialog.open,
+    debounceMs: 450,
+    commit: () => saveReminderEditor(),
+    onState: ({ state }) => {
+        if (state === "dirty" || state === "saving") $("#reminderError").textContent = "Autoguardando…";
+        else if (state === "saved") $("#reminderError").textContent = "Cambios autoguardados";
+        else if (state === "invalid") $("#reminderError").textContent = "Completa los campos marcados; el borrador sigue abierto";
+    },
+});
+
+editorDialog.addEventListener("click", async (event) => {
+    if (!event.target.closest(".cancel")) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const result = await reminderAutosave.flush("close");
+    if (result.status !== "invalid") editorDialog.close();
+}, true);
 
 $("#reminderDeleteBtn").addEventListener("click", async () => {
     const reminder = store.reminders.find((item) => item.id === editingId);
     if (!reminder) return;
     const ok = await confirmAction({ title: "Eliminar recordatorio", message: `¿Eliminar “${reminder.title}”?`, confirmLabel: "Eliminar" });
     if (!ok) return;
-    commitMutation(() => {
-        store.reminders = store.reminders.filter((item) => item.id !== reminder.id);
-    }, "Recordatorio eliminado.");
+    await derivedPlanOperation((document) => deleteEntityIntent(
+        document,
+        { type: "reminder", id: reminder.id },
+    ));
+    refreshRemindersView();
+    document.dispatchEvent(new CustomEvent("reminders-changed"));
+    toast("Recordatorio eliminado.", "info");
     editorDialog.close();
 });
 

@@ -8,7 +8,7 @@ const trip = (id, remoteId = null) => ({ id, remote: { id: remoteId }, pendingDe
 test("la acción cloud permanece visible y representa únicamente el viaje activo", () => {
     const trips = [trip("local"), trip("remote", "remote-id")];
     assert.equal(cloudSaveActionState({ activeTripId: "local", trips }).visible, true);
-    assert.equal(cloudSaveActionState({ activeTripId: "remote", trips }).visible, true);
+    assert.equal(cloudSaveActionState({ activeTripId: "remote", trips }).visible, false);
     assert.equal(cloudSaveActionState({ activeTripId: "missing", trips }).visible, true);
     assert.equal(cloudSaveActionState({ activeTripId: "missing", trips }).disabled, true);
 });
@@ -28,7 +28,7 @@ test("la acción global refleja sesión, disponibilidad y subida en curso", () =
 
     const uploading = cloudSaveActionState({ activeTripId: "active", trips, uploadingTripId: "active" });
     assert.equal(uploading.disabled, true);
-    assert.equal(uploading.label, "Guardando…");
+    assert.equal(uploading.label, "Subiendo…");
 });
 
 test("un viaje pendiente de borrado nunca se puede subir", () => {
@@ -39,10 +39,10 @@ test("un viaje pendiente de borrado nunca se puede subir", () => {
     assert.equal(state.disabled, true);
 });
 
-test("un viaje remoto sólo se puede guardar cuando tiene cambios pendientes", () => {
+test("un viaje remoto oculta el guardado manual porque sincroniza automáticamente", () => {
     const saved = { ...trip("active", "remote-id"), syncState: "synced" };
     const pending = { ...saved, syncState: "pending" };
     const context = { activeTripId: "active", accountSession: { authenticated: true }, cloudAvailability: "available" };
-    assert.equal(cloudSaveActionState({ ...context, trips: [saved] }).disabled, true);
-    assert.equal(cloudSaveActionState({ ...context, trips: [pending] }).disabled, false);
+    assert.equal(cloudSaveActionState({ ...context, trips: [saved] }).visible, false);
+    assert.equal(cloudSaveActionState({ ...context, trips: [pending] }).visible, false);
 });

@@ -1,9 +1,15 @@
-export function registerTripRoutes(app, controller, shareController, memberController, streamController) {
+export function registerTripRoutes(app, controller, shareController, memberController, streamController, presenceController) {
     app.get("/api/trips", controller.listTrips);
     app.post("/api/trips", controller.createTrip);
     app.get("/api/trips/:tripId/revisions", controller.listRevisions);
     app.get("/api/trips/:tripId/revisions/:revision", controller.getRevision);
     app.post("/api/trips/:tripId/mutations", controller.mutateTrip);
+    app.post("/api/v1/trips/:tripId/operations/activate", controller.activateTripOperations);
+    app.post("/api/v1/trips/:tripId/operations", controller.mutateTripOperation);
+    app.get("/api/v1/trips/:tripId/operations", controller.catchUpOperations);
+    app.get("/api/v1/trips/:tripId/presence", presenceController.snapshot);
+    app.put("/api/v1/trips/:tripId/presence/:presenceSessionId", presenceController.upsert);
+    app.delete("/api/v1/trips/:tripId/presence/:presenceSessionId", presenceController.leave);
     app.get("/api/trips/:tripId/events", streamController.streamTrip);
     app.get("/api/trips/:tripId/share", shareController.readShare);
     app.post("/api/trips/:tripId/share", shareController.share);

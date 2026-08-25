@@ -29,8 +29,13 @@ import { initCompanion } from "../features/companion/companion.js";
 import { refreshExchangeRate } from "../features/finance/currency.js";
 import { initializeTripWorkspace } from "../features/library/workspace.js";
 import { initializeCloud } from "../features/cloud/coordinator.js";
+import { getDeviceId } from "../features/cloud/coordinator.js";
 import { initializeLiveTripStream } from "../features/cloud/live-trip.js";
+import { initializePresence } from "../features/cloud/presence-coordinator.js";
+import "../features/cloud/presence-view.js";
 import { bootstrapPublicView, publicShareToken } from "../features/share/public-view.js";
+import { configurePlanOperationCommit } from "../core/plan-operation-commit.js";
+import { activeDragTargetKeys, cancelActiveDrag } from "../features/planner/dnd.js";
 
 function startExchangeRate() {
     refreshExchangeRate().then((ok) => {
@@ -54,6 +59,36 @@ if (shareToken) {
     if (publicView.loaded) startExchangeRate();
 } else {
     const workspace = await initializeTripWorkspace();
+    configurePlanOperationCommit({
+        getDeviceId,
+        repaint: () => {
+            render({ persist: false });
+            drawMap();
+        },
+        scheduleDrain: ({ mode, tripId }) => document.dispatchEvent(new CustomEvent(
+            mode === "granular" ? "trip-operation-needed" : "trip-sync-needed",
+            { detail: { tripId } },
+        )),
+    });
+    document.addEventListener("trip-remote-plan-applied", (event) => {
+        const remoteKeys = event.detail?.targetKeys || [];
+        const dragKeys = activeDragTargetKeys();
+        if (dragKeys.some((key) => remoteKeys.some((remote) => remote === key || remote.startsWith(`${key}:`)))) {
+            cancelActiveDrag("Otro colaborador cambió el elemento que estabas moviendo.");
+        }
+        const active = document.activeElement;
+        const focus = active?.id ? { id: active.id, start: active.selectionStart, end: active.selectionEnd } : null;
+        const scrollY = window.scrollY;
+        render({ persist: false });
+        drawMap();
+        requestAnimationFrame(() => {
+            window.scrollTo({ top: scrollY, behavior: "auto" });
+            if (!focus?.id) return;
+            const control = document.getElementById(focus.id);
+            control?.focus({ preventScroll: true });
+            if (Number.isInteger(focus.start)) control?.setSelectionRange?.(focus.start, focus.end);
+        });
+    });
     applyTitle();
     render();
     drawMap();
@@ -64,6 +99,7 @@ if (shareToken) {
     // Live collaboration only makes sense once the session is resolved: the
     // stream is authenticated by the same cookie the cloud bootstrap validates.
     initializeLiveTripStream();
+    initializePresence();
     if (!workspace.hasActiveTrip) document.querySelector("#libraryBtn")?.click();
 
     import("../features/assistant/llm-chat.js")

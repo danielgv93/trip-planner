@@ -1,9 +1,16 @@
-import { store, save } from "../../core/store.js";
+import { store, saveLocalPreferences } from "../../core/store.js";
 import { activeTripNotePage } from "../../core/note-pages.js";
 import { $, id } from "../../shared/dom.js";
 import { openModal } from "../../shared/modal.js";
 import { confirmAction, promptAction } from "../../shared/notify.js";
 import { extractNoteLinks, inlineMarkdown } from "./markdown.js";
+import { createDraftAutosaveController } from "../../shared/draft-autosave.js";
+import {
+    deleteEntityIntent,
+    derivedPlanOperation,
+    insertEntityIntent,
+    setFieldIntent,
+} from "../../core/plan-operation-commit.js";
 
 const notes = $("#tripNotes");
 const toggle = $("#tripNotesToggle");
@@ -20,6 +27,7 @@ const addPageButton = $("#tripNotesAddPage");
 const renamePageButton = $("#tripNotesRenamePage");
 const deletePageButton = $("#tripNotesDeletePage");
 let statusTimer;
+let notesAutosave;
 
 function currentPage() {
     return activeTripNotePage(store.tripNotePages, store.activeTripNotePageId);
@@ -195,7 +203,7 @@ function showMode(mode) {
 function selectPage(pageId, { focus = true } = {}) {
     if (!store.tripNotePages.some((page) => page.id === pageId)) return;
     store.activeTripNotePageId = pageId;
-    save();
+    saveLocalPreferences();
     syncTripNotes();
     status.textContent = "";
     if (focus && !notes.hidden) notes.focus();
@@ -206,10 +214,13 @@ export function syncTripNotes() {
     store.activeTripNotePageId = page.id;
     notes.value = page.content;
     notes.setAttribute("aria-label", `Notas: ${page.title}`);
+    notes.dataset.presenceTarget = `note-page:${page.id}:content`;
+    dialog.dataset.presenceTarget = `note-page:${page.id}`;
     summary.textContent = summaryText();
     renderTabs();
     renderIndex();
     renderEditorLinks();
+    notesAutosave?.reset({ pageId: page.id, content: page.content });
 }
 
 toggle.addEventListener("click", () => {
@@ -252,9 +263,12 @@ addPageButton.addEventListener("click", async () => {
         title: title.trim().slice(0, 50) || `Página ${store.tripNotePages.length + 1}`,
         content: "",
     };
-    store.tripNotePages.push(page);
+    await derivedPlanOperation(() => insertEntityIntent(
+        { type: "note-page", id: page.id },
+        page,
+    ));
     store.activeTripNotePageId = page.id;
-    save();
+    saveLocalPreferences();
     syncTripNotes();
     notes.focus();
 });
@@ -269,8 +283,12 @@ renamePageButton.addEventListener("click", async () => {
         inputPlaceholder: page.title,
     });
     if (title === null) return;
-    page.title = title.trim().slice(0, 50) || page.title;
-    save();
+    const nextTitle = title.trim().slice(0, 50) || page.title;
+    await derivedPlanOperation((document) => setFieldIntent(
+        document,
+        { type: "note-page", id: page.id, field: "title" },
+        nextTitle,
+    ));
     syncTripNotes();
 });
 
@@ -284,24 +302,38 @@ deletePageButton.addEventListener("click", async () => {
     });
     if (!accepted) return;
     const indexToDelete = store.tripNotePages.findIndex((item) => item.id === page.id);
-    store.tripNotePages.splice(indexToDelete, 1);
-    store.activeTripNotePageId =
-        store.tripNotePages[Math.min(indexToDelete, store.tripNotePages.length - 1)].id;
-    save();
+    const nextPageId = store.tripNotePages.filter((item) => item.id !== page.id)
+        [Math.min(indexToDelete, store.tripNotePages.length - 2)].id;
+    await derivedPlanOperation((document) => deleteEntityIntent(
+        document,
+        { type: "note-page", id: page.id },
+    ));
+    store.activeTripNotePageId = nextPageId;
+    saveLocalPreferences();
     syncTripNotes();
 });
 
-notes.addEventListener("input", () => {
-    currentPage().content = notes.value;
-    summary.textContent = summaryText();
-    renderIndex();
-    renderEditorLinks();
-    save();
-    status.textContent = "Guardando…";
-    clearTimeout(statusTimer);
-    statusTimer = setTimeout(() => {
-        status.textContent = "Guardado";
-    }, 350);
+notesAutosave = createDraftAutosaveController({
+    root: notes,
+    read: () => ({ pageId: currentPage().id, content: notes.value }),
+    disabled: () => store.readOnly,
+    debounceMs: 450,
+    commit: ({ pageId, content }) => derivedPlanOperation((document) => setFieldIntent(
+        document,
+        { type: "note-page", id: pageId, field: "content" },
+        content,
+    )),
+    onState: ({ state }) => {
+        if (state === "dirty" || state === "saving") status.textContent = "Guardando…";
+        if (state === "saved") {
+            summary.textContent = summaryText();
+            renderIndex();
+            renderEditorLinks();
+            status.textContent = "Guardado";
+            clearTimeout(statusTimer);
+            statusTimer = setTimeout(() => { status.textContent = ""; }, 900);
+        }
+    },
 });
 
 notes.addEventListener("blur", () => {

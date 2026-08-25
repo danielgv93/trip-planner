@@ -2,6 +2,7 @@ import { createApi } from "./api/create-api.js";
 import { loadConfig } from "./config/runtime-config.js";
 import { createDatabase } from "./infrastructure/postgres/database.js";
 import { migrate } from "./infrastructure/postgres/run-migrations.js";
+import { createMemoryTripEventBus, createPostgresTripEventBus } from "./realtime/trip-events.js";
 
 const config = loadConfig();
 let database;
@@ -22,7 +23,11 @@ if (config.cloudEnabled) {
         close: async () => {},
     };
 }
-const app = createApi({ database, config });
+const events = config.cloudEnabled
+    ? createPostgresTripEventBus({ database, logger: console })
+    : createMemoryTripEventBus();
+if (config.cloudEnabled) await events.start();
+const app = createApi({ database, config, events });
 
 const server = app.listen(config.port, config.host, () => {
     console.log(JSON.stringify({ event: "server_started", host: config.host, port: config.port, cloudEnabled: config.cloudEnabled }));
@@ -34,6 +39,7 @@ async function shutdown(signal) {
     closing = true;
     console.log(JSON.stringify({ event: "server_stopping", signal }));
     server.close(async () => {
+        await events.close();
         await database.close();
         process.exit(0);
     });

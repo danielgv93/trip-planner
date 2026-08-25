@@ -28,6 +28,7 @@ export function createTripEnvelope({
     remoteId = null,
     baseRevision = null,
     remoteHash = null,
+    protocolVersion = 0,
     role = null,
     ownerId = null,
     members = [],
@@ -50,6 +51,9 @@ export function createTripEnvelope({
             id: optionalString(remoteId),
             baseRevision,
             hash: optionalString(remoteHash),
+            protocolVersion: Number.isInteger(protocolVersion) && protocolVersion > 0
+                ? protocolVersion
+                : 0,
             // Collaboration metadata is a cached copy of what the server said
             // last: it drives the card and the affordances, never the
             // authorization, which only the API can decide.
@@ -77,6 +81,7 @@ export function normalizeTripEnvelope(value) {
         remoteId: value.remote?.id,
         baseRevision: value.remote?.baseRevision,
         remoteHash: value.remote?.hash,
+        protocolVersion: value.remote?.protocolVersion,
         role: value.remote?.role,
         ownerId: value.remote?.ownerId,
         members: value.remote?.members,

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 globalThis.document = { querySelector: () => null };
-const { buildTimelineProjection, createTimelineView } = await import("../js/features/companion/timeline.js");
+const { buildTimelineProjection, createTimelineView } = await import("../js/features/timeline/timeline.js");
 
 test("un waypoint es un hito sin duración de actividad", () => {
     const day = { date: "2026-07-20", startTime: "09:00", spots: [

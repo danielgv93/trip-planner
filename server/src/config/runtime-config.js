@@ -23,6 +23,9 @@ export function loadConfig(env = process.env) {
         nodeEnv,
         production: nodeEnv === "production",
         cloudEnabled,
+        granularSyncEnabled:
+            cloudEnabled && truthy.has(String(env.GRANULAR_SYNC_ENABLED || "false").toLowerCase()),
+        granularProtocolVersion: 1,
         port: integer(env, "PORT", 8787, { max: 65535 }),
         host: env.HOST || "127.0.0.1",
         appOrigin: origin(env.APP_ORIGIN || "http://localhost:8000"),
@@ -36,6 +39,14 @@ export function loadConfig(env = process.env) {
                 ? nodeEnv === "production"
                 : truthy.has(String(env.DATABASE_SSL).toLowerCase()),
         bodyLimitBytes: integer(env, "BODY_LIMIT_BYTES", 1_048_576),
+        operationBodyLimitBytes: integer(env, "OPERATION_BODY_LIMIT_BYTES", 65_536, { max: 262_144 }),
+        operationCatchupLimit: integer(env, "OPERATION_CATCHUP_LIMIT", 100, { max: 500 }),
+        operationRateLimit: integer(env, "OPERATION_RATE_LIMIT", 240, { min: 20, max: 5_000 }),
+        operationRateWindowMs: integer(env, "OPERATION_RATE_WINDOW_MS", 60_000, { min: 10_000, max: 600_000 }),
+        presenceTtlMs: integer(env, "PRESENCE_TTL_MS", 45_000, { min: 15_000, max: 120_000 }),
+        presenceRateLimit: integer(env, "PRESENCE_RATE_LIMIT", 120, { min: 10, max: 2_000 }),
+        presenceRateWindowMs: integer(env, "PRESENCE_RATE_WINDOW_MS", 60_000, { min: 10_000, max: 600_000 }),
+        presenceCleanupLimit: integer(env, "PRESENCE_CLEANUP_LIMIT", 500, { min: 10, max: 5_000 }),
         sessionDays: integer(env, "SESSION_DAYS", 30, { max: 90 }),
         trustProxy: truthy.has(String(env.TRUST_PROXY || "false").toLowerCase()),
     };

@@ -2,7 +2,19 @@ export function createSystemService({ database, config, metrics }) {
     return {
         async health() {
             const databaseHealth = config.cloudEnabled ? await database.health() : { ok: true, disabled: true };
-            return { ok: true, cloudEnabled: config.cloudEnabled, database: databaseHealth };
+            return {
+                ok: true,
+                cloudEnabled: config.cloudEnabled,
+                capabilities: {
+                    liveCollaboration: {
+                        enabled: Boolean(config.granularSyncEnabled),
+                        protocolVersion: config.granularSyncEnabled
+                            ? config.granularProtocolVersion
+                            : null,
+                    },
+                },
+                database: databaseHealth,
+            };
         },
         metrics() {
             return metrics.snapshot();

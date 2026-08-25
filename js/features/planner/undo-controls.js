@@ -2,6 +2,7 @@
 
 import { store } from "../../core/store.js";
 import { $ } from "../../shared/dom.js";
+import { toast } from "../../shared/notify.js";
 import { syncTripNotes } from "../notes/notes.js";
 import { drawMap, syncRouteVisualizationControl } from "../map/map.js";
 import { isDragInProgress } from "./dnd.js";
@@ -38,8 +39,15 @@ configureHistoryView(syncRestoredControls);
 
 const undoButton = $("#undoBtn");
 const redoButton = $("#redoBtn");
-undoButton.onclick = undo;
-redoButton.onclick = redo;
+async function runHistoryAction(action) {
+    try {
+        await action();
+    } catch {
+        toast("No se pudo aplicar el historial porque el mismo dato cambió en otra sesión.", "error");
+    }
+}
+undoButton.onclick = () => void runHistoryAction(undo);
+redoButton.onclick = () => void runHistoryAction(redo);
 subscribeHistory(({ canUndo, canRedo }) => {
     undoButton.disabled = !canUndo;
     redoButton.disabled = !canRedo;
@@ -60,6 +68,6 @@ window.addEventListener("keydown", (event) => {
         return;
 
     event.preventDefault();
-    if (event.shiftKey) redo();
-    else undo();
+    if (event.shiftKey) void runHistoryAction(redo);
+    else void runHistoryAction(undo);
 });

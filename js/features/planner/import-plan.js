@@ -1,22 +1,22 @@
 // Application-level import workflow. The portable codec stays in core while
 // this module owns the browser/UI synchronization required after replacing a plan.
 
-import { store, replacePlanState, save } from "../../core/store.js";
+import { store } from "../../core/store.js";
 import { clearHealthResults } from "../health/session.js";
 import { normalizePlan } from "../../core/plan-json.js";
-import { applyTitle, render } from "./render.js";
-import { drawMap, syncRouteVisualizationControl } from "../map/map.js";
+import { applyTitle } from "./render.js";
+import { syncRouteVisualizationControl } from "../map/map.js";
 import { syncTripNotes } from "../notes/notes.js";
-import { pushUndo } from "./history.js";
+import { derivedPlanOperation, replacePlanIntent } from "../../core/plan-operation-commit.js";
 
 function setControlValue(selector, value) {
     const control = document.querySelector(selector);
     if (control) control.value = value;
 }
 
-export function applyImportedPlan(plan) {
-    pushUndo();
-    replacePlanState(normalizePlan(plan));
+export async function applyImportedPlan(plan) {
+    const normalized = normalizePlan(plan);
+    await derivedPlanOperation((document) => replacePlanIntent(document, normalized));
     clearHealthResults();
 
     document.body.classList.remove("preview-mode");
@@ -51,7 +51,4 @@ export function applyImportedPlan(plan) {
     syncRouteVisualizationControl();
     applyTitle();
     syncTripNotes();
-    save();
-    render();
-    drawMap();
 }

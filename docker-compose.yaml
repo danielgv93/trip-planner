@@ -25,6 +25,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       CLOUD_ENABLED: "true"
+      GRANULAR_SYNC_ENABLED: ${GRANULAR_SYNC_ENABLED:-false}
       HOST: 0.0.0.0
       PORT: 8787
       APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8000}
@@ -35,13 +36,15 @@ services:
       DATABASE_STATEMENT_TIMEOUT_MS: ${DATABASE_STATEMENT_TIMEOUT_MS:-10000}
       DATABASE_SSL: ${DATABASE_SSL:-false}
       BODY_LIMIT_BYTES: ${BODY_LIMIT_BYTES:-1048576}
+      OPERATION_BODY_LIMIT_BYTES: ${OPERATION_BODY_LIMIT_BYTES:-65536}
+      OPERATION_CATCHUP_LIMIT: ${OPERATION_CATCHUP_LIMIT:-100}
       SESSION_DAYS: ${SESSION_DAYS:-30}
       TRUST_PROXY: "true"
     depends_on:
       db:
         condition: service_healthy
-    expose:
-      - "8787"
+    ports:
+      - "8787:8787"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s

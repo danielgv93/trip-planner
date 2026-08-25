@@ -2,7 +2,7 @@
 // uses vector labels with Latin/English names alongside the local name when
 // available, without requiring an API key.
 
-import { store, save } from "../../core/store.js";
+import { store, saveLocalPreferences } from "../../core/store.js";
 import { $ } from "../../shared/dom.js";
 
 function clearOpenFreeMapAttribution(map) {
@@ -93,7 +93,7 @@ if (select) {
         store.basemap = BASEMAPS[event.target.value]
             ? event.target.value
             : "liberty";
-        save();
+        saveLocalPreferences();
         for (const record of maps) applyBasemap(record);
     });
 }

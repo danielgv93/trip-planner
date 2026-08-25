@@ -5,7 +5,6 @@
 import { $, esc } from "../../shared/dom.js";
 import {
     store,
-    save,
     spotIsEnabled,
     routeTimeOverride,
     routeTimeProfile,
@@ -19,8 +18,9 @@ import {
     mapsLinkFor,
     cachedRouteTravelMinutes,
 } from "../map/map.js";
-import { createTimelineView } from "./timeline.js";
+import { createTimelineView } from "../timeline/timeline.js";
 import { registerBasemapMap } from "../map/basemap.js";
+import { derivedPlanOperation, setFieldIntent } from "../../core/plan-operation-commit.js";
 import { timeToMinutes } from "../../core/time.js";
 import {
     localDateKey,
@@ -43,7 +43,7 @@ export {
     orientationHeadingFromEvent,
     preferredHeading,
 };
-export { buildTimelineProjection } from "./timeline.js";
+export { buildTimelineProjection } from "../timeline/timeline.js";
 
 let companionActive = false;
 let selectedDayId = null;
@@ -881,34 +881,37 @@ export function toggleVisit(spotId, checked) {
     const spot = day?.spots.find((candidate) => String(candidate.id) === spotId);
     if (!spot || !spotIsEnabled(spot)) return false;
 
-    if (checked) spot.visitedAt = new Date().toISOString();
-    else delete spot.visitedAt;
-
-    save();
-    renderCompanion();
+    const visitedAt = checked ? new Date().toISOString() : undefined;
+    void derivedPlanOperation((document) => setFieldIntent(
+        document,
+        { type: "spot", id: spotId, field: "visitedAt" },
+        visitedAt,
+        { remove: !checked },
+    )).then(() => {
+        renderCompanion();
+        didInitialCenter = false;
+        drawCompanionMap();
+        const updatedDay = selectedDay();
+        const { completed, total } = visitProgress(updatedDay);
+        const next = nextUnvisitedStop(updatedDay);
+        requestAnimationFrame(() => {
+            const checkbox = [...companionView.querySelectorAll(
+                'input[data-companion-action="toggle-visit"]',
+            )].find((candidate) => candidate.dataset.spotId === spotId);
+            checkbox?.focus();
+            const status = $("#companionVisitStatus");
+            const mutation = checked
+                ? `${name} marcada como visitada.`
+                : `${name} vuelve a estar pendiente.`;
+            const nextMessage = next
+                ? ` Siguiente parada: ${stringValue(next.name, "Parada sin nombre") || "Parada sin nombre"}.`
+                : total ? " Día completado." : "";
+            status.textContent = `${mutation} Progreso: ${completed} de ${total}.${nextMessage}`;
+        });
+    });
     // Completing a stop changes the navigation target. Frame the user and the
     // new next stop together instead of leaving the map on the old target.
-    didInitialCenter = false;
-    drawCompanionMap();
-    const { completed, total } = visitProgress(day);
-    const next = nextUnvisitedStop(day);
     const name = stringValue(spot.name, "Parada sin nombre") || "Parada sin nombre";
-    requestAnimationFrame(() => {
-        const checkbox = [...companionView.querySelectorAll(
-            'input[data-companion-action="toggle-visit"]',
-        )].find((candidate) => candidate.dataset.spotId === spotId);
-        checkbox?.focus();
-        const status = $("#companionVisitStatus");
-        const mutation = checked
-            ? `${name} marcada como visitada.`
-            : `${name} vuelve a estar pendiente.`;
-        const nextMessage = next
-            ? ` Siguiente parada: ${stringValue(next.name, "Parada sin nombre") || "Parada sin nombre"}.`
-            : total
-              ? " Día completado."
-              : "";
-        status.textContent = `${mutation} Progreso: ${completed} de ${total}.${nextMessage}`;
-    });
     return true;
 }
 

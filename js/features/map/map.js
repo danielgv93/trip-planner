@@ -5,7 +5,6 @@
 //
 import {
     store,
-    save,
     dayBy,
     categoryMeta,
     categoryConnects,
@@ -22,6 +21,7 @@ import { fetchSpotImage } from "./images.js";
 import { registerBasemapMap } from "./basemap.js";
 import { createRouteCache } from "./route-cache.js";
 import { highlightItinerarySpot } from "../planner/spot-highlight.js";
+import { derivedPlanOperation, setFieldIntent } from "../../core/plan-operation-commit.js";
 
 const usesCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
 const map = L.map("map", {
@@ -178,9 +178,12 @@ export function dayDirectionsLink(spots) {
 // previously-used mode reuses cached legs (no refetch).
 $("#routeProfile").value = store.routeProfile;
 $("#routeProfile").addEventListener("change", (e) => {
-    store.routeProfile = e.target.value;
-    save();
-    drawMap();
+    const value = e.target.value;
+    void derivedPlanOperation((document) => setFieldIntent(
+        document,
+        { type: "plan", id: "plan", field: "routeProfile" },
+        value,
+    ));
 });
 
 export function syncRouteVisualizationControl() {
@@ -190,10 +193,12 @@ export function syncRouteVisualizationControl() {
 $("#routeVisualization").value = store.routeVisualization;
 syncRouteVisualizationControl();
 $("#routeVisualization").addEventListener("change", (e) => {
-    store.routeVisualization = e.target.value;
-    syncRouteVisualizationControl();
-    save();
-    drawMap();
+    const value = e.target.value;
+    void derivedPlanOperation((document) => setFieldIntent(
+        document,
+        { type: "plan", id: "plan", field: "routeVisualization" },
+        value,
+    )).then(syncRouteVisualizationControl);
 });
 
 function icon(n, color) {

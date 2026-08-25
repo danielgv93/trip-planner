@@ -54,9 +54,11 @@ Module map (paths are relative to `js/`):
 - **`core/itinerary.js`** / **`core/travel-legs.js`** / **`core/travel-leg-presentation.js`** — portable spot-role, position-constraint, and directed travel-leg contracts.
 - **`core/plan-metadata.js`** / **`core/note-pages.js`** / **`core/reminders.js`** — normalized scheduling metadata, multi-page notes, and date/reminder rules.
 - **`core/undo-stack.js`** — bounded domain-neutral undo/redo engine; the planner owns captured snapshot fields.
+- **`core/plan-operation-commit.js`** — shared optimistic operation commit and persistence boundary used by every mutating feature.
 - **`shared/dom.js`** / **`shared/modal.js`** / **`shared/notify.js`** — stateless DOM, modal, and notification helpers.
 - **`shared/request-cache.js`** — reusable asynchronous in-memory/persistent request cache.
-- **`features/planner/`** — destructive itinerary rendering, dialogs, actions, plan-application workflow, session history, drag/drop, sticky days, and search.
+- **`features/planner/`** — destructive itinerary rendering, dialogs, actions, plan-application workflow, session history, drag/drop, sticky days, and search. `render.js` is the stable facade; timeline/travel editing lives in `timeline-editor.js` and duplicate/move commands in `commands.js`.
+- **`features/timeline/`** — timeline projection and shared HTML view consumed by planner, companion, and health.
 - **`features/map/`** — Leaflet maps, shared basemaps, persistent OSRM route cache, routes, and place images.
 - **`features/finance/`** — budget and exchange-rate behavior.
 - **`features/notes/`** — autosaved multi-page trip notes and Markdown preview.

@@ -4,6 +4,7 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#1d2d36" />
+        <meta name="trip-planner-cloud" data-api-base="http://localhost:8787" />
         <title>Planificador de ruta</title>
         <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -22,7 +23,8 @@
         />
         <link rel="stylesheet" href="styles/app.css" />
     </head>
-    <body>
+<body>
+        <div id="collaborationLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
         <div id="publicViewBanner" class="public-view-banner" hidden>
             <span aria-hidden="true">◎</span>
             <p>
@@ -122,18 +124,19 @@
                             <span class="nav-group-title sync-section-title">Online</span>
                             <div id="tripPersistenceBar" class="trip-persistence-bar" role="status">
                                 <span id="tripPersistenceStatus">Solo en este dispositivo</span>
+                                <button id="tripPersistenceReview" type="button" hidden>Revisar</button>
                                 <button id="tripPersistenceExport" type="button" hidden>Exportar ahora</button>
                             </div>
                             <button
                                 id="saveCloudBtn"
                                 class="save-cloud-button"
                                 type="button"
-                                aria-label="Guardar en la nube"
-                                title="Guardar en la nube (Ctrl/Cmd + S)"
+                                aria-label="Subir a la nube"
+                                title="Subir este viaje a la nube"
                                 disabled
                             >
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4 4 0 0 1 .3-8 5.5 5.5 0 0 1 10.5 1.4A3.6 3.6 0 0 1 17.5 18"/><path d="M12 21v-8"/><path d="m9 15.5 3-3 3 3"/></svg>
-                                <span class="save-cloud-label">Guardar en la nube</span>
+                                <span class="save-cloud-label">Subir a la nube</span>
                             </button>
                             <button id="historyOpenBtn" type="button" aria-haspopup="dialog" aria-controls="historyDialog"><span aria-hidden="true">↶</span> Historial de versiones</button>
                             <span class="nav-group-divider" aria-hidden="true"></span>
@@ -618,8 +621,7 @@
                 <p class="form-hint">El timeline y las paradas siguientes se recalcularán al guardar.</p>
                 <div class="form-actions">
                     <button id="removeDuration" class="duration-remove" type="button">Quitar estimación</button>
-                    <button type="button" class="cancel">Cancelar</button>
-                    <button class="save">Guardar</button>
+                    <button type="button" class="cancel">Cerrar</button>
                 </div>
             </form>
         </dialog>
@@ -700,8 +702,7 @@
                 <div class="form-actions travel-time-actions">
                     <button id="deleteTravelLeg" class="travel-delete" type="button" hidden>Eliminar configuración</button>
                     <button id="resetTravelTime" class="travel-reset" type="button" hidden>↺ Volver a la estimación</button>
-                    <button type="button" class="cancel">Cancelar</button>
-                    <button class="save" id="travelSaveButton">Guardar trayecto</button>
+                    <button type="button" class="cancel">Cerrar</button>
                 </div>
             </form>
         </dialog>
@@ -750,7 +751,7 @@
                     </div>
                 </section>
                 <p id="reminderError" class="field-error reminder-error" role="alert"></p>
-                <div class="form-actions reminder-form-actions"><button id="reminderDeleteBtn" class="reminder-delete" type="button" hidden>Eliminar recordatorio</button><button type="button" class="cancel">Cancelar</button><button class="save" type="submit">Guardar recordatorio</button></div>
+                <div class="form-actions reminder-form-actions"><button id="reminderDeleteBtn" class="reminder-delete" type="button" hidden>Eliminar recordatorio</button><button type="button" class="cancel">Cerrar</button></div>
             </form>
         </dialog>
         <dialog id="healthDialog" class="health-dialog" aria-labelledby="healthDialogTitle">
@@ -866,7 +867,7 @@
             <p id="placeDialogStatus" class="sr-only" role="status" aria-live="polite"></p>
             <footer class="place-inspector-actions">
                 <div id="placeReadActions"><button id="placeEditButton" class="save" type="button">Editar parada</button></div>
-                <div id="placeEditActions"><button id="placeDiscardButton" type="button">Descartar</button><button id="placeSaveButton" class="save" type="submit" form="placeForm">Guardar cambios</button></div>
+                <div id="placeEditActions"><button id="placeDiscardButton" type="button">Descartar</button><button id="placeSaveButton" class="save" type="submit" form="placeForm">Añadir parada</button></div>
             </footer>
         </dialog>
         <dialog id="tagDialog">
@@ -1075,6 +1076,12 @@
                 <button type="button" data-conflict-action="local"><strong>Conservar mis cambios</strong><small>Se publicarán como una revisión nueva tras confirmar.</small></button>
                 <button type="button" data-conflict-action="copy"><strong>Guardar como otro viaje</strong><small>Ambas propuestas tendrán identidades independientes.</small></button>
             </div>
+        </dialog>
+        <dialog id="localizedConflictDialog" class="conflict-dialog localized-conflict-dialog">
+            <div class="modal-head"><div><span class="modal-eyebrow">Colaboración en vivo</span><h3>Revisa cambios concretos</h3></div><button class="close" aria-label="Cerrar">×</button></div>
+            <p class="localized-conflict-intro">Solo se detuvieron las operaciones que tocaron el mismo dato. Los demás cambios continúan sincronizándose.</p>
+            <div id="localizedConflictList" class="localized-conflict-list"></div>
+            <p id="localizedConflictStatus" class="history-status" role="status" aria-live="polite"></p>
         </dialog>
         <dialog id="historyDialog" class="history-dialog">
             <div class="modal-head"><div><span class="modal-eyebrow">Historial remoto</span><h3>Versiones del viaje</h3></div><button class="close" aria-label="Cerrar">×</button></div>
@@ -1320,6 +1327,13 @@
                 <footer>El asistente propondrá los cambios antes de aplicarlos.</footer>
             </section>
         </aside>
+        <div
+            id="collaborationPresence"
+            class="collaboration-presence"
+            role="status"
+            aria-label="Personas conectadas a este viaje"
+            hidden
+        ></div>
         <div
             id="toasts"
             class="toasts"
