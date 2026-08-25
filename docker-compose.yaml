@@ -6,8 +6,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-trip_planner}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
     ports:
-      #- "${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
-      - "5432:5432"
+      - "${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
+      #- "5432:5432"
     volumes:
       - trip_planner_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -43,8 +43,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "8787:8787"
+    expose:
+      - "8787"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
