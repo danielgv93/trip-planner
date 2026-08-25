@@ -11,7 +11,7 @@
         width: min(31vw, 320px);
     }
     .top-search {
-        width: 100%;
+        width: clamp(170px, 15vw, 230px);
     }
 }
 
@@ -30,7 +30,7 @@
         width: min(46vw, 330px);
     }
     .top-search {
-        width: 100%;
+        width: clamp(180px, 20vw, 260px);
     }
     .top-actions {
         position: relative;
@@ -197,10 +197,12 @@ body.preview-mode .spot.travel-card {
     .currency-picker-arrow { justify-self: center; transform: rotate(90deg); }
     .exchange-rate-card { align-items: flex-start; flex-direction: column; gap: 6px; }
     .top-search {
+        position: static;
         width: 38px;
         height: 38px;
         justify-content: center;
         padding: 0;
+        transform: none;
     }
     .top-search-label,
     .top-search kbd {
@@ -435,7 +437,7 @@ body.preview-mode .spot.travel-card {
     body.compact-itinerary .category-badge { display: inline-flex; }
 }
 
-@media (min-width: 601px) and (max-width: 860px) {
+@media (min-width: 601px) and (max-width: 1080px) {
     .top {
         min-height: 112px;
         grid-template-columns: minmax(0, 1fr) auto;
@@ -448,6 +450,7 @@ body.preview-mode .spot.travel-card {
         font-size: 20px;
     }
     .top-search {
+        position: static;
         width: min(420px, 65vw);
         height: auto;
         grid-column: 1 / -1;
@@ -455,6 +458,7 @@ body.preview-mode .spot.travel-card {
         justify-self: center;
         justify-content: space-between;
         padding: 9px 11px;
+        transform: none;
     }
     .top-search-label,
     .top-search kbd {

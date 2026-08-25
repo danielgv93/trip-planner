@@ -27,6 +27,14 @@ function activeModal() {
     return openModals.at(-1) || [...document.querySelectorAll("dialog[open]")].at(-1) || null;
 }
 
+function keepModalInViewport(modal) {
+    // Some WebViews still lay out modal dialogs as absolute elements despite
+    // the shared fixed-position rule. Compensate only in that case; `translate`
+    // composes with feature animations that use `transform`.
+    const isFixed = getComputedStyle(modal).position === "fixed";
+    modal.style.translate = isFixed ? "" : `${window.scrollX}px ${window.scrollY}px`;
+}
+
 function blockBackgroundScroll(event) {
     const modal = activeModal();
     if (!modal) return;
@@ -63,6 +71,7 @@ export function setupModal(modal) {
     modal.addEventListener("close", () => {
         const index = openModals.lastIndexOf(modal);
         if (index !== -1) openModals.splice(index, 1);
+        modal.style.translate = "";
     });
 }
 
@@ -75,8 +84,13 @@ export function openModal(modal) {
     if (!modal.open) {
         modal.showModal();
         openModals.push(modal);
+        keepModalInViewport(modal);
     }
 }
 
 document.addEventListener("wheel", blockBackgroundScroll, { capture: true, passive: false });
+window.addEventListener("scroll", () => {
+    const modal = activeModal();
+    if (modal) keepModalInViewport(modal);
+}, { passive: true });
 setupModals();

@@ -214,7 +214,9 @@ button {
     gap: 9px;
 }
 .top-search {
-    width: 100%;
+    position: absolute;
+    left: 50%;
+    width: min(300px, 22vw);
     min-width: 0;
     justify-content: space-between;
     padding: 9px 11px;
@@ -223,6 +225,16 @@ button {
     background: #ffffff0a;
     color: #fff;
     font-size: 13px;
+    transform: translateX(-50%);
+}
+.top-search-icon {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
 }
 .top-search:hover,
 .top-search:focus-visible {

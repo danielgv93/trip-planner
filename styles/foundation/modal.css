@@ -1,8 +1,11 @@
 /* Shared native-dialog shell. Feature styles only change dimensions and the
    content inside this common frame. */
 dialog {
+    position: fixed;
+    inset: 0;
     border: 0;
     border-radius: 9px;
+    margin: auto;
     padding: 0;
     box-shadow: 0 20px 60px #1a23284d;
     width: min(450px, calc(100% - 32px));
