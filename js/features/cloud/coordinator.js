@@ -179,6 +179,7 @@ export async function uploadLocalTrip(localId) {
         role: trip.role,
         ownerId: trip.owner_id,
         members: trip.members,
+        lastModifiedBy: trip.last_modified_by,
     });
     await refreshRemoteTrips();
     return repository.getTrip(localId);
@@ -200,6 +201,7 @@ export async function openRemoteTrip(remoteId) {
         role: remote.role,
         ownerId: remote.owner_id,
         members: remote.members,
+        lastModifiedBy: remote.last_modified_by,
         archived: Boolean(remote.archived_at),
         syncState: "synced",
     });
@@ -431,6 +433,7 @@ async function reconcileRemoteTripOnce(localId, reason, { targetRevision = 0, is
         latest.remote.role = remote.role;
         latest.remote.ownerId = remote.owner_id;
         latest.remote.members = remote.members || [];
+        latest.remote.lastModifiedBy = remote.last_modified_by || null;
         if (decision === "pending-local") {
             latest.syncState = latest.syncState === "conflict" ? "conflict" : "pending";
             await repository.putTrip(latest);

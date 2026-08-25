@@ -14,6 +14,7 @@ export function createIncrementalTripSync({
             revision: Number(remote.current_revision),
             remoteHash: remote.document_hash,
         });
+        rebased.envelope.remote.lastModifiedBy = remote.last_modified_by || null;
         await onEnvelope(rebased.envelope, {
             mode: "snapshot",
             reason,
@@ -32,13 +33,20 @@ export function createIncrementalTripSync({
             if (Number(envelope.remote.protocolVersion) < 1) return applySnapshot(localId, envelope, "legacy");
             const after = Number(envelope.remote.baseRevision) || 0;
             if (state.targetRevision && after >= state.targetRevision) {
-                if (applied.length) await onEnvelope(envelope, { mode: "operations", targetKeys: [...targetKeys], applied });
+                if (applied.length) {
+                    envelope.remote.lastModifiedBy = applied.at(-1)?.actor || envelope.remote.lastModifiedBy;
+                    await onEnvelope(envelope, { mode: "operations", targetKeys: [...targetKeys], applied });
+                }
                 return { status: applied.length ? "applied" : "up-to-date", revision: after, applied, targetKeys: [...targetKeys] };
             }
             const batch = await client.catchUpTripOperations(envelope.remote.id, { after, limit: 100 });
             if (batch.snapshotRequired) return applySnapshot(localId, envelope, "server-required");
             if (!batch.operations?.length) {
-                if (applied.length) await onEnvelope(await repository.getTrip(localId), { mode: "operations", targetKeys: [...targetKeys], applied });
+                if (applied.length) {
+                    const latest = await repository.getTrip(localId);
+                    latest.remote.lastModifiedBy = applied.at(-1)?.actor || latest.remote.lastModifiedBy;
+                    await onEnvelope(latest, { mode: "operations", targetKeys: [...targetKeys], applied });
+                }
                 return { status: applied.length ? "applied" : "up-to-date", revision: Number(batch.currentRevision), applied, targetKeys: [...targetKeys] };
             }
             for (const remote of batch.operations) {
@@ -49,6 +57,7 @@ export function createIncrementalTripSync({
             }
             const latest = await repository.getTrip(localId);
             if (!batch.hasMore && Number(latest.remote.baseRevision) >= Math.max(Number(batch.currentRevision) || 0, state.targetRevision || 0)) {
+                latest.remote.lastModifiedBy = applied.at(-1)?.actor || latest.remote.lastModifiedBy;
                 await onEnvelope(latest, { mode: "operations", targetKeys: [...targetKeys], applied });
                 return { status: "applied", revision: Number(latest.remote.baseRevision), applied, targetKeys: [...targetKeys] };
             }

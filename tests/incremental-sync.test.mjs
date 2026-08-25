@@ -19,6 +19,7 @@ function scalar(id, from, to, revision) {
     return {
         revision,
         hash: `hash-${revision}`,
+        actor: { userId: `remote-${revision}`, displayName: `Colaborador ${revision}` },
         targetKeys: [`spot:${id}:cost`],
         operation: {
             protocolVersion: 1,
@@ -56,6 +57,10 @@ test("catch-up aplica una ráfaga en orden y notifica un único lote", async () 
     assert.equal(second.revision, 3);
     assert.equal(notifications.length, 1);
     assert.deepEqual(notifications[0].envelope.document.days[0].spots.map((spot) => spot.cost), [11, 21]);
+    assert.deepEqual(notifications[0].envelope.remote.lastModifiedBy, {
+        userId: "remote-3",
+        displayName: "Colaborador 3",
+    });
 });
 
 test("un solape pide snapshot y reproduce la outbox conservando solo conflictos locales", async () => {
@@ -72,7 +77,13 @@ test("un solape pide snapshot y reproduce la outbox conservando solo conflictos 
         repository,
         client: {
             catchUpTripOperations: async () => ({ currentRevision: 2, snapshotRequired: false, hasMore: false, operations: [serverRemote] }),
-            getTrip: async () => ({ trip: { id: "remote", document: applyPlanOperation(baseDocument(), serverRemote.operation).document, current_revision: 2, document_hash: "hash-2" } }),
+            getTrip: async () => ({ trip: {
+                id: "remote",
+                document: applyPlanOperation(baseDocument(), serverRemote.operation).document,
+                current_revision: 2,
+                document_hash: "hash-2",
+                last_modified_by: serverRemote.actor,
+            } }),
         },
         onEnvelope: async (next, detail) => snapshots.push({ next, detail }),
     });
@@ -80,6 +91,7 @@ test("un solape pide snapshot y reproduce la outbox conservando solo conflictos 
     assert.equal(result.status, "snapshot");
     assert.equal(result.conflicts.length, 1);
     assert.equal(snapshots[0].next.document.days[0].spots[0].cost, 14);
+    assert.deepEqual(snapshots[0].next.remote.lastModifiedBy, serverRemote.actor);
 });
 
 test("un hueco o revisión legacy usa directamente el snapshot indicado por el servidor", async () => {

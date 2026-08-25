@@ -116,6 +116,30 @@ button {
 .brand-meta > small {
     margin-top: 0;
 }
+.trip-updated-at {
+    position: relative;
+    display: block;
+    max-width: 175px;
+    padding-left: 10px;
+    overflow: hidden;
+    color: #c8d3d2;
+    font: 500 10px "DM Mono";
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.trip-updated-at::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #79b9a5;
+    transform: translateY(-50%);
+}
+.trip-updated-at[hidden] { display: none; }
+.trip-updated-at-compact { display: none; }
 .currency-config-trigger {
     display: inline-flex;
     align-items: center;

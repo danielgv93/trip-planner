@@ -1,10 +1,11 @@
 import { parsePortablePlanJson } from "../../core/portable-plan.js";
 import { store } from "../../core/store.js";
 import { openModal } from "../../shared/modal.js";
+import { modifiedAtLabel } from "../../shared/modified-at.js";
 import { confirmAction, promptAction, toast } from "../../shared/notify.js";
 import { drawMap, syncRouteVisualizationControl } from "../map/map.js";
 import { syncTripNotes } from "../notes/notes.js";
-import { applyTitle, render } from "../planner/render.js";
+import { applyLastModified, applyTitle, render } from "../planner/render.js";
 import { preflightActiveEditor } from "../planner/active-editor.js";
 import {
     archiveTrip,
@@ -19,6 +20,7 @@ import {
 } from "./workspace.js";
 import {
     drainOutbox,
+    getCurrentUserId,
     getRemoteLibrary,
     leaveTrip,
     openRemoteTrip,
@@ -42,15 +44,7 @@ let searchTerm = "";
 let uploadingTripId = null;
 let menuTrigger = null;
 
-const stampFormatter = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
 const dayFormatter = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" });
-const relativeFormatter = new Intl.RelativeTimeFormat("es-ES", { numeric: "auto" });
-const RELATIVE_STEPS = [
-    ["minute", 60_000, 60],
-    ["hour", 3_600_000, 24],
-    ["day", 86_400_000, 7],
-    ["week", 604_800_000, 4.35],
-];
 
 function repaintActiveTrip() {
     document.body.classList.toggle("compact-itinerary", store.itineraryDensity === "compact");
@@ -91,18 +85,6 @@ const SYNC_TONE = {
 // Search must ignore accents so "japon" still matches "Japón".
 function foldText(value) {
     return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-
-function relativeUpdated(value) {
-    const stamp = new Date(value);
-    if (Number.isNaN(stamp.getTime())) return { label: "Sin fecha", title: "" };
-    const elapsed = Date.now() - stamp.getTime();
-    if (elapsed < 60_000) return { label: "Ahora mismo", title: stampFormatter.format(stamp) };
-    for (const [unit, ms, limit] of RELATIVE_STEPS) {
-        const amount = elapsed / ms;
-        if (amount < limit) return { label: relativeFormatter.format(-Math.round(amount), unit), title: stampFormatter.format(stamp) };
-    }
-    return { label: stampFormatter.format(stamp), title: stampFormatter.format(stamp) };
 }
 
 // Card metadata comes straight from the portable document, so remote-only trips
@@ -224,6 +206,7 @@ function openCardMenu(trigger, trip) {
 }
 
 function libraryEntries() {
+    const remoteById = new Map(getRemoteLibrary().map((trip) => [trip.id, trip]));
     const localByRemote = new Map(store.tripLibrary.filter((trip) => trip.remote.id).map((trip) => [trip.remote.id, trip]));
     const sharedRemoteIds = new Set(getRemoteLibrary().filter((trip) => trip.shared).map((trip) => trip.id));
     const local = store.tripLibrary.map((trip) => ({
@@ -238,6 +221,7 @@ function libraryEntries() {
         role: trip.remote.id ? trip.remote.role : null,
         ownerId: trip.remote.ownerId,
         members: trip.remote.members,
+        lastModifiedBy: trip.remote.lastModifiedBy || remoteById.get(trip.remote.id)?.last_modified_by || null,
         summary: planSummary(trip.document),
     }));
     const remoteOnly = getRemoteLibrary()
@@ -254,9 +238,16 @@ function libraryEntries() {
             role: trip.role,
             ownerId: trip.owner_id,
             members: trip.members || [],
+            lastModifiedBy: trip.last_modified_by || null,
             summary: null,
         }));
     return [...local, ...remoteOnly];
+}
+
+function modifiedByLabel(trip) {
+    const actor = trip.lastModifiedBy;
+    if (!actor) return trip.remoteOnly ? "un colaborador" : "ti";
+    return actor.userId === getCurrentUserId() ? "ti" : actor.displayName || "un colaborador";
 }
 
 function buildCard(trip) {
@@ -277,11 +268,16 @@ function buildCard(trip) {
 
     const title = document.createElement("h4");
     title.textContent = trip.title;
-    const updated = relativeUpdated(trip.updatedAt);
+    const updated = modifiedAtLabel(trip.updatedAt);
+    const actor = modifiedByLabel(trip);
+    const updatedLine = document.createElement("span");
+    updatedLine.className = "library-card-updated";
     const stamp = document.createElement("time");
-    stamp.textContent = `Editado ${updated.label.toLowerCase()}`;
-    if (updated.title) stamp.title = updated.title;
-    open.append(title, stamp);
+    stamp.textContent = updated.label.toLowerCase();
+    if (updated.dateTime) stamp.dateTime = updated.dateTime;
+    updatedLine.append(`Modificado por ${actor} · `, stamp);
+    if (updated.title) open.title = `Modificado por ${actor} · ${updated.title}`;
+    open.append(title, updatedLine);
 
     if (isActive) {
         const badge = document.createElement("span");
@@ -627,6 +623,7 @@ document.addEventListener("keydown", (event) => {
 document.addEventListener("trip-library-changed", () => {
     renderLibrary();
     renderGlobalCloudAction();
+    applyLastModified();
 });
 document.addEventListener("remote-trip-library", renderLibrary);
 document.addEventListener("active-trip-changed", () => {

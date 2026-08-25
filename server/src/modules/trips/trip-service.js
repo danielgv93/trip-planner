@@ -20,6 +20,9 @@ const MEMBER_SUMMARY = `COALESCE((
     FROM trip_members mm JOIN users u ON u.id = mm.user_id
     WHERE mm.trip_id = t.id
 ), '[]'::json) AS members`;
+const LAST_MODIFIED_BY = `CASE WHEN revision_actor.id IS NULL THEN NULL ELSE
+    json_build_object('userId', revision_actor.id, 'displayName', revision_actor.display_name)
+END AS last_modified_by`;
 
 async function pruneRevisions(client, tripId) {
     await client.query(`DELETE FROM trip_revisions
@@ -107,10 +110,13 @@ export function createTripService({ database, config, events, logger = console, 
     async function listTrips({ userId, archived }) {
         const result = await database.query(`SELECT t.id, t.title, t.created_at, t.updated_at, t.owner_id,
                 m.role, m.archived_at, t.current_revision, t.document_hash, t.sync_protocol_version,
-                (s.trip_id IS NOT NULL) AS shared, ${MEMBER_SUMMARY}
+                (s.trip_id IS NOT NULL) AS shared, ${MEMBER_SUMMARY}, ${LAST_MODIFIED_BY}
             FROM trips t
             JOIN trip_members m ON m.trip_id = t.id AND m.user_id = $1
             LEFT JOIN trip_shares s ON s.trip_id = t.id
+            LEFT JOIN trip_revisions latest_revision
+                ON latest_revision.trip_id = t.id AND latest_revision.revision = t.current_revision
+            LEFT JOIN users revision_actor ON revision_actor.id = latest_revision.actor_user_id
             WHERE t.deleted_at IS NULL
               AND (($2::boolean AND m.archived_at IS NOT NULL) OR (NOT $2::boolean AND m.archived_at IS NULL))
             ORDER BY t.updated_at DESC LIMIT 500`, [userId, archived]);
@@ -135,7 +141,12 @@ export function createTripService({ database, config, events, logger = console, 
                 typeof input.deviceId === "string" ? input.deviceId.slice(0, 100) : null,
                 summarizePlanRevision(null, document),
             ]);
-            return { ...trip.rows[0], role: "owner", archived_at: null };
+            return {
+                ...trip.rows[0],
+                role: "owner",
+                archived_at: null,
+                last_modified_by: { userId: active.user_id, displayName: active.display_name || "Viajero" },
+            };
         });
     }
 
@@ -143,10 +154,13 @@ export function createTripService({ database, config, events, logger = console, 
         const access = await readTripAccess(database, tripId, userId);
         const result = await database.query(`SELECT t.id, t.title, t.document, t.document_hash, t.current_revision, t.sync_protocol_version,
                 t.created_at, t.updated_at, t.owner_id, m.archived_at,
-                (s.trip_id IS NOT NULL) AS shared, ${MEMBER_SUMMARY}
+                (s.trip_id IS NOT NULL) AS shared, ${MEMBER_SUMMARY}, ${LAST_MODIFIED_BY}
             FROM trips t
             JOIN trip_members m ON m.trip_id = t.id AND m.user_id = $2
             LEFT JOIN trip_shares s ON s.trip_id = t.id
+            LEFT JOIN trip_revisions latest_revision
+                ON latest_revision.trip_id = t.id AND latest_revision.revision = t.current_revision
+            LEFT JOIN users revision_actor ON revision_actor.id = latest_revision.actor_user_id
             WHERE t.id = $1 AND t.deleted_at IS NULL`, [tripId, userId]);
         if (!result.rowCount) throw new ApiError(404, "TRIP_NOT_FOUND", "Viaje no encontrado");
         return { ...result.rows[0], role: access.role };

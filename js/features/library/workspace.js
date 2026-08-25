@@ -17,6 +17,11 @@ import {
 let repository = null;
 let lastCommit = Promise.resolve();
 
+function currentAccountActor() {
+    const user = store.accountSession?.user;
+    return user?.id && user?.displayName ? { userId: user.id, displayName: user.displayName } : null;
+}
+
 export function tripId() {
     return randomUUID();
 }
@@ -82,6 +87,7 @@ async function envelopeForActive() {
         role: existing?.remote.role,
         ownerId: existing?.remote.ownerId,
         members: existing?.remote.members,
+        lastModifiedBy: currentAccountActor() || existing?.remote.lastModifiedBy,
         syncState: existing?.remote.id ? "pending" : "local",
         archived: existing?.archived,
         pendingDeletion: existing?.pendingDeletion,
@@ -115,6 +121,7 @@ async function commitActivePreferences() {
     if (!envelope) return;
     envelope.preferences = { ...envelope.preferences, ...preferencesFromStore() };
     envelope.updatedAt = new Date().toISOString();
+    envelope.remote.lastModifiedBy = currentAccountActor() || envelope.remote.lastModifiedBy;
     await repository.putTrip(envelope);
     await refreshTripLibrary();
 }
@@ -269,6 +276,7 @@ export async function attachRemote(id, remote) {
         role: remote.role || "owner",
         ownerId: remote.ownerId || null,
         members: remote.members || [],
+        lastModifiedBy: remote.lastModifiedBy || null,
     };
     envelope.syncState = "synced";
     await repository.putTrip(envelope);
@@ -313,7 +321,7 @@ export async function detachRemoteTrips() {
     const trips = await repository.listTrips({ includeArchived: true, includePendingDeletion: true });
     for (const envelope of trips) {
         if (!envelope.remote.id) continue;
-        envelope.remote = { id: null, baseRevision: 0, hash: null, protocolVersion: 0, role: null, ownerId: null, members: [] };
+        envelope.remote = { id: null, baseRevision: 0, hash: null, protocolVersion: 0, role: null, ownerId: null, members: [], lastModifiedBy: null };
         envelope.syncState = "local";
         envelope.pendingDeletion = false;
         await repository.putTrip(envelope);

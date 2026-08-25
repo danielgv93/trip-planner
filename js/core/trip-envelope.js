@@ -22,6 +22,12 @@ function normalizeMember(value) {
     };
 }
 
+function normalizeActor(value) {
+    const userId = optionalString(value?.userId);
+    const displayName = optionalString(value?.displayName);
+    return userId && displayName ? { userId, displayName } : null;
+}
+
 export function createTripEnvelope({
     id,
     document,
@@ -32,6 +38,7 @@ export function createTripEnvelope({
     role = null,
     ownerId = null,
     members = [],
+    lastModifiedBy = null,
     syncState = remoteId ? "pending" : "local",
     archived = false,
     pendingDeletion = false,
@@ -60,6 +67,7 @@ export function createTripEnvelope({
             role: TRIP_ROLES.has(role) ? role : null,
             ownerId: optionalString(ownerId),
             members: Array.isArray(members) ? members.map(normalizeMember).filter(Boolean) : [],
+            lastModifiedBy: normalizeActor(lastModifiedBy),
         },
         syncState,
         archived: archived === true,
@@ -85,6 +93,7 @@ export function normalizeTripEnvelope(value) {
         role: value.remote?.role,
         ownerId: value.remote?.ownerId,
         members: value.remote?.members,
+        lastModifiedBy: value.remote?.lastModifiedBy,
         syncState: value.syncState,
         archived: value.archived,
         pendingDeletion: value.pendingDeletion,

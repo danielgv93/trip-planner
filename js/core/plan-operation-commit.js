@@ -55,11 +55,16 @@ function operationEnvelope(intent, envelope) {
 }
 
 function nextEnvelope(envelope, document, syncState, { includePreferences = true } = {}) {
+    const user = store.accountSession?.user;
+    const lastModifiedBy = user?.id && user?.displayName
+        ? { userId: user.id, displayName: user.displayName }
+        : envelope.remote?.lastModifiedBy || null;
     return {
         ...envelope,
         document,
         syncState,
         updatedAt: new Date().toISOString(),
+        remote: { ...envelope.remote, lastModifiedBy },
         preferences: includePreferences
             ? { ...envelope.preferences, ...activePreferences() }
             : envelope.preferences,

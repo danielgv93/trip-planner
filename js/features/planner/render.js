@@ -26,6 +26,7 @@ import {
     visibleConsecutiveTravelLegs,
 } from "../../core/travel-leg-presentation.js";
 import { $, esc, safeColor, fmt, daysEl, id } from "../../shared/dom.js";
+import { modifiedAtLabel } from "../../shared/modified-at.js";
 import { openModal } from "../../shared/modal.js";
 import { toast, confirmAction } from "../../shared/notify.js";
 import {
@@ -1201,6 +1202,26 @@ export function applyTitle() {
     $("#localCurrency").value = store.localCurrency;
     $("#foreignCurrency").value = store.foreignCurrency;
     document.title = (store.tripTitle || "Viaje") + " · Planificador de ruta";
+    applyLastModified();
+}
+
+export function applyLastModified(value) {
+    const element = $("#tripUpdatedAt");
+    const activeTrip = store.tripLibrary?.find((trip) => trip.id === store.activeTripId);
+    const modified = modifiedAtLabel(value || activeTrip?.updatedAt);
+    element.hidden = !modified.dateTime;
+    element.replaceChildren();
+    if (modified.dateTime) {
+        const full = document.createElement("span");
+        full.className = "trip-updated-at-full";
+        full.textContent = `Modificado ${modified.label.toLowerCase()}`;
+        const compact = document.createElement("span");
+        compact.className = "trip-updated-at-compact";
+        compact.textContent = `Editado ${modified.label.toLowerCase()}`;
+        element.append(full, compact);
+    }
+    element.dateTime = modified.dateTime;
+    element.title = modified.title;
 }
 
 // Clicking a spot opens the same editor as the pencil. Interactive controls keep

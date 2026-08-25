@@ -96,6 +96,7 @@ async function refreshMembership(localId, remoteId, generation) {
     envelope.remote.role = remote.role;
     envelope.remote.ownerId = remote.owner_id;
     envelope.remote.members = remote.members || [];
+    envelope.remote.lastModifiedBy = remote.last_modified_by || null;
     if (currentStream(localId, remoteId, generation)) await updateEnvelope(envelope);
     else await repository.putTrip(envelope);
     document.dispatchEvent(new CustomEvent("trip-members-changed", { detail: { tripId: localId } }));

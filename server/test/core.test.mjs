@@ -198,6 +198,22 @@ test("el listado recalcula resúmenes antiguos sin exponer los documentos", asyn
     assert.equal(Object.hasOwn(result.revisions[0], "previous_document"), false);
 });
 
+test("el listado de viajes incluye el autor de la revisión actual", async () => {
+    let sql = "";
+    const actor = { userId: "actor", displayName: "Ana" };
+    const database = {
+        async query(text) {
+            sql = text;
+            return { rows: [{ id: "trip", last_modified_by: actor }], rowCount: 1 };
+        },
+    };
+    const service = createTripService({ database, config: {}, events: null });
+    const trips = await service.listTrips({ userId: "viewer", archived: false });
+    assert.deepEqual(trips[0].last_modified_by, actor);
+    assert.match(sql, /latest_revision\.revision = t\.current_revision/);
+    assert.match(sql, /revision_actor\.display_name/);
+});
+
 test("Express sirve salud, CORS y errores JSON con el contrato público", async () => {
     const logger = { info() {}, error() {} };
     const database = { health: async () => ({ ok: true }) };

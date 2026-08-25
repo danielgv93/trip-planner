@@ -40,7 +40,7 @@ function plan(title = "Origen") {
     });
 }
 
-async function prepare({ cloud = false, protocolVersion = 0 } = {}) {
+async function prepare({ cloud = false, protocolVersion = 0, actor = null } = {}) {
     const repository = createTripRepository(createMemoryStorage());
     const envelope = createTripEnvelope({
         id: "trip",
@@ -55,6 +55,7 @@ async function prepare({ cloud = false, protocolVersion = 0 } = {}) {
     applyPortablePlanState(envelope.document);
     store.activeTripId = envelope.id;
     store.readOnly = false;
+    store.accountSession = actor ? { user: actor } : null;
     acceptPortablePlanCheckpoint();
     configureMutationInstrumentation("production");
     const calls = { undo: 0, repaint: 0, refresh: 0, drain: [] };
@@ -95,6 +96,16 @@ test("el límite cloud encola granularmente y programa el drain", async () => {
     assert.deepEqual(entry.operation.precondition, { expectedValue: "Origen" });
     assert.deepEqual(calls.drain, [{ tripId: "trip", mode: "granular" }]);
     assert.equal((await repository.getTrip("trip")).syncState, "pending");
+});
+
+test("una edición cloud conserva quién hizo la última modificación", async () => {
+    const actor = { id: "user-1", displayName: "Ana" };
+    const { repository } = await prepare({ cloud: true, protocolVersion: 1, actor });
+    await derivedPlanOperation((document) => setFieldIntent(document, titleTarget, "Atribuido"));
+    assert.deepEqual((await repository.getTrip("trip")).remote.lastModifiedBy, {
+        userId: "user-1",
+        displayName: "Ana",
+    });
 });
 
 test("un viaje cloud legacy conserva el fallback snapshot temporal", async () => {

@@ -12,7 +12,7 @@ import { createCloudClient } from "../cloud/client.js";
 import { cloudClientConfig } from "../cloud/config.js";
 import { drawMap } from "../map/map.js";
 import { syncTripNotes } from "../notes/notes.js";
-import { applyTitle, render } from "../planner/render.js";
+import { applyLastModified, applyTitle, render } from "../planner/render.js";
 import { publicShareToken as parseShareToken, publicShareUrl as buildShareUrl } from "./share-url.js";
 
 export const publicShareToken = (search = location.search) => parseShareToken(search);
@@ -58,6 +58,7 @@ export async function bootstrapPublicView(token) {
     document.body.classList.add("preview-mode");
     document.title = `${store.tripTitle} · Planificador de ruta`;
     applyTitle();
+    applyLastModified(trip.updatedAt);
     syncTripNotes();
     render({ persist: false });
     drawMap();
