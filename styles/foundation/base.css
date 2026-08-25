@@ -140,6 +140,73 @@ button {
 }
 .trip-updated-at[hidden] { display: none; }
 .trip-updated-at-compact { display: none; }
+.trip-live-indicator {
+    --live-color: #82c9ad;
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 7px 2px 6px;
+    border: 1px solid color-mix(in srgb, var(--live-color) 42%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--live-color) 10%, transparent);
+    color: #dce9e5;
+    font: 600 9px "DM Mono";
+    letter-spacing: .03em;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color .2s ease, background .2s ease, color .2s ease;
+}
+.trip-live-indicator[hidden] { display: none; }
+.trip-live-indicator:hover,
+.trip-live-indicator:focus-visible {
+    border-color: color-mix(in srgb, var(--live-color) 76%, transparent);
+    background: color-mix(in srgb, var(--live-color) 18%, transparent);
+    outline: none;
+}
+.trip-live-dot {
+    position: relative;
+    width: 6px;
+    height: 6px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--live-color);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--live-color) 16%, transparent);
+}
+.trip-live-indicator[data-state="connecting"],
+.trip-live-indicator[data-state="reconnecting"] {
+    --live-color: #e0b85f;
+    color: #f3e5bd;
+}
+.trip-live-indicator[data-state="error"],
+.trip-live-indicator[data-state="closed"],
+.trip-live-indicator[data-state="paused"] {
+    --live-color: #aeb8b8;
+    color: #ccd3d3;
+}
+.trip-live-indicator[data-state="error"] { --live-color: #dc817a; }
+.trip-live-indicator[data-state="connecting"] .trip-live-dot,
+.trip-live-indicator[data-state="reconnecting"] .trip-live-dot {
+    animation: trip-live-breathe 1.4s ease-in-out infinite;
+}
+.trip-live-indicator.is-receiving .trip-live-dot::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border: 1px solid var(--live-color);
+    border-radius: inherit;
+    animation: trip-live-received .8s ease-out;
+}
+@keyframes trip-live-breathe {
+    50% { opacity: .48; }
+}
+@keyframes trip-live-received {
+    to { opacity: 0; transform: scale(2.7); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .trip-live-indicator .trip-live-dot,
+    .trip-live-indicator.is-receiving .trip-live-dot::after { animation: none; }
+}
 .currency-config-trigger {
     display: inline-flex;
     align-items: center;

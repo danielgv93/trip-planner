@@ -13,6 +13,7 @@ let incremental = null;
 let remoteNoticeTimer = null;
 const remoteNoticeNames = new Set();
 let remoteNoticeCount = 0;
+const manuallyPausedTrips = new Set();
 
 function queueRemoteNotice(actor, count = 1) {
     remoteNoticeNames.add(actor?.displayName || "Otro colaborador");
@@ -65,13 +66,33 @@ function currentStream(localId, remoteId, generation) {
     });
 }
 
-function closeStream() {
+function closeStream(state = "closed") {
     streamGeneration += 1;
     source?.close();
     source = null;
     streamedLocalId = null;
     streamedRemoteId = null;
-    setConnectionState("closed");
+    setConnectionState(state);
+}
+
+export function liveTripIsPaused(localId = store.activeTripId) {
+    return Boolean(localId && manuallyPausedTrips.has(localId));
+}
+
+export function pauseLiveTripStream(localId = store.activeTripId) {
+    if (!localId || localId !== store.activeTripId) return false;
+    manuallyPausedTrips.add(localId);
+    closeStream("paused");
+    return true;
+}
+
+export function resumeLiveTripStream(localId = store.activeTripId) {
+    if (!localId || localId !== store.activeTripId) return Promise.resolve(false);
+    manuallyPausedTrips.delete(localId);
+    // A failed EventSource may remain assigned with readyState CLOSED. Force a
+    // fresh instance so the explicit reconnect action never becomes a no-op.
+    closeStream();
+    return syncLiveTripStream().then(() => true);
 }
 
 function safePayload(event, type, localId) {
@@ -222,13 +243,17 @@ export async function syncLiveTripStream() {
     const client = getCloudClient();
     const repository = getTripRepository();
     if (!client || !repository || !store.accountSession || store.accountSession.offline) return closeStream();
-    const envelope = store.activeTripId ? await repository.getTrip(store.activeTripId) : null;
+    const activeLocalId = store.activeTripId;
+    if (liveTripIsPaused(activeLocalId)) return closeStream("paused");
+    const envelope = activeLocalId ? await repository.getTrip(activeLocalId) : null;
+    if (activeLocalId !== store.activeTripId) return syncLiveTripStream();
+    if (liveTripIsPaused(activeLocalId)) return closeStream("paused");
     const remoteId = envelope?.remote.id || null;
     if (!remoteId) return closeStream();
     if (remoteId === streamedRemoteId && source) return;
     closeStream();
     const generation = streamGeneration;
-    streamedLocalId = store.activeTripId;
+    streamedLocalId = activeLocalId;
     streamedRemoteId = remoteId;
     setConnectionState("connecting", { tripId: streamedLocalId });
     source = new EventSource(client.tripEventsUrl(remoteId), { withCredentials: true });

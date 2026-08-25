@@ -121,7 +121,7 @@ async function context() {
     const envelope = store.activeTripId ? await repository?.getTrip(store.activeTripId) : null;
     if (
         !store.accountSession || store.accountSession.offline || !envelope?.remote.id ||
-        Number(envelope.remote.protocolVersion) < 1
+        Number(envelope.remote.protocolVersion) < 1 || store.liveTripConnectionState === "paused"
     ) return null;
     return { localId: envelope.id, remoteId: envelope.remote.id, role: envelope.remote.role };
 }
@@ -168,6 +168,9 @@ function publishDesired() {
 async function syncContext() {
     const active = await context();
     if (!active) {
+        // Let an already-started presence update finish before announcing the
+        // leave, otherwise that late update could make a paused user reappear.
+        await publishTail.catch(() => {});
         if (remoteId) {
             const client = getCloudClient();
             await client?.leaveTripPresence(remoteId, presenceSessionId, ++sequence).catch(() => {});
@@ -233,6 +236,9 @@ export function initializePresence() {
     for (const type of ["active-trip-changed", "cloud-session-changed"]) {
         document.addEventListener(type, () => void syncContext());
     }
+    document.addEventListener("trip-live-state", (event) => {
+        if (["open", "paused"].includes(event.detail?.state)) void syncContext();
+    });
     document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
             desired = { state: "viewing", target: { type: "plan", id: "plan" } };
