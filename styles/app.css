@@ -2,7 +2,7 @@
  * Single stylesheet entry point. The order preserves the established cascade;
  * add new imports deliberately instead of relying on directory traversal.
  */
-@import url("./foundation/base.css?v=20260825-2");
+@import url("./foundation/base.css?v=20260826-1");
 @import url("./foundation/modal.css");
 @import url("./features/search.css");
 @import url("./features/planner.css");
@@ -16,6 +16,6 @@
 @import url("./features/cloud-library.css?v=20260825-2");
 @import url("./features/collaboration.css");
 @import url("./features/public-share.css");
-@import url("./layout/responsive.css");
+@import url("./layout/responsive.css?v=20260826-2");
 @import url("./features/companion.css?v=20260825-2");
 @import url("./features/llm-chat.css");

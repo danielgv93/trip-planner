@@ -437,7 +437,7 @@ body.preview-mode .spot.travel-card {
     body.compact-itinerary .category-badge { display: inline-flex; }
 }
 
-@media (min-width: 601px) and (max-width: 1080px) {
+@media (min-width: 601px) and (max-width: 1400px) {
     .top {
         min-height: 112px;
         grid-template-columns: minmax(0, 1fr) auto;

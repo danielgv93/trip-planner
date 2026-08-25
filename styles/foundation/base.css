@@ -281,10 +281,10 @@ button {
     gap: 9px;
 }
 .top-search {
-    position: absolute;
-    left: 50%;
+    position: static;
     width: min(300px, 22vw);
     min-width: 0;
+    justify-self: center;
     justify-content: space-between;
     padding: 9px 11px;
     border: 1px solid #ffffff40;
@@ -292,7 +292,6 @@ button {
     background: #ffffff0a;
     color: #fff;
     font-size: 13px;
-    transform: translateX(-50%);
 }
 .top-search-icon {
     width: 20px;
