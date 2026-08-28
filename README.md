@@ -166,6 +166,21 @@ Trip Planner targets current versions of Chrome, Edge, Firefox, and Safari. It r
 
 ## Development
 
-Edit the HTML, CSS, or JavaScript files and refresh the browser. Run `node --test` for the pure-logic suite, then check UI changes manually by serving the project and exercising the relevant desktop and mobile flows.
+For full-stack development, prepare the environment and API dependencies once:
+
+```bash
+cp .env.example .env
+npm install --prefix server
+```
+
+Then start PostgreSQL, the API in Node watch mode, and the static frontend with one command:
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:8000](http://localhost:8000). Frontend changes only require a browser refresh, while API changes restart Node automatically. PostgreSQL remains running in Docker after the development process exits so its data and startup time are preserved; stop it explicitly with `npm run dev:stop`.
+
+The frontend continues to use native ES modules and has no compilation or bundling step. Run `npm test` for the pure-logic suite, then check UI changes manually by exercising the relevant desktop and mobile flows.
 
 Contributions are welcome. When changing the UI, keep user-facing copy in Spanish, escape user-provided values before inserting them into HTML, and preserve the central render cycle used throughout the application.

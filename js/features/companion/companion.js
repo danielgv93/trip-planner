@@ -6,19 +6,16 @@ import { $, esc } from "../../shared/dom.js";
 import {
     store,
     spotIsEnabled,
-    routeTimeOverride,
-    routeTimeProfile,
     travelLeg,
 } from "../../core/store.js";
-import { AUTOMATIC_TRAVEL_MODES } from "../../core/travel-legs.js";
 import { render } from "../planner/render.js";
 import {
     drawMap,
     invalidateMainMap,
     mapsLinkFor,
-    cachedRouteTravelMinutes,
 } from "../map/map.js";
 import { createTimelineView } from "../timeline/timeline.js";
+import { resolveTravelForLeg } from "../timeline/travel-resolver.js";
 import { registerBasemapMap } from "../map/basemap.js";
 import { derivedPlanOperation, setFieldIntent } from "../../core/plan-operation-commit.js";
 import { timeToMinutes } from "../../core/time.js";
@@ -987,24 +984,7 @@ function renderTimeline(day, next) {
     const view = createTimelineView(day, {
         delayMinutes: simulatedDelayMinutes,
         nextSpot: next,
-        travelForLeg: (from, to) => {
-            const configured = travelLeg(from.id, to.id);
-            const profile = AUTOMATIC_TRAVEL_MODES.includes(configured?.mode) ? configured.mode : routeTimeProfile(from.id, to.id);
-            const officialMinutes = AUTOMATIC_TRAVEL_MODES.includes(profile) ? cachedRouteTravelMinutes(from, to, profile) : null;
-            const override = configured?.durationMinutes ?? routeTimeOverride(from.id, to.id, profile);
-            return {
-                minutes: override ?? officialMinutes,
-                officialMinutes,
-                overridden: override !== null,
-                profile,
-                mode: configured?.mode || profile,
-                departureTime: configured?.departureTime,
-                fixedDeparture: configured?.fixedDeparture,
-                line: configured?.line,
-                cost: configured?.cost,
-                embeddedEndpoints: configured?.embeddedEndpoints,
-            };
-        },
+        travelForLeg: resolveTravelForLeg,
     });
     summary.textContent = view.summary;
     canvas.innerHTML = view.html;

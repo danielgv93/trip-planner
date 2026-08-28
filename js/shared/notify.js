@@ -95,14 +95,28 @@ export function toast(message, type = "info", ms = 3400) {
 // Styled replacement for the native confirm(): resolves to true only when the
 // user presses the confirm button; ESC, backdrop, cancel and the × all resolve
 // to false.
-export function confirmAction({ title, message, confirmLabel = "Eliminar" }) {
+export function confirmAction({
+    title,
+    message,
+    confirmLabel = "Eliminar",
+    preview = null,
+    secondaryLabel = "",
+    onSecondary = null,
+}) {
     return new Promise((resolve) => {
-        renderChangePreview($("#confirmPreview"), null);
+        renderChangePreview($("#confirmPreview"), preview);
         $("#confirmInputField").hidden = true;
         $("#confirmInput").value = "";
         $("#confirmTitle").textContent = title;
         $("#confirmMsg").textContent = message;
         $("#confirmOk").textContent = confirmLabel;
+        const secondary = $("#confirmSecondary");
+        secondary.hidden = !secondaryLabel || typeof onSecondary !== "function";
+        secondary.textContent = secondaryLabel;
+        secondary.onclick = secondary.hidden ? null : (event) => {
+            event.preventDefault();
+            onSecondary();
+        };
         let result = false;
         $("#confirmOk").onclick = () => {
             result = true;
@@ -110,7 +124,10 @@ export function confirmAction({ title, message, confirmLabel = "Eliminar" }) {
         };
         confirmDialog.onclose = () => {
             $("#confirmOk").onclick = null;
+            secondary.onclick = null;
+            secondary.hidden = true;
             confirmDialog.onclose = null;
+            renderChangePreview($("#confirmPreview"), null);
             resolve(result);
         };
         openModal(confirmDialog);

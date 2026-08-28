@@ -46,6 +46,20 @@ streams locales; el documento nunca viaja por `NOTIFY` ni por SSE.
 
 Requiere Node.js 20.6 o posterior y Postgres 15 o posterior:
 
+Para el flujo de desarrollo habitual, desde la raíz del repositorio prepara las
+dependencias una vez y levanta PostgreSQL, la API con recarga automática y el
+frontend estático con un solo comando:
+
+```bash
+cp .env.example .env
+npm install --prefix server
+npm run dev
+```
+
+La aplicación queda disponible en `http://localhost:8000`. Al cerrar el proceso,
+PostgreSQL permanece levantado para acelerar el siguiente arranque; se puede
+detener explícitamente con `npm run dev:stop`.
+
 Para levantar PostgreSQL, iniciar la API y servir el frontend bajo un único origen desde la raíz del repositorio:
 
 ```bash

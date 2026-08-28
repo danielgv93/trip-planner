@@ -1,10 +1,10 @@
-import { store, dayBy, routeTimeProfile, routeTimeOverride, travelLeg } from "../../core/store.js";
-import { AUTOMATIC_TRAVEL_MODES, disconnectedTravelLegs, parseTravelLegKey } from "../../core/travel-legs.js";
+import { store, dayBy } from "../../core/store.js";
+import { disconnectedTravelLegs, parseTravelLegKey } from "../../core/travel-legs.js";
 import { $, esc } from "../../shared/dom.js";
 import { openModal } from "../../shared/modal.js";
 import { toast } from "../../shared/notify.js";
 import { buildTimelineProjection } from "../timeline/timeline.js";
-import { cachedRouteTravelMinutes } from "../map/map.js";
+import { resolveTravelForLeg } from "../timeline/travel-resolver.js";
 import { openDialog } from "../planner/dialogs.js";
 import { render, openTravelLegDialog } from "../planner/render.js";
 import {
@@ -35,16 +35,8 @@ function healthDateLabel(value) {
     }).format(new Date(`${value}T12:00:00`));
 }
 
-function travelForLeg(from, to) {
-    const configured = travelLeg(from.id, to.id);
-    const profile = AUTOMATIC_TRAVEL_MODES.includes(configured?.mode) ? configured.mode : routeTimeProfile(from.id, to.id);
-    const officialMinutes = AUTOMATIC_TRAVEL_MODES.includes(profile) ? cachedRouteTravelMinutes(from, to, profile) : null;
-    const override = configured?.durationMinutes ?? routeTimeOverride(from.id, to.id, profile);
-    return { minutes: override ?? officialMinutes, officialMinutes, overridden: override != null, profile, mode: configured?.mode || profile, departureTime: configured?.departureTime, fixedDeparture: configured?.fixedDeparture, line: configured?.line, cost: configured?.cost, embeddedEndpoints: configured?.embeddedEndpoints };
-}
-
 function evaluate(day) {
-    return diagnoseDay(day, buildTimelineProjection(day, { travelForLeg }));
+    return diagnoseDay(day, buildTimelineProjection(day, { travelForLeg: resolveTravelForLeg }));
 }
 
 function actionMarkup(issue, day) {

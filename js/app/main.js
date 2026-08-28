@@ -13,6 +13,7 @@ import "../features/planner/spot-search.js";
 import "../features/planner/sticky-days.js";
 import "../features/reminders/reminders.js";
 import "../features/health/health.js";
+import "../features/route-simulator/route-simulator.js";
 import "../features/github/github.js";
 import "../features/finance/budget.js";
 import "../features/workspace/workspace-resize.js";

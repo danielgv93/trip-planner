@@ -76,6 +76,7 @@ async function persistOperation(envelope, operation, applied, { includePreferenc
     if (!repository) throw new Error("TRIP_REPOSITORY_UNAVAILABLE");
     const isCloud = Boolean(envelope.remote?.id);
     const granular = isCloud
+        && operation.kind !== "replace-plan"
         && envelope.remote.protocolVersion >= PLAN_OPERATION_PROTOCOL_VERSION
         && !(await repository.hasLegacyOutbox(envelope.id));
     const updated = nextEnvelope(envelope, applied.document, isCloud ? "pending" : "local", { includePreferences });

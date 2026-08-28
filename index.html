@@ -21,7 +21,7 @@
             rel="stylesheet"
             href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css"
         />
-        <link rel="stylesheet" href="styles/app.css?v=20260826-2" />
+        <link rel="stylesheet" href="styles/app.css?v=20260828-6" />
     </head>
 <body>
         <div id="collaborationLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -117,6 +117,7 @@
                         <summary>Itinerario <svg class="nav-group-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></summary>
                         <div class="nav-group-items">
                             <span class="nav-group-title">Planificación</span>
+                            <button id="routeSimulatorOpenBtn" type="button" aria-haspopup="dialog" aria-controls="routeSimulatorDialog"><span aria-hidden="true">⌁</span> Simular mejor ruta</button>
                             <button id="remindersOpenBtn" type="button" aria-haspopup="dialog" aria-controls="remindersDialog"><span aria-hidden="true">◷</span> Fechas clave</button>
                             <button id="healthCheckBtn" type="button" aria-haspopup="dialog" aria-controls="healthDialog"><span aria-hidden="true">✓</span> Revisar itinerario</button>
                             <span class="nav-group-divider" aria-hidden="true"></span>
@@ -761,6 +762,47 @@
                 <div class="form-actions reminder-form-actions"><button id="reminderDeleteBtn" class="reminder-delete" type="button" hidden>Eliminar recordatorio</button><button type="button" class="cancel">Cerrar</button></div>
             </form>
         </dialog>
+        <dialog id="routeSimulatorDialog" class="route-simulator-dialog" aria-labelledby="routeSimulatorTitle" data-phase="setup">
+            <div class="modal-head route-simulator-head">
+                <div>
+                    <span class="modal-eyebrow">Laboratorio de ruta</span>
+                    <h3 id="routeSimulatorTitle">Encuentra el mejor orden</h3>
+                </div>
+                <button class="close" type="button" aria-label="Cerrar simulador">&times;</button>
+            </div>
+            <div class="route-simulator-body">
+                <form id="routeSimulatorForm" class="route-simulator-setup">
+                    <aside class="route-simulator-config" aria-labelledby="routeSimulatorConfigTitle">
+                        <div class="route-simulator-section-title"><span>01</span><div><strong id="routeSimulatorConfigTitle">Prepara la simulaci&oacute;n</strong><small>Elige el d&iacute;a y c&oacute;mo empieza.</small></div></div>
+                        <div class="route-simulator-setup-bar">
+                            <label class="route-simulator-field"><span>D&iacute;a</span><select id="routeSimulatorDay"></select></label>
+                            <label class="route-simulator-start-toggle"><input id="routeSimulatorFixedStart" type="checkbox" /><span><strong>Hora de salida fija</strong><small>Si la dejas libre, se ajustar&aacute; a las citas.</small></span><input id="routeSimulatorStart" type="time" value="09:00" disabled aria-label="Hora fija de inicio" /></label>
+                        </div>
+                        <div class="route-simulator-setup-foot">
+                            <p id="routeSimulatorError" class="route-simulator-error" role="alert"></p>
+                            <button id="routeSimulatorBackToResult" class="route-simulator-secondary" type="button" hidden>&larr; Volver al resultado</button>
+                            <button id="routeSimulatorRun" class="route-simulator-run" type="submit" disabled><span aria-hidden="true">&#10022;</span><span><strong>Calcular mejor ruta</strong><small>Selecciona al menos dos paradas con ubicaci&oacute;n</small></span><span aria-hidden="true">&rarr;</span></button>
+                        </div>
+                    </aside>
+                    <section class="route-simulator-stop-picker" aria-labelledby="routeSimulatorStopsTitle">
+                        <div class="route-simulator-selection-bar">
+                            <div class="route-simulator-section-title"><span>02</span><div><strong id="routeSimulatorStopsTitle">Construye el recorrido</strong><small>Activa las paradas que quieres optimizar.</small></div></div>
+                            <div class="route-simulator-selection-actions"><span id="routeSimulatorSelectionCount">0 seleccionadas</span><button id="routeSimulatorSelectAll" type="button">Todas</button><button id="routeSimulatorSelectNone" type="button">Ninguna</button></div>
+                        </div>
+                        <div id="routeSimulatorSpots" class="route-simulator-spots"></div>
+                    </section>
+                    <aside id="routeSimulatorSpotEditor" class="route-simulator-spot-editor" aria-live="polite"></aside>
+                </form>
+                <div id="routeSimulatorSummary" class="route-simulator-summary">
+                    <span aria-hidden="true">&#9211;</span>
+                    <p><strong id="routeSimulatorSummaryTitle"></strong><small id="routeSimulatorSummaryDetail"></small></p>
+                    <button id="routeSimulatorEdit" type="button">Editar paradas</button>
+                </div>
+                <section id="routeSimulatorResult" class="route-simulator-result" aria-label="Resultado de la simulaci&oacute;n"></section>
+            </div>
+            <p id="routeSimulatorStatus" class="sr-only" role="status" aria-live="polite"></p>
+            <footer class="route-simulator-foot"><span><i aria-hidden="true"></i> Simulaci&oacute;n temporal</span><p>Solo cambia el itinerario si eliges &laquo;Aplicar simulaci&oacute;n&raquo; y confirmas.</p></footer>
+        </dialog>
         <dialog id="healthDialog" class="health-dialog" aria-labelledby="healthDialogTitle">
             <div class="modal-head">
                 <div class="health-dialog-title"><span class="modal-eyebrow">Viabilidad y confianza</span><h3 id="healthDialogTitle">Centro de confianza</h3><p>Detecta lo que no encaja antes de salir.</p></div>
@@ -1177,6 +1219,9 @@
                     <input id="confirmInput" type="text" maxlength="120" autocomplete="off" />
                 </label>
                 <div class="form-actions">
+                    <button type="button" id="confirmSecondary" hidden>
+                        Exportar copia
+                    </button>
                     <button type="button" class="cancel" id="confirmCancel">
                         Cancelar</button
                     ><button type="button" class="confirm-ok" id="confirmOk">
@@ -1350,6 +1395,6 @@
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
         <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js"></script>
-        <script type="module" src="js/app/main.js"></script>
+        <script type="module" src="js/app/main.js?v=20260828-6"></script>
     </body>
 </html>

@@ -98,6 +98,31 @@ test("el límite cloud encola granularmente y programa el drain", async () => {
     assert.equal((await repository.getTrip("trip")).syncState, "pending");
 });
 
+test("un reemplazo cloud usa snapshot para que deshacer no dependa de una revisión futura", async () => {
+    const { repository, calls } = await prepare({ cloud: true, protocolVersion: 1 });
+    let undoEntry;
+    configurePlanOperationCommit({
+        recordUndo: (detail) => {
+            calls.undo += 1;
+            undoEntry = detail;
+        },
+    });
+    const replacement = plan("Simulación aplicada");
+    const result = await commitPlanOperation({
+        kind: "replace-plan",
+        target: { type: "plan", id: "plan" },
+        precondition: {},
+        payload: { document: replacement },
+    });
+
+    assert.equal(result.mode, "snapshot");
+    assert.equal((await repository.listOperations("trip")).length, 0);
+    assert.equal((await repository.getOutbox("trip")).document.tripTitle, "Simulación aplicada");
+    assert.equal(calls.undo, 1);
+    assert.equal(undoEntry.mode, "snapshot");
+    assert.deepEqual(calls.drain, [{ tripId: "trip", mode: "snapshot" }]);
+});
+
 test("una edición cloud conserva quién hizo la última modificación", async () => {
     const actor = { id: "user-1", displayName: "Ana" };
     const { repository } = await prepare({ cloud: true, protocolVersion: 1, actor });

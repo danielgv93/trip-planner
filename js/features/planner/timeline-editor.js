@@ -3,7 +3,6 @@ import {
     dayBy,
     categoryMeta,
     spotIsEnabled,
-    routeTimeOverride,
     routeTimeProfile,
     travelLeg,
 } from "../../core/store.js";
@@ -30,6 +29,10 @@ import {
     createTimelineView,
     estimatedTravelMinutes,
 } from "../timeline/timeline.js";
+import {
+    resolveTravelForLeg,
+    travelProfilesForSpots,
+} from "../timeline/travel-resolver.js";
 import {
     timelineScrollForCenter,
     timelineViewportCenter,
@@ -276,38 +279,8 @@ export function renderSpotHours(spot, color, interactive = true) {
     return `<span class="spot-hours is-complete"${interactive ? ' tabindex="0"' : ""} data-hours-opening="${esc(openingTime)}" data-hours-closing="${esc(closingTime)}" aria-label="Horario: ${esc(allDay ? "todo el día" : `abre a las ${openingTime} y cierra a las ${closingTime}`)}" style="--hours-color:${safeColor(color)}"><span class="spot-hours-icon" aria-hidden="true">◷</span><span class="spot-hours-text">${esc(label)}</span><span class="spot-hours-rail" aria-hidden="true">${rail}<span class="spot-hours-overlaps"></span></span><span class="spot-hours-detail" aria-hidden="true">${esc(detail)}</span></span>`;
 }
 
-function timelineTravelForLeg(from, to) {
-    const configured = travelLeg(from.id, to.id);
-    const profile = AUTOMATIC_TRAVEL_MODES.includes(configured?.mode)
-        ? configured.mode
-        : routeTimeProfile(from.id, to.id);
-    const officialMinutes = AUTOMATIC_TRAVEL_MODES.includes(profile)
-        ? cachedRouteTravelMinutes(from, to, profile)
-        : null;
-    const override = configured?.durationMinutes ?? routeTimeOverride(from.id, to.id, profile);
-    return {
-        minutes: override ?? officialMinutes,
-        officialMinutes,
-        overridden: override !== null,
-        profile,
-        mode: configured?.mode || profile,
-        departureTime: configured?.departureTime,
-        fixedDeparture: configured?.fixedDeparture,
-        line: configured?.line,
-        note: configured?.note,
-        cost: configured?.cost,
-        embeddedEndpoints: configured?.embeddedEndpoints,
-    };
-}
-
 function timelineProfilesForDay(day) {
-    const spots = day?.spots?.filter(spotIsEnabled) || [];
-    const profiles = new Set(["walking"]);
-    for (let index = 1; index < spots.length; index += 1) {
-        const mode = travelLeg(spots[index - 1].id, spots[index].id)?.mode || routeTimeProfile(spots[index - 1].id, spots[index].id);
-        if (AUTOMATIC_TRAVEL_MODES.includes(mode)) profiles.add(mode);
-    }
-    return profiles;
+    return travelProfilesForSpots(day?.spots?.filter(spotIsEnabled) || []);
 }
 
 function ensureTimelineTravelTimes(day) {
@@ -379,7 +352,7 @@ export function renderDayTimeTools(day) {
     // as plain, unclickable blocks — exactly like companion mode does.
     const timeline = createTimelineView(day, {
         interactive: !store.readOnly,
-        travelForLeg: timelineTravelForLeg,
+        travelForLeg: resolveTravelForLeg,
     });
     const timelineZoom = timelineZoomByDay.get(day.id) || TIMELINE_ZOOM_MIN;
     const zoomLabel = `${Number(timelineZoom.toFixed(2))}×`;
@@ -825,7 +798,7 @@ function commitTimelineStarts(dayId, starts) {
     if (!day || !(starts instanceof Map) || !starts.size) return;
     const currentStarts = new Map(
         buildTimelineProjection(day, {
-            travelForLeg: timelineTravelForLeg,
+            travelForLeg: resolveTravelForLeg,
         }).items.map((item) => [String(item.spot.id), item.start]),
     );
     const changed = [...starts].some(

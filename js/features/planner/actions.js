@@ -2,7 +2,7 @@
 // import/export. Side-effect module — importing it wires the top-bar listeners.
 
 import { store, saveLocalPreferences, clearTagFilter } from "../../core/store.js";
-import { $, slug, id } from "../../shared/dom.js";
+import { $, id } from "../../shared/dom.js";
 import { openModal } from "../../shared/modal.js";
 import { render, applyTitle } from "./render.js";
 import { drawMap, syncRouteVisualizationControl } from "../map/map.js";
@@ -10,8 +10,9 @@ import { toast, confirmAction } from "../../shared/notify.js";
 import { sample, DEFAULT_CATEGORIES, DEFAULT_TITLE } from "../../core/constants.js";
 import { syncTripNotes } from "../notes/notes.js";
 import { CURRENCIES, refreshExchangeRate } from "../finance/currency.js";
-import { serializePlan, parsePlanJson } from "../../core/plan-json.js";
+import { parsePlanJson } from "../../core/plan-json.js";
 import { applyImportedPlan } from "./import-plan.js";
+import { downloadPlanExport } from "./export-plan.js";
 import { createDraftAutosaveController } from "../../shared/draft-autosave.js";
 import {
     derivedPlanOperation,
@@ -170,21 +171,7 @@ $("#resetBtn").onclick = () => {
     });
 };
 
-$("#exportBtn").onclick = () => {
-    const data = JSON.stringify(
-            serializePlan(),
-            null,
-            2,
-        ),
-        url = URL.createObjectURL(
-            new Blob([data], { type: "application/json" }),
-        ),
-        a = document.createElement("a");
-    a.href = url;
-    a.download = "ruta-" + slug(store.tripTitle) + ".json";
-    a.click();
-    URL.revokeObjectURL(url);
-};
+$("#exportBtn").onclick = downloadPlanExport;
 
 // Named navigation groups replace the previous catch-all overflow. Keep only
 // one desktop menu open and close it after choosing a concrete action. Opening

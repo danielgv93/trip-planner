@@ -12,6 +12,7 @@
 @import url("./features/dialogs.css");
 @import url("./features/taxonomy.css");
 @import url("./features/health.css");
+@import url("./features/route-simulator.css?v=20260828-6");
 @import url("./features/reminders.css");
 @import url("./features/cloud-library.css?v=20260825-2");
 @import url("./features/collaboration.css");

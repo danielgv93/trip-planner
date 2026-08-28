@@ -86,6 +86,15 @@ export function registerBasemapMap(map) {
     return record;
 }
 
+// Some feature maps live only while a dialog result is mounted. Removing their
+// registration keeps a later basemap change from trying to update a destroyed
+// Leaflet instance.
+export function unregisterBasemapMap(record) {
+    if (!record || !maps.delete(record)) return;
+    record.layer?.remove();
+    record.layer = null;
+}
+
 const select = $("#basemapSelect");
 if (select) {
     select.value = store.basemap;
