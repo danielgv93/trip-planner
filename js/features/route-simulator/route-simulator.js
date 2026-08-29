@@ -40,7 +40,6 @@ let calculationToken = 0;
 let activeSimulation = null;
 let activeSimulatorSpotId = null;
 let unmountRouteMap = null;
-let comparisonAlignmentFrame = 0;
 
 // Configuring and reading the answer are sequential, not simultaneous: the
 // traveller picks stops once and then lives in the result. Splitting the dialog
@@ -275,16 +274,14 @@ function simulationSelection() {
     return { day, spots, sourceSpots, firstSpotIndex, lastSpotIndex, fixedSpotIndexes };
 }
 
-// Wrapped in its own bar so the four headline numbers can stay pinned while the
-// traveller scrolls the verdict, the map and the step list underneath.
 function metricsMarkup(result) {
     const metrics = result.metrics;
-    return `<div class="route-simulator-metrics-bar"><div class="route-simulator-metrics">
-        <div><span>Salida</span><strong>${esc(formatSimulationTime(result.start))}</strong></div>
-        <div><span>Fin</span><strong>${esc(formatSimulationTime(result.finish))}</strong></div>
-        <div><span>Trayectos</span><strong>${metrics.travel}<i> min</i></strong></div>
-        <div><span>Visitas</span><strong>${metrics.visit}<i> min</i></strong></div>
-    </div></div>`;
+    return `<dl class="route-simulator-metrics" aria-label="Resumen horario de la propuesta">
+        <div><dt>Empieza</dt><dd>${esc(formatSimulationTime(result.start))}</dd></div>
+        <div><dt>Termina</dt><dd>${esc(formatSimulationTime(result.finish))}</dd></div>
+        <div><dt>En movimiento</dt><dd>${metrics.travel}<small>min</small></dd></div>
+        <div><dt>En visitas</dt><dd>${metrics.visit}<small>min</small></dd></div>
+    </dl>`;
 }
 
 function comparisonOccurrences(result) {
@@ -325,49 +322,6 @@ function beforeColumnMarkup(baseline, result) {
     </section>`;
 }
 
-// "Antes" is intentionally compact while "Ahora" includes badges, editable
-// legs and secondary timing details. In two-column mode that extra content must
-// enlarge the matching ordinal row on both sides, otherwise the visual pairing
-// drifts further apart after every stop. Mobile returns both columns to their
-// natural flow because they are stacked rather than compared horizontally.
-function alignComparisonRows() {
-    const comparison = resultEl.querySelector(".route-simulator-route-compare");
-    if (!comparison) return;
-    const beforeList = comparison.querySelector(".route-simulator-route-col.is-before ol");
-    const afterTimeline = comparison.querySelector(".route-simulator-route-col.is-after .route-simulator-timeline");
-    const beforeRows = [...(beforeList?.querySelectorAll("li") || [])];
-    const afterRows = [...(afterTimeline?.querySelectorAll(".route-simulator-step") || [])];
-    beforeRows.forEach((row) => { row.style.minHeight = ""; });
-    if (beforeList) beforeList.style.paddingTop = "";
-    if (afterTimeline) afterTimeline.style.paddingTop = "";
-    if (!beforeList || !afterTimeline || !beforeRows.length || beforeRows.length !== afterRows.length
-        || matchMedia("(max-width: 860px)").matches) return;
-
-    const beforeFirstTop = beforeRows[0].getBoundingClientRect().top;
-    const afterFirstTop = afterRows[0].getBoundingClientRect().top;
-    const offset = afterFirstTop - beforeFirstTop;
-    if (offset > 0) {
-        beforeList.style.paddingTop = `${parseFloat(getComputedStyle(beforeList).paddingTop) + offset}px`;
-    } else if (offset < 0) {
-        afterTimeline.style.paddingTop = `${parseFloat(getComputedStyle(afterTimeline).paddingTop) - offset}px`;
-    }
-
-    const afterTops = afterRows.map((row) => row.getBoundingClientRect().top);
-    const rowGap = parseFloat(getComputedStyle(beforeList).rowGap) || 0;
-    beforeRows.slice(0, -1).forEach((row, index) => {
-        row.style.minHeight = `${Math.max(38, afterTops[index + 1] - afterTops[index] - rowGap)}px`;
-    });
-    beforeRows.at(-1).style.minHeight = `${Math.max(38, afterRows.at(-1).getBoundingClientRect().height)}px`;
-}
-
-function scheduleComparisonAlignment() {
-    cancelAnimationFrame(comparisonAlignmentFrame);
-    comparisonAlignmentFrame = requestAnimationFrame(() => {
-        comparisonAlignmentFrame = 0;
-        alignComparisonRows();
-    });
-}
-
 // The headline claims time, so it must measure the time the traveller spends:
 // the whole day, from the first departure to the last stop. Travel minutes are
 // only one ingredient of it — announcing a saving from them alone contradicts a
@@ -392,7 +346,16 @@ function savingsMarkup(result, baseline) {
             : travelSaved > 0 ? `Reduce el tiempo de trayecto en ${travelSaved} min.`
             : travelSaved < 0 ? `Emplea ${Math.abs(travelSaved)} min más de trayecto.`
                 : "El tiempo de trayecto no cambia.";
-    return `<div class="route-simulator-savings is-${state}"><span aria-hidden="true">${elapsedSaved > 0 ? "↓" : elapsedSaved < 0 ? "↑" : "="}</span><div><strong>${esc(headline)}</strong><small>${esc(detail)}</small></div><p><span>Antes <b>${elapsedBefore} min</b></span><i aria-hidden="true">→</i><span>Ahora <b>${elapsedNow} min</b></span></p></div>`;
+    const conclusion = scheduleConflictsSaved > 0 || latenessSaved > 0
+        ? "Mejora el encaje del día"
+        : elapsedSaved > 0 ? "La propuesta sí mejora la ruta"
+            : elapsedSaved < 0 ? "La ruta actual sigue siendo más corta"
+                : "No hay una mejora clara";
+    return `<div class="route-simulator-savings is-${state}">
+        <span class="route-simulator-verdict-mark" aria-hidden="true">${elapsedSaved > 0 ? "↓" : elapsedSaved < 0 ? "↑" : "="}</span>
+        <div class="route-simulator-verdict-copy"><span>Conclusión</span><h4>${esc(conclusion)}</h4><strong>${esc(headline)}</strong><p>${esc(detail)}</p></div>
+        <div class="route-simulator-duration-shift" aria-label="Comparación de la duración de la jornada"><span>Itinerario actual <b>${elapsedBefore} min</b></span><i aria-hidden="true">→</i><span>Propuesta <b>${elapsedNow} min</b></span></div>
+    </div>`;
 }
 
 function resultSpotName(result, spotIndex) {
@@ -483,37 +446,51 @@ function renderResult(result, {
         ? `<div class="route-simulator-manual-summary"><span aria-hidden="true">✎</span><p><strong>${manualLegs.size} ${manualLegs.size === 1 ? "trayecto personalizado" : "trayectos personalizados"}</strong>Se aplican en ambos sentidos y solo durante esta simulación.</p><button type="button" data-simulator-reset-legs>Restaurar tiempos</button></div>`
         : "";
     const method = `${fixedSummary ? `${esc(fixedSummary)} ` : ""}${result.exact ? "Se han comparado todos los órdenes posibles." : "Se ha usado una búsqueda optimizada por el número de paradas."}`;
-    resultEl.innerHTML = `${metricsMarkup(result)}
-        <div class="route-simulator-overview">
-            ${routeMapMarkup(baseline, result)}
-            <div class="route-simulator-verdict">
-                ${savingsMarkup(result, baseline)}
-                <p class="route-simulator-method">${method}</p>
-                ${notices.join("")}
+    const review = notices.length
+        ? notices.join("")
+        : '<div class="route-simulator-review-clear"><span aria-hidden="true">✓</span><p><strong>Sin avisos pendientes</strong>La propuesta respeta las citas, los horarios y las restricciones indicadas.</p></div>';
+    const readOnlyDecision = '<div class="route-simulator-readonly-result"><span aria-hidden="true">◇</span><p><strong>Resultado de solo lectura</strong>Puedes consultar la propuesta, pero no aplicarla a este viaje.</p></div>';
+    resultEl.innerHTML = `<div class="route-simulator-result-story">
+        <section class="route-simulator-conclusion" aria-labelledby="routeSimulatorConclusionTitle">
+            <div class="route-simulator-story-heading"><span>01</span><div><small>Resultado</small><h4 id="routeSimulatorConclusionTitle">¿Merece la pena cambiar?</h4></div></div>
+            ${savingsMarkup(result, baseline)}
+            ${metricsMarkup(result)}
+        </section>
+        <section class="route-simulator-evidence" aria-labelledby="routeSimulatorEvidenceTitle">
+            <div class="route-simulator-story-heading"><span>02</span><div><small>Evidencia visual</small><h4 id="routeSimulatorEvidenceTitle">Qué cambia respecto a tu plan</h4></div></div>
+            <div class="route-simulator-evidence-layout">
+                ${routeMapMarkup(baseline, result)}
+                ${beforeColumnMarkup(baseline, result)}
             </div>
-        </div>
-        <div class="route-simulator-route-compare">
-            ${beforeColumnMarkup(baseline, result)}
-            <section class="route-simulator-route-col is-after">
-                <header><span>Ahora</span><strong>${result.metrics.travel} min de trayecto</strong></header>
-                <p class="route-simulator-route-note">Introduce los minutos reales de un trayecto y el orden y los horarios se recalculan al momento.</p>
+        </section>
+        <div class="route-simulator-proposal-layout">
+            <section class="route-simulator-route-col is-after" aria-labelledby="routeSimulatorProposalTitle">
+                <div class="route-simulator-story-heading"><span>03</span><div><small>Recorrido propuesto · ${result.metrics.travel} min de trayecto</small><h4 id="routeSimulatorProposalTitle">Así quedaría el día</h4></div></div>
+                <p class="route-simulator-route-note">Los horarios se leen de arriba abajo. Puedes corregir los minutos de cualquier trayecto y la propuesta se recalculará al momento.</p>
                 ${manualSummary}
                 <div class="route-simulator-timeline">${steps}</div>
             </section>
+            <aside class="route-simulator-review" aria-labelledby="routeSimulatorReviewTitle">
+                <div class="route-simulator-story-heading"><span>04</span><div><small>Antes de decidir</small><h4 id="routeSimulatorReviewTitle">Lo que debes revisar</h4></div></div>
+                <div class="route-simulator-review-list">${review}</div>
+                <p class="route-simulator-method">${method}</p>
+            </aside>
         </div>
-        <div class="route-simulator-result-actions">
-            <div class="route-simulator-result-note"><span aria-hidden="true">◇</span><p><strong>La propuesta sigue siendo temporal</strong>Cerrar esta ventana la descarta. Los tiempos de trayecto editados aquí no se guardarán.</p></div>
-            ${store.readOnly ? "" : '<button class="route-simulator-apply" type="button" data-simulator-apply><span aria-hidden="true">✓</span><span><strong>Aplicar simulación</strong><small>Revisar antes de cambiar el itinerario</small></span></button>'}
-        </div>`;
+        <section class="route-simulator-result-actions" aria-labelledby="routeSimulatorDecisionTitle">
+            <div class="route-simulator-decision-copy">
+                <div class="route-simulator-story-heading"><span>05</span><div><small>Decisión final</small><h4 id="routeSimulatorDecisionTitle">La propuesta aún no ha cambiado tu viaje</h4></div></div>
+                <p>Al aplicarla se actualizarán el orden, el inicio del día y los primeros horarios calculados. Las paradas no seleccionadas conservarán su posición relativa.</p>
+                <small>Los tiempos de trayecto editados aquí son hipótesis y no se guardarán. Podrás deshacer el cambio como una sola acción.</small>
+            </div>
+            ${store.readOnly ? readOnlyDecision : '<button class="route-simulator-apply" type="button" data-simulator-apply><span aria-hidden="true">✓</span><span><strong>Aplicar simulación</strong><small>Revisar y confirmar cambios</small></span></button>'}
+        </section>
+    </div>`;
     resultEl.scrollTop = preserveScroll ? previousScroll : 0;
     unmountRouteMap = mountRouteMap(resultEl, baseline, result);
-    scheduleComparisonAlignment();
     // renderResult runs again on every edited leg. Announcing the whole panel
     // each time buried the change, so only this one-line summary is live.
     statusEl.textContent = `Ruta recalculada: ${result.steps.length} paradas, de ${formatSimulationTime(result.start)} a ${formatSimulationTime(result.finish)}, ${result.metrics.travel} minutos de trayecto.`;
 }
-
-window.addEventListener("resize", scheduleComparisonAlignment);
 
 function recalculateActiveSimulation({ preserveScroll = true } = {}) {
     if (!activeSimulation) return;
