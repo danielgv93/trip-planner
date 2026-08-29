@@ -43,7 +43,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Then open [http://localhost:8000](http://localhost:8000). The API applies pending database migrations automatically before it starts accepting requests. The frontend proxies `/api/*` to the API inside the Compose network, so the browser only accesses one origin. PostgreSQL is exposed only on `127.0.0.1:5432` by default, and its data persists in the `trip_planner_postgres_data` volume. All deployment variables live in the root `.env` file; `.env.example` documents the available settings. Configure `APP_ORIGIN`, `FRONTEND_PORT`, and the `POSTGRES_*` variables when deploying under a different URL or with non-development credentials. Set `NODE_ENV=production` when the public origin uses HTTPS so session cookies are marked as secure.
+Then open [http://localhost:8000](http://localhost:8000). The API applies pending database migrations automatically before it starts accepting requests. The frontend is the only service that publishes a port: it proxies `/api/*` to the API over the Compose network, so the browser always uses a single origin. The API and PostgreSQL are reachable only from inside that network and are never bound to the host, and the database data persists in the `trip_planner_postgres_data` volume. All deployment variables live in the root `.env` file; `.env.example` documents the available settings. Configure `APP_ORIGIN`, `FRONTEND_PORT`, and the `POSTGRES_*` variables when deploying under a different URL or with non-development credentials. Set `NODE_ENV=production` when the public origin uses HTTPS so session cookies are marked as secure.
 
 To run only the static frontend without Docker:
 
@@ -91,6 +91,7 @@ Provider, base URL, and model are stored locally. API keys remain only in `sessi
 trip-planner/
 ├── .env.example             # Environment template for Compose and the API
 ├── docker-compose.yaml      # Complete local/deployment stack
+├── docker-compose.dev.yaml  # Development overlay: publishes PostgreSQL for `npm run dev`
 ├── Dockerfile               # Static frontend image
 ├── nginx.conf               # Frontend server and /api reverse proxy
 ├── index.html               # Application shell and dialogs
@@ -179,7 +180,7 @@ Then start PostgreSQL, the API in Node watch mode, and the static frontend with 
 npm run dev
 ```
 
-Open [http://localhost:8000](http://localhost:8000). Frontend changes only require a browser refresh, while API changes restart Node automatically. PostgreSQL remains running in Docker after the development process exits so its data and startup time are preserved; stop it explicitly with `npm run dev:stop`.
+Open [http://localhost:8000](http://localhost:8000). The development server proxies `/api/*` to the local API just as nginx does in Docker, so the browser uses a single origin in both setups. Frontend changes only require a browser refresh, while API changes restart Node automatically. PostgreSQL runs in Docker with `docker-compose.dev.yaml` applied, which publishes it on `127.0.0.1:5432` because the API runs as a host process in this flow; the container stays up after the development process exits so its data and startup time are preserved, and `npm run dev:stop` stops it explicitly.
 
 The frontend continues to use native ES modules and has no compilation or bundling step. Run `npm test` for the pure-logic suite, then check UI changes manually by exercising the relevant desktop and mobile flows.
 

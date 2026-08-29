@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
-import { createServer } from "node:http";
+import { createServer, request as apiRequest } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -52,8 +52,42 @@ function publicFile(pathname) {
     return candidate;
 }
 
-function startFrontend(port) {
+// The frontend always talks to its own origin, exactly as nginx does in the
+// Docker stack, so the API needs no published port and no cross-origin request.
+function proxyApi(request, response, apiPort) {
+    const upstream = apiRequest({
+        host: "127.0.0.1",
+        port: apiPort,
+        path: request.url,
+        method: request.method,
+        headers: request.headers,
+    }, (apiResponse) => {
+        response.writeHead(apiResponse.statusCode || 502, apiResponse.headers);
+        // The collaboration stream is server-sent events: flush every chunk
+        // instead of letting Nagle hold it back until the buffer fills.
+        response.flushHeaders();
+        response.socket?.setNoDelay(true);
+        apiResponse.pipe(response);
+    });
+
+    upstream.setNoDelay(true);
+    upstream.once("error", () => {
+        if (!response.headersSent) {
+            response.writeHead(502, { "content-type": "text/plain; charset=utf-8" });
+        }
+        response.end("La API no está disponible");
+    });
+    response.once("close", () => upstream.destroy());
+    request.pipe(upstream);
+}
+
+function startFrontend(port, apiPort) {
     const server = createServer((request, response) => {
+        if (request.url?.startsWith("/api/")) {
+            proxyApi(request, response, apiPort);
+            return;
+        }
+
         if (!request.url || !["GET", "HEAD"].includes(request.method || "")) {
             response.writeHead(405, { allow: "GET, HEAD" }).end();
             return;
@@ -101,10 +135,27 @@ async function main() {
         throw new Error("FRONTEND_PORT debe ser un puerto válido");
     }
 
-    console.log("Iniciando PostgreSQL…");
-    await run("docker", ["compose", "up", "-d", "--wait", "db"], { cwd: root });
+    const apiPort = Number(envValue("PORT") || 8787);
+    if (!Number.isInteger(apiPort) || apiPort < 1 || apiPort > 65_535) {
+        throw new Error("PORT debe ser un puerto válido");
+    }
 
-    const frontend = await startFrontend(frontendPort);
+    console.log("Iniciando PostgreSQL…");
+    // Only this flow needs PostgreSQL published on the host, so the database
+    // port lives in the development overlay instead of the base stack.
+    await run("docker", [
+        "compose",
+        "-f",
+        "docker-compose.yaml",
+        "-f",
+        "docker-compose.dev.yaml",
+        "up",
+        "-d",
+        "--wait",
+        "db",
+    ], { cwd: root });
+
+    const frontend = await startFrontend(frontendPort, apiPort);
     const api = spawn(process.execPath, [
         "--watch",
         "--watch-preserve-output",
@@ -116,7 +167,7 @@ async function main() {
     });
 
     console.log(`Frontend: http://localhost:${frontendPort}`);
-    console.log("API:      http://localhost:8787");
+    console.log(`API:      http://localhost:${frontendPort}/api (proxy a 127.0.0.1:${apiPort})`);
     console.log("PostgreSQL está en Docker. Pulsa Ctrl+C para detener frontend y API.");
 
     let shuttingDown = false;

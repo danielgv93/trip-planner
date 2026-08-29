@@ -1,0 +1,8 @@
+# Development-only overlay for `npm run dev`, where the API runs as a host Node
+# process and therefore needs PostgreSQL reachable from the host. The full
+# Docker stack (`docker compose up`) must not load this file: there the API
+# reaches the database over the Compose network and publishes nothing.
+services:
+  db:
+    ports:
+      - "${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"

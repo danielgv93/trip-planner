@@ -37,7 +37,19 @@ test("cloud admite una URL alternativa y la configuración global prevalece", ()
     });
 });
 
-test("el desarrollo local dirige la API al puerto 8787", async () => {
+test("el shell no fija un origen de API distinto al suyo", async () => {
     const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
-    assert.match(html, /name="trip-planner-cloud"[^>]+data-api-base="http:\/\/localhost:8787"/);
+    assert.doesNotMatch(html, /name="trip-planner-cloud"/);
+    assert.doesNotMatch(html, /localhost:8787/);
+});
+
+test("sin meta ni configuración global la API es del mismo origen", () => {
+    const previousDocument = globalThis.document;
+    globalThis.document = { querySelector: () => null };
+    try {
+        assert.deepEqual(cloudClientConfig(), { baseUrl: "", timeoutMs: 12_000 });
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
+    }
 });
