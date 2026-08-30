@@ -15,7 +15,7 @@ function spot(overrides = {}) {
 }
 
 function projection(itemOverrides = {}) {
-    return { items: [{ spot: spot(), duration: 60, travel: 15, travelProfile: "walking", travelSource: "official", margin: 120, conflicts: [], ...itemOverrides }] };
+    return { items: [{ spot: spot(), duration: 60, travel: 15, travelProfile: "walking", travelMode: "walking", travelSource: "official", margin: 120, conflicts: [], ...itemOverrides }] };
 }
 
 test("el conflicto duro tiene precedencia sobre datos ausentes", () => {
@@ -66,6 +66,16 @@ test("los umbrales de margen y caminata clasifican el día como justo", () => {
     assert.equal(result.state, "tight");
     assert.ok(result.issues.some((issue) => issue.type === "low-margin"));
     assert.ok(result.issues.some((issue) => issue.type === "walking-total"));
+});
+
+test("un tramo largo en otro medio no se contabiliza como caminata", () => {
+    const value = spot();
+    const result = diagnoseDay(
+        { id: "d1", spots: [value] },
+        projection({ spot: value, travel: 60, travelMode: "train", travelProfile: "walking" }),
+    );
+    assert.equal(result.metrics.walking, 0);
+    assert.equal(result.issues.some((issue) => issue.type === "walking-leg"), false);
 });
 
 test("las rutas estimadas impiden un resultado sólido", () => {

@@ -57,8 +57,9 @@ export function diagnoseDay(day, projection) {
     if (minMargin !== null && minMargin >= 0 && minMargin <= HEALTH_THRESHOLDS.lowMargin)
         issues.push(issue("low-margin", "warning", null, `El margen mínimo es de ${minMargin} min (el aviso comienza en 30 min).`, { minutes: minMargin }));
     const travel = items.reduce((sum, item) => sum + (item.travel || 0), 0);
-    const walking = items.filter((item) => item.travelProfile === "walking").reduce((sum, item) => sum + (item.travel || 0), 0);
-    const longestWalk = Math.max(0, ...items.filter((item) => item.travelProfile === "walking").map((item) => item.travel || 0));
+    const walkingItems = items.filter((item) => item.travelMode === "walking");
+    const walking = walkingItems.reduce((sum, item) => sum + (item.travel || 0), 0);
+    const longestWalk = Math.max(0, ...walkingItems.map((item) => item.travel || 0));
     const activity = items.reduce((sum, item) => sum + (item.duration || 0), 0);
     if (walking > HEALTH_THRESHOLDS.walkingTotal)
         issues.push(issue("walking-total", "warning", null, `El día acumula ${walking} min andando (más de 120 min).`, { minutes: walking }));
