@@ -452,7 +452,6 @@ function populatePlaceForm(spot, prefill) {
 export function openDialog(dayId, spot, prefill = {}) {
     cancelPendingSearch();
     returnFocus = document.activeElement;
-    const pageScroll = { left: window.scrollX, top: window.scrollY };
     editing = { dayId, spot, backlogGroupId: prefill.backlogGroupId, onSave: typeof prefill.onSave === "function" ? prefill.onSave : null };
     dialog.dataset.presenceTarget = spot?.id ? `spot:${spot.id}` : dayId === "backlog" ? "backlog:all" : `day:${dayId}`;
     populatePlaceForm(spot, prefill);
@@ -460,9 +459,6 @@ export function openDialog(dayId, spot, prefill = {}) {
     const mode = spot && !focusTarget ? "read" : spot ? "edit" : "create";
     setPlaceMode(mode, { focus: false });
     openModal(dialog);
-    // Native dialog focus can scroll the document to the top while promoting
-    // the modal into the top layer. Keep the itinerary exactly where it was.
-    window.scrollTo({ ...pageScroll, behavior: "auto" });
     if (focusTarget) {
         openPlaceGroup(focusTarget.group);
     }
@@ -473,7 +469,6 @@ export function openDialog(dayId, spot, prefill = {}) {
               ? $("#placeEditButton")
               : $("#placeName");
         control?.focus({ preventScroll: true });
-        window.scrollTo({ ...pageScroll, behavior: "auto" });
     });
     const prefilledName = !spot && typeof prefill?.name === "string" && prefill.name.trim();
     if (prefilledName) queueSearch(prefilledName, { clearsLocation: false });

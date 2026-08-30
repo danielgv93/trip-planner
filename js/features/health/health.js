@@ -139,7 +139,9 @@ function renderCenter(focusDayId) {
             return `<section class="health-day is-static is-${result.state}" data-health-result="${esc(day.id)}" tabindex="-1"><div class="health-day-summary">${heading}</div>${body}</section>`;
         return `<details class="health-day is-${result.state}" data-health-result="${esc(day.id)}"${dayIndex === 0 ? " open" : ""}><summary class="health-day-summary">${heading}</summary>${body}</details>`;
     }).join("");
-    if (focusDayId) requestAnimationFrame(() => resultsEl.querySelector(`[data-health-result="${CSS.escape(focusDayId)}"]`)?.focus());
+    if (focusDayId) requestAnimationFrame(() => resultsEl
+        .querySelector(`[data-health-result="${CSS.escape(focusDayId)}"]`)
+        ?.focus({ preventScroll: true }));
 }
 
 export async function checkPlan({ focusDayId } = {}) {

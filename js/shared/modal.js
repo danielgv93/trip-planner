@@ -82,9 +82,17 @@ export function setupModals(root = document) {
 export function openModal(modal) {
     setupModal(modal);
     if (!modal.open) {
+        const pageScroll = { left: window.scrollX, top: window.scrollY };
         modal.showModal();
         openModals.push(modal);
         keepModalInViewport(modal);
+        // Promoting a native dialog into the top layer moves focus into it.
+        // Some browsers scroll the document while doing so, even for a fixed
+        // dialog. Opening a modal must not move the itinerary underneath it.
+        window.scrollTo({ ...pageScroll, behavior: "auto" });
+        requestAnimationFrame(() => {
+            if (modal.open) window.scrollTo({ ...pageScroll, behavior: "auto" });
+        });
     }
 }
 
