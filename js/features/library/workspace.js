@@ -1,6 +1,6 @@
 import { DEFAULT_CATEGORIES } from "../../core/constants.js";
 import { migrateLegacyTrip } from "../../core/legacy-trip-migration.js";
-import { normalizePlan, portablePlanFrom } from "../../core/plan-json.js";
+import { normalizePlan, PLAN_VERSION, portablePlanFrom } from "../../core/plan-json.js";
 import { randomUUID } from "../../core/random-id.js";
 import { canonicalPlanHash } from "../../core/plan-hash.js";
 import { store, registerLocalPreferencesCommitter, registerTripCommitter, replacePlanState } from "../../core/store.js";
@@ -29,7 +29,7 @@ export function tripId() {
 function emptyDocument(title = "Nuevo viaje") {
     const today = new Date().toISOString().slice(0, 10);
     return {
-        version: 28,
+        version: PLAN_VERSION,
         tripTitle: title,
         localCurrency: "EUR",
         foreignCurrency: "JPY",
@@ -51,6 +51,7 @@ function emptyDocument(title = "Nuevo viaje") {
 function preferencesFromStore() {
     return {
         backlogCollapsed: store.backlogCollapsed,
+        collapsedDayIds: [...store.collapsedDayIds],
         activeTripNotePageId: store.activeTripNotePageId,
         basemap: store.basemap,
         workspaceSplit: store.workspaceSplit,
@@ -60,6 +61,11 @@ function preferencesFromStore() {
 
 function applyPreferences(preferences = {}) {
     store.backlogCollapsed = preferences.backlogCollapsed === true;
+    const dayIds = new Set(store.state.map((day) => day.id));
+    store.collapsedDayIds = new Set(
+        (Array.isArray(preferences.collapsedDayIds) ? preferences.collapsedDayIds : [])
+            .filter((dayId) => dayIds.has(dayId)),
+    );
     store.basemap = ["liberty", "osm"].includes(preferences.basemap) ? preferences.basemap : store.basemap;
     store.workspaceSplit = Number.isFinite(preferences.workspaceSplit) ? preferences.workspaceSplit : null;
     store.itineraryDensity = preferences.itineraryDensity === "compact" ? "compact" : "comfortable";

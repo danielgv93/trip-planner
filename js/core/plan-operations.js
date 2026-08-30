@@ -19,7 +19,7 @@ const TARGET_FIELDS = Object.freeze({
         "tripTitle", "localCurrency", "foreignCurrency", "exchangeRate",
         "exchangeRateDate", "routeProfile", "routeVisualization",
     ]),
-    day: new Set(["date", "title", "startTime", "collapsed"]),
+    day: new Set(["date", "title", "startTime"]),
     spot: new Set([
         "name", "address", "note", "tags", "category", "lat", "lng",
         "cost", "visitMinutes", "openingTime", "closingTime", "plannedStart",

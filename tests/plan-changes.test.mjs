@@ -36,3 +36,13 @@ test("el diff agrupa altas y bajas por identidad", () => {
     assert.equal(preview.groups[0].tone, "add");
     assert.equal(preview.groups[1].tone, "remove");
 });
+
+test("el diff ignora el plegado legacy de un día", () => {
+    const previous = { days: [{ id: "d1", title: "Uno", spots: [] }], backlog: [] };
+    const next = { days: [{ ...previous.days[0], collapsed: true }], backlog: [] };
+
+    const preview = buildPlanChanges(previous, next);
+
+    assert.deepEqual(preview.stats.map((stat) => stat.value), [0, 0, 0]);
+    assert.deepEqual(preview.groups, []);
+});

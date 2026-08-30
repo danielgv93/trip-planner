@@ -80,6 +80,7 @@ test("valida el sobre, la allowlist y deriva target keys sin valores", () => {
     assert.deepEqual(deriveTargetKeys(op, plan()), ["day:day-1", "spot:spot-a", "spot:spot-a:cost"]);
     assert.throws(() => validatePlanOperation({ ...op, protocolVersion: 99 }), errorCode("UNSUPPORTED_OPERATION_VERSION"));
     assert.throws(() => validatePlanOperation({ ...op, target: { ...op.target, field: "__proto__" } }), errorCode("INVALID_OPERATION"));
+    assert.throws(() => validatePlanOperation({ ...op, target: { type: "day", id: "day-1", field: "collapsed" } }), errorCode("INVALID_OPERATION"));
 });
 
 test("aplica escalares con precondición, conflicto, no-op e inversa", () => {

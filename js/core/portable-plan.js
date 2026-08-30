@@ -12,7 +12,7 @@ import { migrateLegacyTravelLegs } from "./travel-legs.js";
 import { normalizeTripNotePages } from "./note-pages.js";
 import { normalizeReminders } from "./reminders.js";
 
-export const PLAN_VERSION = 28;
+export const PLAN_VERSION = 29;
 
 function isRecord(value) {
     return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -58,12 +58,15 @@ export function normalizePortableDay(day) {
     }
     const spots = day.spots.map(normalizePortableSpot);
     spots.forEach((spot) => delete spot.backlogGroupId);
-    return normalizeHealthDay({
+    const normalized = normalizeHealthDay({
         ...day,
         date: typeof day.date === "string" ? day.date : "",
         title: typeof day.title === "string" ? day.title : "",
         spots,
     });
+    // Folding a day is device-local presentation state, not trip content.
+    delete normalized.collapsed;
+    return normalized;
 }
 
 export function normalizePortablePlan(value, {
@@ -191,6 +194,7 @@ export function parsePortablePlanJson(text, options) {
 }
 
 export function portablePlanFrom(source) {
+    const days = source.days ?? source.state;
     return {
         version: PLAN_VERSION,
         tripTitle: source.tripTitle,
@@ -199,7 +203,7 @@ export function portablePlanFrom(source) {
         exchangeRate: source.exchangeRate,
         exchangeRateDate: source.exchangeRateDate,
         tripNotePages: source.tripNotePages,
-        days: source.days ?? source.state,
+        days: days.map(({ collapsed: _collapsed, ...day }) => day),
         backlog: source.backlog,
         backlogGroups: source.backlogGroups,
         tags: source.tags,

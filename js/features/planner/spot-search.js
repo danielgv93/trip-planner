@@ -1,4 +1,4 @@
-import { store, clearTagFilter, dayBy } from "../../core/store.js";
+import { store, clearTagFilter, setDayCollapsed } from "../../core/store.js";
 import { $, esc } from "../../shared/dom.js";
 import { render } from "./render.js";
 import { drawMap } from "../map/map.js";
@@ -162,8 +162,7 @@ function choose(index) {
         if (group) group.collapsed = false;
     }
     else {
-        const day = dayBy(match.dayId);
-        if (day) day.collapsed = false;
+        setDayCollapsed(match.dayId, false);
     }
     store.active = match.dayId;
     render({ persist: false });

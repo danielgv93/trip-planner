@@ -30,7 +30,7 @@ import {
     mutationInstrumentationMode,
 } from "./mutation-instrumentation.js";
 
-export const STORAGE_VERSION = 31;
+export const STORAGE_VERSION = 32;
 
 let tripCommitter = null;
 let localPreferencesCommitter = null;
@@ -68,8 +68,17 @@ function normalizeSavedDay(day) {
     normalized.spots = Array.isArray(day?.spots)
         ? day.spots.map((spot) => normalizeSpotKind(normalizeHealthSpot(spot)))
         : [];
+    delete normalized.collapsed;
     return normalized;
 }
+
+const savedDays = Array.isArray(saved)
+    ? saved
+    : saved?.days || structuredClone(sample);
+const savedCollapsedDayIds = new Set([
+    ...(Array.isArray(saved?.collapsedDayIds) ? saved.collapsedDayIds : []),
+    ...savedDays.filter((day) => day?.collapsed === true).map((day) => day.id),
+].filter((id) => typeof id === "string"));
 
 export const store = {
     // Library identity and projected metadata share the same state object as
@@ -102,9 +111,10 @@ export const store = {
         typeof saved?.exchangeRateDate === "string" ? saved.exchangeRateDate : "",
     tripNotePages: savedTripNotePages,
     activeTripNotePageId: savedActiveTripNotePage.id,
-    state: (Array.isArray(saved)
-        ? saved
-        : saved?.days || structuredClone(sample)).map(normalizeSavedDay),
+    state: savedDays.map(normalizeSavedDay),
+    // Device-local presentation state. Legacy `day.collapsed` values migrate
+    // here so folding never becomes part of a portable/cloud trip revision.
+    collapsedDayIds: savedCollapsedDayIds,
     backlog: Array.isArray(saved?.backlog)
         ? saved.backlog.map((spot) => {
               const normalized = normalizeSpotKind(normalizeHealthSpot(spot));
@@ -233,6 +243,16 @@ export function clearTagFilter() {
     store.activeTagFilter.clear();
 }
 
+export function dayIsCollapsed(dayOrId) {
+    const dayId = typeof dayOrId === "string" ? dayOrId : dayOrId?.id;
+    return typeof dayId === "string" && store.collapsedDayIds.has(dayId);
+}
+
+export function setDayCollapsed(dayId, collapsed) {
+    if (collapsed) store.collapsedDayIds.add(dayId);
+    else store.collapsedDayIds.delete(dayId);
+}
+
 // OR/union semantics: a spot is visible if it carries at least one of the
 // active filter tags, or if no filter is active at all.
 export function spotMatchesFilter(spot) {
@@ -259,6 +279,7 @@ function localRecoveryValue() {
         tripNotePages: store.tripNotePages,
         activeTripNotePageId: store.activeTripNotePageId,
         days: store.state,
+        collapsedDayIds: [...store.collapsedDayIds],
         backlog: store.backlog,
         backlogCollapsed: store.backlogCollapsed,
         backlogGroups: store.backlogGroups,
@@ -357,6 +378,10 @@ export function registerLocalPreferencesCommitter(callback) {
 
 export function applyPortablePlanState(plan) {
     store.state = plan.days;
+    const dayIds = new Set(store.state.map((day) => day.id));
+    store.collapsedDayIds = new Set(
+        [...store.collapsedDayIds].filter((dayId) => dayIds.has(dayId)),
+    );
     store.backlog = plan.backlog;
     store.backlogGroups = plan.backlogGroups;
     store.tags = plan.tags;

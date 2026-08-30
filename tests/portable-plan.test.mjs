@@ -53,9 +53,10 @@ test("parsePortablePlanJson distingue JSON inválido de documento inválido", ()
 });
 
 test("portablePlanFrom selecciona únicamente campos exportables", () => {
+    const state = legacyPlan().days.map((day) => ({ ...day, collapsed: true }));
     const source = {
         ...normalizePortablePlan(legacyPlan()),
-        state: legacyPlan().days,
+        state,
         ownerId: "user-secret",
         session: "session-secret",
         activeTripId: "local-id",
@@ -73,6 +74,8 @@ test("portablePlanFrom selecciona únicamente campos exportables", () => {
     ]) {
         assert.equal(Object.hasOwn(portable, field), false, field);
     }
+    assert.equal(Object.hasOwn(portable.days[0], "collapsed"), false);
+    assert.equal(Object.hasOwn(normalizePortablePlan({ ...legacyPlan(), days: state }).days[0], "collapsed"), false);
 });
 
 test("el hash SHA-256 es estándar y el hash canónico ignora exportedAt y orden de claves", () => {

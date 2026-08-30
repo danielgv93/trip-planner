@@ -157,6 +157,6 @@ Para volver atrás sin migración de datos:
 4. No reviertas ni elimines `trip_revisions`, `trip_mutations`,
    `trip_presence`, sus columnas ni los endpoints v1. Todas las revisiones ya
    confirmadas siguen siendo documentos portables válidos en Postgres.
-5. `STORAGE_VERSION` sigue en 31, `PLAN_VERSION` en 28 y el JSON portable no
+5. `STORAGE_VERSION` sigue en 32, `PLAN_VERSION` en 29 y el JSON portable no
    contiene cola, presencia ni conflictos; una exportación sigue siendo la vía
    de recuperación independiente del protocolo.

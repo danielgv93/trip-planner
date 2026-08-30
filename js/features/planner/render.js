@@ -13,6 +13,8 @@ import {
     categoryMeta,
     toggleTagFilter,
     clearTagFilter,
+    dayIsCollapsed,
+    setDayCollapsed,
     spotMatchesFilter,
     spotIsEnabled,
     routeTimeOverride,
@@ -1039,14 +1041,15 @@ export function render() {
     store.state.forEach((day) => {
         const f = fmt(day.date),
             activeSpotCount = enabledSpotCount(day.spots),
+            collapsed = dayIsCollapsed(day),
             el = document.createElement("article");
         el.className =
             "day " +
             (day.id === store.active ? "active " : "") +
-            (day.collapsed ? "collapsed" : "");
+            (collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
         el.dataset.presenceTarget = `day:${day.id}`;
-        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta">${esc(day.title)}</span><button class="day-title-edit" type="button" title="Editar nombre del día" aria-label="Editar nombre de ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><div class="day-actions"><button class="day-collapse" type="button" title="${day.collapsed ? "Desplegar día" : "Plegar día"}" aria-label="${day.collapsed ? "Desplegar" : "Plegar"} ${esc(day.title || "día")}" aria-expanded="${day.collapsed ? "false" : "true"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><span class="day-overflow-control"><button class="day-overflow-button" type="button" title="Más acciones" aria-label="Más acciones para ${esc(day.title || "día")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></div></div>${renderDayTimeTools(day)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}`;
+        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta">${esc(day.title)}</span><button class="day-title-edit" type="button" title="Editar nombre del día" aria-label="Editar nombre de ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><div class="day-actions"><button class="day-collapse" type="button" title="${collapsed ? "Desplegar día" : "Plegar día"}" aria-label="${collapsed ? "Desplegar" : "Plegar"} ${esc(day.title || "día")}" aria-expanded="${collapsed ? "false" : "true"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><span class="day-overflow-control"><button class="day-overflow-button" type="button" title="Más acciones" aria-label="Más acciones para ${esc(day.title || "día")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></div></div>${renderDayTimeTools(day)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}`;
         el.querySelector(".day-actions").insertAdjacentHTML("afterbegin", healthBadgeMarkup(day));
         renderList(el.querySelector(".spots"), day.spots);
         wireDayTimeTools(el, day.id);
@@ -1104,11 +1107,9 @@ export function render() {
         el.querySelector(".day-title-edit").addEventListener("click", startEdit);
         el.querySelector(".day-collapse").onclick = (e) => {
             e.stopPropagation();
-            void derivedPlanOperation((document) => setFieldIntent(
-                document,
-                { type: "day", id: day.id, field: "collapsed" },
-                !day.collapsed,
-            ), { undo: false });
+            setDayCollapsed(day.id, !dayIsCollapsed(day));
+            void saveLocalPreferences();
+            render({ persist: false });
         };
         const removeDay = () => {
             confirmAction({

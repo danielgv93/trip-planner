@@ -65,7 +65,7 @@ export function buildPlanChanges(previousPlan, nextPlan) {
     };
 
     const dayItems = (plan) => (plan.days || []).map((day, index) => ({ ...day, position: index + 1 }));
-    const dayComparable = ({ spots, ...day }) => day;
+    const dayComparable = ({ spots, collapsed, ...day }) => day;
     const dayChanges = collectionChanges(
         dayItems(previous),
         dayItems(next),
@@ -78,7 +78,6 @@ export function buildPlanChanges(previousPlan, nextPlan) {
         { label: "Fecha", read: (day) => day.date },
         { label: "Posición", read: (day) => day.position },
         { label: "Hora de inicio", read: (day) => day.startTime },
-        { label: "Plegado", read: (day) => day.collapsed === true },
     ];
     for (const { before, after } of dayChanges.modified) {
         totals.modify += 1;
