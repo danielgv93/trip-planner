@@ -126,8 +126,6 @@ async function commitActivePreferences() {
     const envelope = await repository.getTrip(store.activeTripId);
     if (!envelope) return;
     envelope.preferences = { ...envelope.preferences, ...preferencesFromStore() };
-    envelope.updatedAt = new Date().toISOString();
-    envelope.remote.lastModifiedBy = currentAccountActor() || envelope.remote.lastModifiedBy;
     await repository.putTrip(envelope);
     await refreshTripLibrary();
 }

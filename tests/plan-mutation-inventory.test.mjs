@@ -56,3 +56,15 @@ test("el fallback de save sin descriptor está retirado tras completar el invent
     const source = await readFile(path.join(root, "js/core/store.js"), "utf8");
     assert.match(source, /allowLegacyFallback:\s*false/);
 });
+
+test("guardar preferencias no cambia la fecha ni el autor del contenido", async () => {
+    const source = executableSource(
+        await readFile(path.join(root, "js/features/library/workspace.js"), "utf8"),
+    );
+    const body = source.match(
+        /async function commitActivePreferences\(\)\s*\{([\s\S]*?)\n\}/,
+    )?.[1] || "";
+
+    assert.doesNotMatch(body, /\.updatedAt\s*=/);
+    assert.doesNotMatch(body, /\.lastModifiedBy\s*=/);
+});
