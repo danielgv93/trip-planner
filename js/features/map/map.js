@@ -20,6 +20,7 @@ import { distanceMeters } from "../../core/geo.js";
 import { fetchSpotImage } from "./images.js";
 import { registerBasemapMap } from "./basemap.js";
 import { createRouteCache } from "./route-cache.js";
+import { createMapViewportResetTracker } from "./viewport-lifecycle.js";
 import { highlightItinerarySpot } from "../planner/spot-highlight.js";
 import { derivedPlanOperation, setFieldIntent } from "../../core/plan-operation-commit.js";
 
@@ -32,6 +33,7 @@ L.control.zoom({ position: "bottomright" }).addTo(map);
 registerBasemapMap(map);
 let routeLayer = L.layerGroup().addTo(map);
 let legendControl = null;
+const viewportResetTracker = createMapViewportResetTracker();
 // Rebuilt with the map layers. Lets itinerary/timeline UI point at the
 // corresponding marker without putting transient hover state in the store.
 const spotMarkers = new Map();
@@ -249,7 +251,7 @@ function renderLegend(items) {
         .join("");
 }
 
-function drawGlobalMap() {
+function drawGlobalMap(resetViewport) {
     $("#mapTitle").textContent = store.tripTitle || "Ruta completa del viaje";
     const allPoints = [],
         legendItems = [];
@@ -295,12 +297,12 @@ function drawGlobalMap() {
     });
     $("#mapSummary").innerHTML =
         `<b>${totalLocated}</b> de ${totalSpots} paradas ubicadas en ${store.state.length} ${store.state.length === 1 ? "día" : "días"}`;
-    if (allPoints.length)
+    if (resetViewport && allPoints.length)
         map.fitBounds(allPoints, {
             padding: [45, 45],
             maxZoom: 14,
         });
-    else map.setView([20, 0], 2);
+    else if (resetViewport) map.setView([20, 0], 2);
     renderLegend(legendItems);
 }
 
@@ -528,6 +530,7 @@ function ensureRoutes() {
 }
 
 export function drawMap() {
+    const resetViewport = viewportResetTracker.shouldReset(store.active);
     routeLayer.clearLayers();
     spotMarkers.clear();
     highlightedSpotId = null;
@@ -535,7 +538,7 @@ export function drawMap() {
     legHighlightLayer.clearLayers();
     highlightedLegKey = null;
     highlightItinerarySpot(null, false);
-    if (store.previewMode) return drawGlobalMap();
+    if (store.previewMode) return drawGlobalMap(resetViewport);
     removeLegend();
     const day =
         store.active === "backlog"
@@ -631,8 +634,9 @@ export function drawMap() {
                 );
             });
         });
-        map.fitBounds(points, { padding: [45, 45], maxZoom: 14 });
-    } else map.setView([20, 0], 2);
+        if (resetViewport)
+            map.fitBounds(points, { padding: [45, 45], maxZoom: 14 });
+    } else if (resetViewport) map.setView([20, 0], 2);
     // Fetch any legs we don't have yet; resolves into the cache + repaint.
     ensureRoutes();
 }
