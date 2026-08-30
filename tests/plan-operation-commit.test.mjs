@@ -50,6 +50,7 @@ async function prepare({ cloud = false, protocolVersion = 0, actor = null } = {}
         remoteHash: cloud ? "hash-3" : null,
         protocolVersion,
         syncState: cloud ? "synced" : "local",
+        updatedAt: "2026-08-01T10:00:00.000Z",
     });
     await repository.putTrip(envelope);
     applyPortablePlanState(envelope.document);
@@ -81,6 +82,8 @@ test("el límite local aplica y guarda sin crear ninguna entrada cloud", async (
     assert.equal(store, sharedStore);
     assert.equal(store.tripTitle, "Local");
     assert.equal((await repository.getTrip("trip")).document.tripTitle, "Local");
+    assert.equal((await repository.getTrip("trip")).updatedAt, "2026-08-01T10:00:00.000Z");
+    assert.equal((await repository.getTrip("trip")).remote.lastModifiedBy, null);
     assert.equal((await repository.listOperations("trip")).length, 0);
     assert.equal(await repository.getOutbox("trip"), undefined);
     assert.deepEqual(calls, { undo: 1, repaint: 1, refresh: 1, drain: [] });
@@ -95,7 +98,9 @@ test("el límite cloud encola granularmente y programa el drain", async () => {
     assert.equal(entry.operation.kind, "set-field");
     assert.deepEqual(entry.operation.precondition, { expectedValue: "Origen" });
     assert.deepEqual(calls.drain, [{ tripId: "trip", mode: "granular" }]);
-    assert.equal((await repository.getTrip("trip")).syncState, "pending");
+    const saved = await repository.getTrip("trip");
+    assert.equal(saved.syncState, "pending");
+    assert.notEqual(saved.updatedAt, "2026-08-01T10:00:00.000Z");
 });
 
 test("un reemplazo cloud usa snapshot para que deshacer no dependa de una revisión futura", async () => {

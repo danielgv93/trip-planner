@@ -54,7 +54,10 @@ function operationEnvelope(intent, envelope) {
     return operation;
 }
 
-function nextEnvelope(envelope, document, syncState, { includePreferences = true } = {}) {
+function nextEnvelope(envelope, document, syncState, {
+    includePreferences = true,
+    markModified = false,
+} = {}) {
     const user = store.accountSession?.user;
     const lastModifiedBy = user?.id && user?.displayName
         ? { userId: user.id, displayName: user.displayName }
@@ -63,8 +66,13 @@ function nextEnvelope(envelope, document, syncState, { includePreferences = true
         ...envelope,
         document,
         syncState,
-        updatedAt: new Date().toISOString(),
-        remote: { ...envelope.remote, lastModifiedBy },
+        updatedAt: markModified ? new Date().toISOString() : envelope.updatedAt,
+        remote: {
+            ...envelope.remote,
+            lastModifiedBy: markModified
+                ? lastModifiedBy
+                : envelope.remote?.lastModifiedBy || null,
+        },
         preferences: includePreferences
             ? { ...envelope.preferences, ...activePreferences() }
             : envelope.preferences,
@@ -79,7 +87,10 @@ async function persistOperation(envelope, operation, applied, { includePreferenc
         && operation.kind !== "replace-plan"
         && envelope.remote.protocolVersion >= PLAN_OPERATION_PROTOCOL_VERSION
         && !(await repository.hasLegacyOutbox(envelope.id));
-    const updated = nextEnvelope(envelope, applied.document, isCloud ? "pending" : "local", { includePreferences });
+    const updated = nextEnvelope(envelope, applied.document, isCloud ? "pending" : "local", {
+        includePreferences,
+        markModified: isCloud,
+    });
 
     if (granular) {
         const targetEntity = operation.target.type === "plan"
