@@ -41,7 +41,7 @@ import {
     highlightMapLeg,
 } from "../map/map.js";
 import { openDialog } from "./dialogs.js";
-import { renderDateStrip, markDateStripLoad, lockDateStripCurrent } from "./date-strip.js";
+import { renderDateStrip, settleDateStrip, markDateStripLoad, lockDateStripCurrent } from "./date-strip.js";
 import { editDayStage } from "./day-stage.js";
 import { weekdayShort } from "../../core/day-stages.js";
 import { foreignAmount, localAmount } from "../finance/currency.js";
@@ -1204,6 +1204,7 @@ export function render() {
         wireQuickAdd(el, day.id);
         daysEl.append(el);
     });
+    settleDateStrip();
     const tripTotal =
         sumCosts(store.backlog) +
         store.state.reduce((total, day) => total + sumCosts(day.spots) + sumTravelCosts(day), 0);

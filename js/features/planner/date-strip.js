@@ -18,6 +18,12 @@ let currentDayId = null;
 // highlight are O(1) lookups instead of a document-wide query per day.
 let pills = new Map();
 let filterOpen = false;
+// Horizontal offset tracked from scroll events. render() calls
+// renderDateStrip() while #days is half rebuilt, so reading scrollLeft there
+// would force a layout of the shortened page and clamp window.scrollY (the page
+// jumped up after adding a day). Layout reads wait for settleDateStrip().
+let stripScrollLeft = 0;
+let pendingSettle = null;
 // A jump can target a day the page cannot scroll far enough to pin (the last
 // days of a trip), so scroll position alone would highlight a neighbour. The
 // clicked day stays highlighted until the user scrolls by hand.
@@ -110,6 +116,19 @@ document.addEventListener("focusout", (event) => {
     setFilterOpen(strip, false);
 });
 
+// Runs once render() has appended every day: rebuilding reset the scroller, so
+// put it back, keep the current day on screen and restore focus.
+export function settleDateStrip() {
+    if (!pendingSettle) return;
+    const { strip, scroller, focus } = pendingSettle;
+    pendingSettle = null;
+    if (!scroller.isConnected) return;
+    scroller.scrollLeft = stripScrollLeft;
+    const current = pills.get(String(currentDayId));
+    if (current) revealPill(scroller, current);
+    restoreFocus(strip, focus);
+}
+
 export function renderDateStrip(days, { onSelect, filter } = {}) {
     const strip = $("#dateStrip");
     if (!strip) return;
@@ -122,9 +141,10 @@ export function renderDateStrip(days, { onSelect, filter } = {}) {
         strip.replaceChildren();
         pills = new Map();
         filterOpen = false;
+        pendingSettle = null;
+        stripScrollLeft = 0;
         return;
     }
-    const scrollLeft = strip.querySelector(".date-strip-scroller")?.scrollLeft || 0;
     const focus = focusKey(strip);
     strip.innerHTML = `${filter ? filterMarkup(filter) : ""}<div class="date-strip-scroller">${groupDaysByStage(days)
         .map(({ stage, days: members }) => {
@@ -141,13 +161,9 @@ export function renderDateStrip(days, { onSelect, filter } = {}) {
     pills = new Map(
         [...strip.querySelectorAll(".date-strip-pill")].map((pill) => [pill.dataset.day, pill]),
     );
-    // Rebuilding resets the scroller; put it back, then make sure the current
-    // day is still on screen.
     const scroller = strip.querySelector(".date-strip-scroller");
-    scroller.scrollLeft = scrollLeft;
-    const current = pills.get(String(currentDayId));
-    if (current) revealPill(scroller, current);
-    restoreFocus(strip, focus);
+    scroller.onscroll = () => { stripScrollLeft = scroller.scrollLeft; };
+    pendingSettle = { strip, scroller, focus };
 
     strip.onclick = (event) => {
         const pill = event.target.closest(".date-strip-pill");
