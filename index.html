@@ -20,7 +20,7 @@
             rel="stylesheet"
             href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css"
         />
-        <link rel="stylesheet" href="styles/app.css?v=20260930-4" />
+        <link rel="stylesheet" href="styles/app.css?v=20260930-6" />
     </head>
 <body>
         <div id="collaborationLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -270,6 +270,10 @@
                             <strong>Itinerario</strong>
                             <span id="itineraryOverview">Vista general del viaje</span>
                         </div>
+                        <div class="itinerary-toolbar-actions">
+                        <button id="toggleAllDays" class="fold-all-button" type="button" aria-label="Plegar todos los días" title="Plegar todos los días" hidden>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 15 5-5 5 5"/><path d="m7 20 5-5 5 5" opacity=".45"/><path d="m7 9 5-5 5 5" opacity=".45"/></svg><span>Plegar todo</span>
+                        </button>
                         <div class="density-switch" role="group" aria-label="Densidad de la vista">
                             <button
                                 class="density-option"
@@ -286,6 +290,7 @@
                                 title="Vista compacta"
                             ><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="4" rx="1.5"/><rect x="4" y="10" width="16" height="4" rx="1.5"/><rect x="4" y="16" width="16" height="4" rx="1.5"/></svg><span>Compacta</span></button>
                         </div>
+                        </div>
                     </div>
                     <div id="tagBar" class="tag-bar">
                         <span class="tag-label">Filtrar</span
@@ -294,6 +299,7 @@
                             Limpiar
                         </button>
                     </div>
+                    <nav id="dateStrip" class="date-strip" aria-label="Días del viaje" hidden></nav>
                     <div id="days" class="days"></div>
                     <button class="add-day" id="addDay">
                         ＋ Añadir un día

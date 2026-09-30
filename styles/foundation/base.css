@@ -15,6 +15,9 @@
        position once it can measure; this value covers the first paint. */
     --sticky-pane-height: calc(100vh - var(--nav-height) - 40px);
     --tag-bar-height: 43px;
+    /* Measured by js/features/planner/sticky-days.js; 0 while the date strip
+       is hidden so day headers stick right below the tag bar. */
+    --date-strip-height: 0px;
     --sticky-gap: 0px;
     --scrollbar-track: color-mix(in srgb, var(--sand) 58%, transparent);
     --scrollbar-thumb: color-mix(in srgb, var(--green) 48%, var(--paper));

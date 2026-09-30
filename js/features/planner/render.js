@@ -41,7 +41,9 @@ import {
     highlightMapLeg,
 } from "../map/map.js";
 import { openDialog } from "./dialogs.js";
+import { renderDateStrip, markDateStripLoad, lockDateStripCurrent } from "./date-strip.js";
 import { editDayStage } from "./day-stage.js";
+import { weekdayShort } from "../../core/day-stages.js";
 import { foreignAmount, localAmount } from "../finance/currency.js";
 import {
     formatCost,
@@ -150,7 +152,11 @@ function renderTags() {
 // currently underneath the sticky headers at the same visual position and
 // retain the unfiltered list height until the filter is cleared.
 function updateTagFilter(changeFilter) {
-    const tagBarBottom = $("#tagBar").getBoundingClientRect().bottom;
+    // The hidden date strip has a zero rect, so this also covers short trips.
+    const tagBarBottom = Math.max(
+        $("#tagBar").getBoundingClientRect().bottom,
+        $("#dateStrip").getBoundingClientRect().bottom,
+    );
     const days = [...daysEl.querySelectorAll(".day")];
     const anchorDay =
         days.find((day) => {
@@ -728,6 +734,7 @@ function applyDayLoad(dayEl, day) {
         hasData = activity > 0 || travel != null;
     loadSpan.textContent = dayLoadText(activity, travel);
     badge.hidden = !isOver;
+    markDateStripLoad(day.id, hasData && isOver);
     meter.hidden = !hasData;
     meter.classList.toggle("is-over", hasData && isOver);
     if (hasData) {
@@ -960,6 +967,56 @@ function wireBacklogGroup(section, group) {
     });
 }
 
+// Makes a day the map's active selection, like clicking its header.
+function selectDay(dayId) {
+    store.active = dayId;
+    render();
+    drawMap();
+}
+
+// Jumps to a day from the date strip: expands it if folded, selects it on the
+// map (scrolling alone never does), then scrolls so its sticky header lands
+// right below the navbar and the strip.
+function jumpToDay(dayId) {
+    if (dayIsCollapsed(dayId)) {
+        setDayCollapsed(dayId, false);
+        void saveLocalPreferences();
+        selectDay(dayId);
+    } else if (store.active !== dayId) selectDay(dayId);
+    const dayEl = [...daysEl.querySelectorAll(".day")].find((el) => el.dataset.day === dayId);
+    if (!dayEl) return;
+    lockDateStripCurrent(dayId);
+    const stack = ["#tagBar", "#dateStrip"].reduce(
+        (total, selector) => total + ($(selector).hidden ? 0 : $(selector).getBoundingClientRect().height),
+        document.querySelector(".top").getBoundingClientRect().height,
+    );
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({
+        top: Math.max(0, dayEl.getBoundingClientRect().top + window.scrollY - stack),
+        behavior: reduceMotion ? "auto" : "smooth",
+    });
+}
+
+// "Plegar todo" / "Desplegar todo": collapse state is a per-device preference,
+// so this neither touches the plan nor creates undo history.
+function renderFoldAllControl() {
+    const button = $("#toggleAllDays");
+    if (!button) return;
+    button.hidden = store.state.length === 0;
+    const allFolded = store.state.length > 0 && store.state.every((day) => dayIsCollapsed(day));
+    const label = allFolded ? "Desplegar todo" : "Plegar todo";
+    button.querySelector("span").textContent = label;
+    const hint = allFolded ? "Desplegar todos los días" : "Plegar todos los días";
+    button.title = hint;
+    button.setAttribute("aria-label", hint);
+    button.classList.toggle("is-folded", allFolded);
+    button.onclick = () => {
+        store.state.forEach((day) => setDayCollapsed(day.id, !allFolded));
+        void saveLocalPreferences();
+        render({ persist: false });
+    };
+}
+
 export function render() {
     // Also protects long-lived tabs that reload a newer renderer while an
     // older store module remains in the browser cache.
@@ -1040,6 +1097,16 @@ export function render() {
         }));
     });
     daysEl.append(b);
+    renderDateStrip(store.state, {
+        onSelect: jumpToDay,
+        filter: {
+            tags: store.tags,
+            active: store.activeTagFilter,
+            onToggle: (tag) => updateTagFilter(() => toggleTagFilter(tag)),
+            onClear: () => updateTagFilter(clearTagFilter),
+        },
+    });
+    renderFoldAllControl();
     store.state.forEach((day) => {
         const f = fmt(day.date),
             activeSpotCount = enabledSpotCount(day.spots),
@@ -1051,7 +1118,7 @@ export function render() {
             (collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
         el.dataset.presenceTarget = `day:${day.id}`;
-        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><div class="date-box editable" title="Cambiar fecha"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta">${esc(day.title)}</span><button class="day-title-edit" type="button" title="Editar nombre del día" aria-label="Editar nombre de ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button></div><small>${activeSpotCount} ${activeSpotCount === 1 ? "parada activa" : "paradas activas"} · ${esc(formatCost(sumCosts(day.spots)))}<span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span> · pulsa para ver ruta</small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><div class="day-actions"><button class="day-collapse" type="button" title="${collapsed ? "Desplegar día" : "Plegar día"}" aria-label="${collapsed ? "Desplegar" : "Plegar"} ${esc(day.title || "día")}" aria-expanded="${collapsed ? "false" : "true"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><span class="day-overflow-control"><button class="day-overflow-button" type="button" title="Más acciones" aria-label="Más acciones para ${esc(day.title || "día")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></div></div>${renderDayTimeTools(day)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}`;
+        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><div class="date-box editable" title="Cambiar fecha" data-weekday="${esc(weekdayShort(day.date))}"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta">${esc(day.title)}</span><button class="day-title-edit" type="button" title="Editar nombre del día" aria-label="Editar nombre de ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button></div><small><span class="day-count">${activeSpotCount} ${activeSpotCount === 1 ? "parada" : "paradas"}<span class="day-count-long"> ${activeSpotCount === 1 ? "activa" : "activas"}</span></span><span class="day-cost"> · ${esc(formatCost(sumCosts(day.spots)))}</span><span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span><span class="day-route-hint"> · pulsa para ver ruta</span></small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><div class="day-actions"><button class="day-collapse" type="button" title="${collapsed ? "Desplegar día" : "Plegar día"}" aria-label="${collapsed ? "Desplegar" : "Plegar"} ${esc(day.title || "día")}" aria-expanded="${collapsed ? "false" : "true"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><span class="day-overflow-control"><button class="day-overflow-button" type="button" title="Más acciones" aria-label="Más acciones para ${esc(day.title || "día")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></div></div>${renderDayTimeTools(day)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}`;
         el.querySelector(".day-actions").insertAdjacentHTML("afterbegin", healthBadgeMarkup(day));
         renderList(el.querySelector(".spots"), day.spots);
         wireDayTimeTools(el, day.id);
@@ -1079,9 +1146,7 @@ export function render() {
                 e.target.tagName === "INPUT"
             )
                 return;
-            store.active = day.id;
-            render({ persist: false });
-            drawMap();
+            selectDay(day.id);
         });
         const dateBox = el.querySelector(".date-box");
         dateBox.addEventListener("click", () => {

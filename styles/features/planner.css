@@ -51,6 +51,49 @@ main {
     background: color-mix(in srgb, var(--card) 92%, var(--sand));
     box-shadow: 0 4px 14px #24323a08;
 }
+.itinerary-toolbar-actions {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.fold-all-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 10px;
+    border: 1px solid #d8d3c9;
+    border-radius: 7px;
+    background: transparent;
+    color: #737b7d;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.16s ease, background 0.16s ease;
+}
+.fold-all-button[hidden] { display: none; }
+.fold-all-button svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.18s ease;
+}
+.fold-all-button.is-folded svg { transform: rotate(180deg); }
+.fold-all-button:hover,
+.fold-all-button:focus-visible {
+    color: var(--ink);
+    background: #ece9e2;
+    outline: none;
+}
+.fold-all-button:focus-visible {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 35%, transparent);
+}
 .itinerary-overview {
     display: flex;
     align-items: baseline;
@@ -308,7 +351,7 @@ body.compact-itinerary .backlog-group-delete { width: 26px; height: 26px; }
 }
 .day-head {
     position: sticky;
-    top: calc(var(--nav-height) + var(--tag-bar-height) + var(--sticky-gap));
+    top: calc(var(--nav-height) + var(--tag-bar-height) + var(--date-strip-height) + var(--sticky-gap));
     z-index: 12;
     display: flex;
     align-items: center;
@@ -2198,4 +2241,307 @@ body.preview-mode .quick-add {
 .companion-timeline-block.is-waypoint.is-live-overlap::before {
     border-color: #a22e28;
     box-shadow: 0 0 0 3px rgb(162 46 40 / .18);
+}
+
+/* Collapsed day: one compact line (~38px) —
+   Mié 8 · Título · [carga] · 4 paradas · plegar · más acciones.
+   Secondary copy is hidden; the handle and actions stay reachable. */
+.day.collapsed:not(.backlog) .day-head {
+    min-height: 38px;
+    padding: 3px 6px 3px 4px;
+    gap: 6px;
+}
+.day.collapsed:not(.backlog) .day-handle {
+    width: 28px;
+    height: 32px;
+}
+.day.collapsed:not(.backlog) .day-handle svg {
+    width: 16px;
+    height: 16px;
+}
+.day.collapsed:not(.backlog) .date-box {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    width: auto;
+    padding: 0;
+    background: transparent;
+}
+.day.collapsed:not(.backlog) .date-box:hover {
+    background: transparent;
+    transform: none;
+}
+.day.collapsed:not(.backlog) .date-box::after { display: none; }
+.day.collapsed:not(.backlog) .date-box span { display: none; }
+.day.collapsed:not(.backlog) .date-box::before {
+    content: attr(data-weekday);
+    order: -1;
+    color: #876d48;
+    font: 11px "DM Mono";
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+}
+.day.collapsed:not(.backlog) .date-box strong {
+    font-size: 15px;
+    line-height: 1;
+}
+.day.collapsed:not(.backlog) .day-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.day.collapsed:not(.backlog) .title-line {
+    flex: 1 1 auto;
+}
+.day.collapsed:not(.backlog) .day-name {
+    font-size: 13px;
+}
+.day.collapsed:not(.backlog) .day-title-edit,
+.day.collapsed:not(.backlog) .day-cost,
+.day.collapsed:not(.backlog) .day-load,
+.day.collapsed:not(.backlog) .day-load-badge,
+.day.collapsed:not(.backlog) .day-route-hint,
+.day.collapsed:not(.backlog) .day-count-long {
+    display: none;
+}
+.day.collapsed:not(.backlog) .day-title small {
+    order: 2;
+    flex: none;
+    margin: 0;
+    font-size: 11px;
+    white-space: nowrap;
+}
+.day.collapsed:not(.backlog) .day-load-meter {
+    order: 1;
+    flex: none;
+    width: 56px;
+    margin: 0;
+}
+.day.collapsed:not(.backlog) .day-load-detail {
+    left: auto;
+    right: 0;
+}
+.day.collapsed:not(.backlog) .day-collapse,
+.day.collapsed:not(.backlog) .day-overflow-button {
+    width: 32px;
+    height: 32px;
+}
+/* The trust badge shrinks to its icon while folded. */
+.day.collapsed:not(.backlog) .health-badge {
+    font-size: 0;
+    min-height: 26px;
+    padding: 0 7px;
+}
+.day.collapsed:not(.backlog) .health-badge > span {
+    font-size: 12px;
+}
+/* Pointer devices reveal the drag handle on hover/focus; touch keeps it. */
+@media (hover: hover) and (pointer: fine) {
+    .day.collapsed:not(.backlog) .day-handle {
+        opacity: 0;
+        transition: opacity 0.16s ease, color 0.16s ease, background 0.16s ease;
+    }
+    .day.collapsed:not(.backlog) .day-head:hover .day-handle,
+    .day.collapsed:not(.backlog) .day-handle:focus-visible {
+        opacity: 1;
+    }
+}
+
+/* Sticky date strip: one pill per day, grouped by stage. */
+.date-strip {
+    position: sticky;
+    top: calc(var(--nav-height) + var(--tag-bar-height));
+    z-index: 23;
+    min-width: 0;
+    margin: -4px 0 10px;
+    padding: 6px 8px 7px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--card);
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+.date-strip[hidden] { display: none; }
+/* With the tag bar folded into the strip there is no row above to offset. */
+.tag-bar[hidden] { display: none; }
+.tag-bar[hidden] + .date-strip { margin-top: 0; }
+.date-strip.is-stuck {
+    border-color: #d7d3ca;
+    box-shadow: 0 9px 22px #24323a1a;
+}
+.date-strip-scroller {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+}
+.date-strip-scroller::-webkit-scrollbar { display: none; }
+.date-strip-filter {
+    position: relative;
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.date-strip-filter-button,
+.date-strip-filter-clear {
+    height: 42px;
+    border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--card) 70%, var(--sand));
+    color: var(--ink);
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+}
+.date-strip-filter-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 120px;
+    padding: 0 9px;
+    border-radius: 8px;
+}
+.date-strip-filter-button svg {
+    flex: none;
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+.date-strip-filter-button span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.date-strip-filter-button.is-active {
+    border-color: #386f66;
+    background: #386f66;
+    color: #fff;
+}
+.date-strip-filter-clear {
+    width: 26px;
+    padding: 0;
+    border-radius: 8px;
+    font-size: 16px;
+    line-height: 1;
+}
+.date-strip-filter-button:focus-visible,
+.date-strip-filter-clear:focus-visible,
+.date-strip-filter-panel .tag:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--green) 55%, transparent);
+    outline-offset: 1px;
+}
+.date-strip-filter-panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 2;
+    /* Anchored to the button; sized on its own so it never spills off-screen. */
+    width: min(360px, calc(100vw - 48px));
+    max-height: min(50vh, 280px);
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 4px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    box-shadow: 0 12px 26px #24323a26;
+}
+.date-strip-filter-panel[hidden] { display: none; }
+.date-strip-filter-panel .tag {
+    cursor: pointer;
+    font-family: inherit;
+}
+.date-strip-filter-panel .tag.selected {
+    background: #386f66;
+    color: #fff;
+}
+.date-strip-filter-empty {
+    color: var(--muted);
+    font-size: 12px;
+}
+.date-strip-group {
+    flex: none;
+    min-width: 0;
+}
+.date-strip-label {
+    display: block;
+    min-height: 14px;
+    max-width: 180px;
+    margin: 0 2px 3px;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.date-strip-pills {
+    display: flex;
+    gap: 4px;
+}
+.date-strip-pill {
+    position: relative;
+    flex: none;
+    width: 34px;
+    height: 42px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--card) 70%, var(--sand));
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 0.16s ease, border-color 0.16s ease;
+}
+.date-strip-weekday {
+    color: var(--muted);
+    font: 10px "DM Mono";
+    line-height: 1;
+}
+.date-strip-pill strong {
+    font-size: 14px;
+    line-height: 1.2;
+}
+.date-strip-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: transparent;
+}
+.date-strip-pill.is-over .date-strip-dot { background: #c9822b; }
+.date-strip-pill:hover {
+    border-color: color-mix(in srgb, var(--green) 45%, var(--line));
+}
+.date-strip-pill:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--green) 55%, transparent);
+    outline-offset: 1px;
+}
+.date-strip-pill.is-current {
+    border-color: var(--green);
+    background: color-mix(in srgb, var(--green) 16%, var(--card));
+}
+.date-strip-pill.is-current .date-strip-weekday { color: var(--green); }
+@media (prefers-reduced-motion: reduce) {
+    .date-strip-pill,
+    .fold-all-button,
+    .fold-all-button svg {
+        transition: none;
+    }
 }

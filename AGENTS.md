@@ -58,7 +58,7 @@ Module map (paths are relative to `js/`):
 - **`core/plan-operation-commit.js`** — shared optimistic operation commit and persistence boundary used by every mutating feature.
 - **`shared/dom.js`** / **`shared/modal.js`** / **`shared/notify.js`** — stateless DOM, modal, and notification helpers.
 - **`shared/request-cache.js`** — reusable asynchronous in-memory/persistent request cache.
-- **`features/planner/`** — destructive itinerary rendering, dialogs, actions, plan-application workflow, session history, drag/drop, sticky days, and search. `render.js` is the stable facade; timeline/travel editing lives in `timeline-editor.js` and duplicate/move commands in `commands.js`.
+- **`features/planner/`** — destructive itinerary rendering, dialogs, actions, plan-application workflow, session history, drag/drop, sticky days, and search. `render.js` is the stable facade; timeline/travel editing lives in `timeline-editor.js`, duplicate/move commands in `commands.js`, the sticky stage-grouped day pill strip in `date-strip.js` (hidden below `DATE_STRIP_MIN_DAYS`; the strip height feeds `--date-strip-height` so day headers stick below it; while shown it hosts the tag filter as a "Filtrar" popover and the standalone `#tagBar` is hidden), and the "Cambiar etapa…" prompt in `day-stage.js`.
 - **`features/timeline/`** — timeline projection and shared HTML view consumed by planner, companion, and health.
 - **`features/map/`** — Leaflet maps, shared basemaps, persistent OSRM route cache, routes, and place images.
 - **`features/finance/`** — budget and exchange-rate behavior.

@@ -10,7 +10,7 @@ The interface is currently available in Spanish.
 
 ## Features
 
-- **Day-by-day itineraries** — create, rename, reorder, duplicate, collapse, and delete travel days.
+- **Day-by-day itineraries** — create, rename, reorder, duplicate, collapse (individually or all at once), group by optional stage, and delete travel days. On long trips a sticky date strip jumps to any day.
 - **Flexible backlog** — collect ideas before deciding where they belong.
 - **Custom drag and drop** — reorder stops or move them between days on desktop and touch devices.
 - **Interactive maps** — display numbered stops and switch between straight lines and street-based routes.

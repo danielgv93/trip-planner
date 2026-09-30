@@ -423,6 +423,18 @@ body.preview-mode .spot.travel-card {
 @media (max-width: 620px) {
     .itinerary-toolbar { padding-left: 10px; }
     .itinerary-overview strong { display: none; }
+    /* Collapsed days keep one line on phones: drop the trust chip and shrink
+       the load meter so the title keeps room. */
+    .day.collapsed:not(.backlog) .health-badge { display: none; }
+    .day.collapsed:not(.backlog) .day-load-meter { width: 36px; }
+    .day.collapsed:not(.backlog) .day-title { gap: 6px; }
+    .fold-all-button {
+        width: 44px;
+        min-height: 40px;
+        justify-content: center;
+        padding-inline: 0;
+    }
+    .fold-all-button span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
     .density-option {
         width: 44px;
         min-height: 40px;
