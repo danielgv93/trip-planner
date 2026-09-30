@@ -1029,6 +1029,13 @@ export function render() {
     const overview = $("#itineraryOverview");
     if (overview)
         overview.textContent = `${store.state.length} ${store.state.length === 1 ? "día" : "días"} · ${totalStops} ${totalStops === 1 ? "parada" : "paradas"}`;
+    // Timeline wiring measures layout while #days is half rebuilt. Without a
+    // reserved height the page is momentarily short and browsers that clamp
+    // eagerly (Safari) drop window.scrollY to the top, so a date-strip jump
+    // then animates down from the top. Keep the old height until every day is
+    // appended; a tag filter's own reservation is restored afterwards.
+    const reservedMinHeight = daysEl.style.minHeight;
+    daysEl.style.minHeight = `${Math.max(daysEl.offsetHeight, Number.parseFloat(reservedMinHeight) || 0)}px`;
     daysEl.innerHTML = "";
     const b = document.createElement("article");
     b.className =
@@ -1205,6 +1212,7 @@ export function render() {
         wireQuickAdd(el, day.id);
         daysEl.append(el);
     });
+    daysEl.style.minHeight = reservedMinHeight;
     settleDateStrip();
     const tripTotal =
         sumCosts(store.backlog) +
