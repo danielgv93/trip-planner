@@ -52,6 +52,7 @@ Module map (paths are relative to `js/`):
 - **`core/plan-json.js`** — portable plan normalization and serialization; it does not apply UI changes.
 - **`core/time.js`** / **`core/geo.js`** — pure time and geographic calculations.
 - **`core/itinerary.js`** / **`core/travel-legs.js`** / **`core/travel-leg-presentation.js`** — portable spot-role, position-constraint, and directed travel-leg contracts.
+- **`core/day-stages.js`** — pure day `stage` rules: normalization, the display-only title-prefix fallback (`"Tokio · Shibuya"` -> `"Tokio"`, never written back), consecutive grouping, and date-strip helpers.
 - **`core/plan-metadata.js`** / **`core/note-pages.js`** / **`core/reminders.js`** — normalized scheduling metadata, multi-page notes, and date/reminder rules.
 - **`core/undo-stack.js`** — bounded domain-neutral undo/redo engine; the planner owns captured snapshot fields.
 - **`core/plan-operation-commit.js`** — shared optimistic operation commit and persistence boundary used by every mutating feature.
@@ -98,6 +99,7 @@ day = {
   title,
   spots: [],
   startTime?, // canonical 24-hour HH:MM used by itinerary health simulation
+  stage?, // optional group label (e.g. "Kioto"), trimmed, max 60 chars; see core/day-stages.js
   collapsed? // UI state, persisted as part of the day object
 }
 

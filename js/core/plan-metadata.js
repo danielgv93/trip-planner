@@ -1,4 +1,5 @@
 import { isTime } from "./time.js";
+import { normalizeStage } from "./day-stages.js";
 
 export function normalizeHealthSpot(spot) {
     const normalized = { ...spot };
@@ -17,5 +18,8 @@ export function normalizeHealthSpot(spot) {
 export function normalizeHealthDay(day) {
     const normalized = { ...day };
     if (!isTime(day?.startTime)) delete normalized.startTime;
+    const stage = normalizeStage(day?.stage);
+    if (stage) normalized.stage = stage;
+    else delete normalized.stage;
     return normalized;
 }

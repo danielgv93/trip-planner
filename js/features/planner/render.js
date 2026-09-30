@@ -41,6 +41,7 @@ import {
     highlightMapLeg,
 } from "../map/map.js";
 import { openDialog } from "./dialogs.js";
+import { editDayStage } from "./day-stage.js";
 import { foreignAmount, localAmount } from "../finance/currency.js";
 import {
     formatCost,
@@ -457,7 +458,7 @@ function openDayActionMenu(button, day, { remove }) {
     menu.className = "day-action-menu";
     menu.setAttribute("role", "menu");
     menu.setAttribute("aria-label", `Acciones para ${day.title || "día"}`);
-    menu.innerHTML = `<span class="move-control day-action-move-control"><button type="button" class="move-button day-action-item" data-day-action="move" role="menuitem" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M14 8l4 4-4 4"/><path d="M8 7V5M8 19v-2"/></svg><span>Mover día</span><span class="day-action-arrow" aria-hidden="true">›</span></button></span><button type="button" class="day-action-item" data-day-action="duplicate" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Duplicar día</span></button><button type="button" class="day-action-item day-action-danger" data-day-action="delete" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M9 7l1-3h4l1 3M6 7l1 14h10l1-14"/></svg><span>Eliminar día</span></button>`;
+    menu.innerHTML = `<span class="move-control day-action-move-control"><button type="button" class="move-button day-action-item" data-day-action="move" role="menuitem" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M14 8l4 4-4 4"/><path d="M8 7V5M8 19v-2"/></svg><span>Mover día</span><span class="day-action-arrow" aria-hidden="true">›</span></button></span><button type="button" class="day-action-item" data-day-action="duplicate" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Duplicar día</span></button>${store.readOnly ? "" : `<button type="button" class="day-action-item" data-day-action="stage" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h6"/></svg><span>Cambiar etapa…</span></button>`}<button type="button" class="day-action-item day-action-danger" data-day-action="delete" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M9 7l1-3h4l1 3M6 7l1 14h10l1-14"/></svg><span>Eliminar día</span></button>`;
     control.append(menu);
     control.closest(".day")?.classList.add("menu-open");
     button.setAttribute("aria-expanded", "true");
@@ -483,6 +484,7 @@ function openDayActionMenu(button, day, { remove }) {
         }
         closeDayActionMenus();
         if (action === "duplicate") duplicateDay(day.id);
+        else if (action === "stage") void editDayStage(day);
         else if (action === "delete") remove();
     });
 }

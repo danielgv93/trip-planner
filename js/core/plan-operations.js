@@ -1,3 +1,4 @@
+import { normalizeStage } from "./day-stages.js";
 import { dayPositionConstraintViolation } from "./itinerary.js";
 import { normalizePortablePlan } from "./portable-plan.js";
 import { unlinkSpotReminders } from "./reminders.js";
@@ -19,7 +20,7 @@ const TARGET_FIELDS = Object.freeze({
         "tripTitle", "localCurrency", "foreignCurrency",
         "routeProfile", "routeVisualization",
     ]),
-    day: new Set(["date", "title", "startTime"]),
+    day: new Set(["date", "title", "startTime", "stage"]),
     spot: new Set([
         "name", "address", "note", "tags", "category", "lat", "lng",
         "cost", "visitMinutes", "openingTime", "closingTime", "plannedStart",
@@ -224,13 +225,25 @@ function readExpected(precondition) {
     return { has: false, value: undefined };
 }
 
+// A day stage must be text; it is stored trimmed, collapsed and capped. A value
+// that normalizes to nothing is a removal, so no empty string is ever persisted.
+function canonicalStage(value, operation) {
+    if (typeof value !== "string")
+        fail("INVALID_OPERATION", "La etapa del día debe ser texto.", operation);
+    return normalizeStage(value);
+}
+
 function applySetField(document, operation) {
     const located = findTarget(document, operation.target);
     if (!located) fail("ENTITY_DELETED", "La entidad ya no existe.", operation);
     const field = operation.target.field;
     const current = located.entity[field];
-    const removes = operation.payload.remove === true;
-    const desired = removes ? undefined : operation.payload.value;
+    let removes = operation.payload.remove === true;
+    let desired = removes ? undefined : operation.payload.value;
+    if (!removes && operation.target.type === "day" && field === "stage") {
+        desired = canonicalStage(desired, operation);
+        removes = desired === undefined;
+    }
     if ((removes && !hasOwn(located.entity, field)) || (!removes && equal(current, desired)))
         return { noOp: true, inverse: null };
     const expected = readExpected(operation.precondition);
@@ -428,8 +441,8 @@ function applyCommand(document, operation) {
 
     if (command === "update-fields") {
         if (!located) fail("ENTITY_DELETED", "La entidad ya no existe.", operation);
-        const fields = isRecord(operation.payload.fields) ? operation.payload.fields : {};
-        const remove = Array.isArray(operation.payload.remove) ? operation.payload.remove : [];
+        const fields = isRecord(operation.payload.fields) ? { ...operation.payload.fields } : {};
+        const remove = Array.isArray(operation.payload.remove) ? [...operation.payload.remove] : [];
         const allowed = TARGET_FIELDS[operation.target.type];
         if ([...Object.keys(fields), ...remove].some((field) => !allowed?.has(field)))
             fail("INVALID_OPERATION", "La actualización contiene campos no permitidos.", operation);
@@ -443,6 +456,13 @@ function applyCommand(document, operation) {
         for (const field of operation.precondition.expectedAbsent || []) {
             if (hasOwn(located.entity, field))
                 fail("TARGET_CONFLICT", "Un campo cambió en otra sesión.", operation, { field, currentValue: clone(located.entity[field]) });
+        }
+        if (operation.target.type === "day" && hasOwn(fields, "stage")) {
+            const stage = canonicalStage(fields.stage, operation);
+            if (stage === undefined) {
+                delete fields.stage;
+                remove.push("stage");
+            } else fields.stage = stage;
         }
         Object.entries(fields).forEach(([field, value]) => { located.entity[field] = clone(value); });
         remove.forEach((field) => { delete located.entity[field]; });

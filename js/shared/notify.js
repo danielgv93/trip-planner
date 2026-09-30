@@ -134,6 +134,16 @@ export function confirmAction({
     });
 }
 
+function promptSuggestionList(input) {
+    let list = document.getElementById("confirmInputSuggestions");
+    if (!list) {
+        list = document.createElement("datalist");
+        list.id = "confirmInputSuggestions";
+        input.after(list);
+    }
+    return list;
+}
+
 // Confirmation variant with a single optional text value. Cancel/ESC/backdrop
 // resolve to null; confirming an empty field resolves to an empty string so the
 // caller can apply its own default.
@@ -143,6 +153,8 @@ export function promptAction({
     confirmLabel,
     inputLabel,
     inputPlaceholder = "",
+    inputValue = "",
+    suggestions = [],
     preview = null,
 }) {
     return new Promise((resolve) => {
@@ -150,8 +162,15 @@ export function promptAction({
         const input = $("#confirmInput");
         field.hidden = false;
         $("#confirmInputLabel").textContent = inputLabel;
-        input.value = "";
+        input.value = inputValue;
         input.placeholder = inputPlaceholder;
+        const list = suggestions.length ? promptSuggestionList(input) : null;
+        list?.replaceChildren(...suggestions.map((value) => {
+            const option = document.createElement("option");
+            option.value = value;
+            return option;
+        }));
+        if (list) input.setAttribute("list", list.id);
         renderChangePreview($("#confirmPreview"), preview);
         $("#confirmTitle").textContent = title;
         $("#confirmMsg").textContent = message;
@@ -169,6 +188,7 @@ export function promptAction({
         confirmDialog.onclose = () => {
             $("#confirmOk").onclick = null;
             input.onkeydown = null;
+            input.removeAttribute("list");
             confirmDialog.onclose = null;
             field.hidden = true;
             renderChangePreview($("#confirmPreview"), null);
@@ -176,5 +196,6 @@ export function promptAction({
         };
         openModal(confirmDialog);
         input.focus();
+        input.select();
     });
 }

@@ -329,3 +329,51 @@ test("los comandos instrumentados actualizan formularios, timeline, duplicados y
     });
     assert.equal("spot-a>spot-b" in applyPlanOperation(plan(), removeTravel).document.travelLegs, false);
 });
+
+test("la etapa del día es un campo editable con inversa y se puede retirar", () => {
+    const original = plan();
+    const set = operation("set-field", { type: "day", id: "day-1", field: "stage" }, {
+        precondition: { expectedAbsent: true }, payload: { value: "Kioto" },
+    });
+    assert.equal(validatePlanOperation(set).kind, "set-field");
+    const changed = applyPlanOperation(original, set);
+    assert.equal(changed.document.days[0].stage, "Kioto");
+    const restored = applyPlanOperation(changed.document, changed.inverse);
+    assert.equal(Object.hasOwn(restored.document.days[0], "stage"), false);
+    const removed = applyPlanOperation(changed.document, operation("set-field", { type: "day", id: "day-1", field: "stage" }, {
+        precondition: { expectedValue: "Kioto" }, payload: { remove: true },
+    }));
+    assert.equal(Object.hasOwn(removed.document.days[0], "stage"), false);
+});
+
+test("la etapa del día se normaliza en el servidor y rechaza valores no textuales", () => {
+    const stageTarget = { type: "day", id: "day-1", field: "stage" };
+    const set = (value) => applyPlanOperation(plan(), operation("set-field", stageTarget, { payload: { value } }));
+    assert.equal(set("  Kioto \n  Sur ").document.days[0].stage, "Kioto Sur");
+    assert.equal(set("x".repeat(200)).document.days[0].stage.length, 60);
+    for (const bad of [12, null, ["Kioto"], { a: 1 }, true])
+        assert.throws(() => set(bad), (error) => error.code === "INVALID_OPERATION");
+    // Whitespace-only text is a removal, never an empty persisted stage.
+    const withStage = set("Kioto").document;
+    const cleared = applyPlanOperation(withStage, operation("set-field", stageTarget, { payload: { value: "   " } }));
+    assert.equal(Object.hasOwn(cleared.document.days[0], "stage"), false);
+    // Other day fields keep accepting what they accepted before.
+    assert.equal(applyPlanOperation(plan(), operation("set-field", { type: "day", id: "day-1", field: "title" }, {
+        payload: { value: "  Sin recorte  " },
+    })).document.days[0].title, "  Sin recorte  ");
+});
+
+test("update-fields normaliza la etapa del día y rechaza valores no textuales", () => {
+    const target = { type: "day", id: "day-1" };
+    const update = (payload) => applyPlanOperation(plan(), operation("command", target, {
+        payload: { command: "update-fields", ...payload },
+    }));
+    assert.equal(update({ fields: { stage: "  Osaka  " } }).document.days[0].stage, "Osaka");
+    assert.throws(() => update({ fields: { stage: 5 } }), (error) => error.code === "INVALID_OPERATION");
+    assert.equal(Object.hasOwn(update({ fields: { stage: "  " } }).document.days[0], "stage"), false);
+    const added = update({ fields: { stage: "Osaka" } });
+    const removed = applyPlanOperation(added.document, operation("command", target, {
+        payload: { command: "update-fields", remove: ["stage"] },
+    }));
+    assert.equal(Object.hasOwn(removed.document.days[0], "stage"), false);
+});

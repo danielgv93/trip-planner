@@ -9,7 +9,7 @@ const TARGET_TYPES = new Set([
 const TARGET_FIELDS = new Set([
     "tripTitle", "localCurrency", "foreignCurrency", "exchangeRate",
     "exchangeRateDate", "routeProfile", "routeVisualization", "date",
-    "title", "startTime", "collapsed", "name", "address", "note",
+    "title", "startTime", "stage", "collapsed", "name", "address", "note",
     "tags", "category", "lat", "lng", "cost", "visitMinutes",
     "openingTime", "closingTime", "plannedStart", "optional", "fixedStart",
     "scheduleNotApplicable", "mapEnabled", "kind", "positionConstraint",

@@ -206,3 +206,23 @@ test("normalizePlan conserva anclajes válidos y limpia valores desconocidos o d
     assert.equal(normalized.days[0].spots[1].positionConstraint, undefined);
     assert.equal(normalized.backlog[0].positionConstraint, undefined);
 });
+
+test("normalizePlan normaliza la etapa opcional del día y deja intactos los planes antiguos", () => {
+    const value = plan();
+    value.days.push(
+        { id: "d2", date: "2026-07-19", title: "Tokio · Shibuya", stage: "  Kioto  ", spots: [] },
+        { id: "d3", date: "2026-07-20", title: "Vacío", stage: "   ", spots: [] },
+        { id: "d4", date: "2026-07-21", title: "Largo", stage: "x".repeat(200), spots: [] },
+        { id: "d5", date: "2026-07-22", title: "Tipo", stage: 7, spots: [] },
+    );
+    const { days } = normalizePlan(value);
+    assert.equal(Object.hasOwn(days[0], "stage"), false);
+    assert.equal(days[1].stage, "Kioto");
+    assert.equal(Object.hasOwn(days[2], "stage"), false);
+    assert.equal(days[3].stage.length, 60);
+    assert.equal(Object.hasOwn(days[4], "stage"), false);
+    // The display-only title fallback is never written back.
+    assert.equal(Object.hasOwn(normalizePlan({ ...plan(), days: [{ id: "x", date: "", title: "Tokio · A", spots: [] }] }).days[0], "stage"), false);
+    const roundTrip = parsePlanJson(JSON.stringify(normalizePlan(value)));
+    assert.equal(roundTrip.days[1].stage, "Kioto");
+});

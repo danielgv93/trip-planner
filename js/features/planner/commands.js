@@ -28,6 +28,7 @@ export function duplicateDay(dayId) {
         id: randomUUID(),
         date: day.date,
         title: `${day.title} (copia)`,
+        ...(day.stage ? { stage: day.stage } : {}),
         spots: day.spots.map((spot) => {
             const nextId = randomUUID();
             spotIdMap.set(String(spot.id), nextId);

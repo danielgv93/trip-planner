@@ -78,6 +78,7 @@ export function buildPlanChanges(previousPlan, nextPlan) {
         { label: "Fecha", read: (day) => day.date },
         { label: "Posición", read: (day) => day.position },
         { label: "Hora de inicio", read: (day) => day.startTime },
+        { label: "Etapa", read: (day) => day.stage },
     ];
     for (const { before, after } of dayChanges.modified) {
         totals.modify += 1;
