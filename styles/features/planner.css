@@ -9,15 +9,13 @@ main {
     justify-content: space-between;
     margin-bottom: 22px;
 }
-.eyebrow {
-    font: 11px "DM Mono";
-    color: var(--red);
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
+.trip-hero-main {
+    min-width: 0;
+    flex: 1 1 auto;
 }
-.intro h2 {
-    font: 700 30px "Playfair Display";
-    margin: 5px 0 0;
+.trip-hero .trip-identity {
+    margin: 4px 0 0;
+    color: var(--muted);
 }
 .intro p {
     color: var(--muted);
@@ -94,8 +92,24 @@ main {
 .fold-all-button:focus-visible {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 35%, transparent);
 }
+.itinerary-toolbar-lead {
+    flex: 1 1 auto;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px 12px;
+    min-width: 0;
+}
+.itinerary-money {
+    flex: none;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+}
 .itinerary-overview {
     display: flex;
+    flex: 0 1 auto;
     align-items: baseline;
     gap: 8px;
     min-width: 0;
@@ -110,6 +124,24 @@ main {
     font: 10px "DM Mono";
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+/* Narrow planner column: the toolbar stays on one row, so its two action
+   groups keep only their icons (aria-labels and titles remain). */
+@container itinerary-pane (max-width: 720px) {
+    .fold-all-button span,
+    .density-option span {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+    .fold-all-button { padding-inline: 9px; }
+    .density-option { padding-inline: 8px; }
+}
+@media (max-width: 620px) {
+    .itinerary-toolbar-lead { flex-wrap: wrap; }
+    .itinerary-money { flex-wrap: wrap; }
 }
 .density-switch {
     flex: none;

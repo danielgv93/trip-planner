@@ -55,3 +55,28 @@ export function conflictResolutionEffects(action) {
     if (action === "copy") return { duplicateLocal: true, adoptRemote: true, enqueueLocal: false };
     throw new Error("INVALID_CONFLICT_ACTION");
 }
+
+const INDICATOR_COPY = {
+    live: "colaboración en vivo activa",
+    synced: "sincronizado con la nube",
+    saving: "guardando…",
+    pending: "cambios pendientes de sincronizar",
+    attention: "requiere tu atención",
+    local: "solo en este dispositivo",
+};
+
+// Condenses the persistence state already computed by the status bar into one
+// glanceable category for the "Guardado" menu dot. It derives, never invents:
+// `state` is the queue/envelope state (before the live-stream override),
+// `hasRemote` tells whether the trip is linked to the cloud.
+export function syncIndicator({ state = "local", hasRemote = false, liveConnection = "closed", livePullError = false } = {}) {
+    let key;
+    if (state === "saving") key = "saving";
+    else if (["error", "conflict", "localized-conflict", "auth-required"].includes(state)) key = "attention";
+    else if (["pending", "offline", "pending-deletion"].includes(state)) key = "pending";
+    else if (hasRemote && (livePullError || ["connecting", "reconnecting", "error"].includes(liveConnection))) key = "pending";
+    else if (hasRemote && liveConnection === "open") key = "live";
+    else if (state === "synced" || hasRemote) key = "synced";
+    else key = "local";
+    return { state: key, label: `Guardado: ${INDICATOR_COPY[key]}` };
+}

@@ -41,6 +41,7 @@ import {
     highlightMapLeg,
 } from "../map/map.js";
 import { openDialog } from "./dialogs.js";
+import { syncCompactTitle } from "./trip-header.js";
 import { renderDateStrip, settleDateStrip, markDateStripLoad, lockDateStripCurrent } from "./date-strip.js";
 import { editDayStage } from "./day-stage.js";
 import { weekdayShort } from "../../core/day-stages.js";
@@ -1268,6 +1269,7 @@ function editTitle(day, el) {
 
 export function applyTitle() {
     $("#tripTitle").value = store.tripTitle;
+    syncCompactTitle();
     $("#localCurrency").value = store.localCurrency;
     $("#foreignCurrency").value = store.foreignCurrency;
     document.title = (store.tripTitle || "Viaje") + " · Planificador de ruta";
@@ -1284,10 +1286,7 @@ export function applyLastModified(value) {
         const full = document.createElement("span");
         full.className = "trip-updated-at-full";
         full.textContent = `Modificado ${modified.label.toLowerCase()}`;
-        const compact = document.createElement("span");
-        compact.className = "trip-updated-at-compact";
-        compact.textContent = `Editado ${modified.label.toLowerCase()}`;
-        element.append(full, compact);
+        element.append(full);
     }
     element.dateTime = modified.dateTime;
     element.title = modified.title;

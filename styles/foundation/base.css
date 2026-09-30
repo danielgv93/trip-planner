@@ -9,7 +9,9 @@
     --sand: #f1e8d5;
     --card: #fff;
     --shadow: 0 9px 25px #24323a0d;
-    --nav-height: 72px;
+    /* Measured by js/features/planner/trip-header.js; 72px covers first paint. */
+    --top-header-h: 72px;
+    --nav-height: var(--top-header-h);
     /* Vertical slot a sticky pane may occupy, assuming it is already pinned.
        js/features/workspace/sticky-pane.js narrows this to the panel's flow
        position once it can measure; this value covers the first paint. */
@@ -76,19 +78,17 @@ button {
     background: #1d2d36;
     color: #fff;
     display: grid;
-    grid-template-columns: minmax(330px, 1fr) minmax(240px, 300px) max-content;
+    grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr);
     align-items: center;
     gap: 20px;
     padding: 0 clamp(20px, 4vw, 58px);
     border-bottom: 3px solid var(--red);
 }
 .brand {
+    grid-column: 1;
     display: flex;
     gap: 13px;
     align-items: center;
-    min-width: 0;
-}
-.brand > div:last-child {
     min-width: 0;
 }
 .stamp {
@@ -97,35 +97,54 @@ button {
     display: block;
     flex: 0 0 auto;
 }
-.brand h1 {
-    font-family: "Playfair Display", serif;
-    font-size: 21px;
-    margin: 0;
+.trip-compact-title {
+    min-width: 0;
+    max-width: min(46vw, 420px);
+    padding: 4px 2px;
+    overflow: hidden;
+    border: 0;
+    background: transparent;
+    color: #fff;
+    font: 700 19px "Playfair Display", serif;
     letter-spacing: 0.2px;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0s;
 }
-.brand small {
-    display: block;
-    font: 11px "DM Mono";
-    letter-spacing: 1px;
-    color: #bcc8c8;
-    margin-top: 2px;
+.trip-compact-title:hover { text-decoration: underline; text-decoration-color: #ffffff60; text-underline-offset: 4px; }
+.trip-compact-title:focus-visible { outline: 2px solid #ffffffa0; outline-offset: 3px; border-radius: 3px; }
+/* Large-title pattern: the header title appears only once the hero is gone. */
+.top[data-hero-visible="true"] .trip-compact-title {
+    opacity: 0;
+    transform: translateY(4px);
+    visibility: hidden;
+    pointer-events: none;
+    /* Hide only after the fade-out has played. */
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
 }
-.brand-meta {
+.trip-compact-title:disabled { cursor: default; pointer-events: none; }
+.trip-compact-title:disabled:hover { text-decoration: none; }
+@media (prefers-reduced-motion: reduce) {
+    .trip-compact-title,
+    .top[data-hero-visible="true"] .trip-compact-title { transition: none; transform: none !important; }
+}
+.trip-persistence-meta {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 9px;
+    gap: 6px 9px;
     min-width: 0;
 }
-.brand-meta > small {
-    margin-top: 0;
-}
+.trip-persistence-meta:not(:has(:not([hidden]))) { display: none; }
 .trip-updated-at {
     position: relative;
     display: block;
-    max-width: 175px;
+    max-width: 100%;
     padding-left: 10px;
     overflow: hidden;
-    color: #c8d3d2;
+    color: var(--muted);
     font: 500 10px "DM Mono";
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -138,13 +157,12 @@ button {
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: #79b9a5;
+    background: #5e9f8b;
     transform: translateY(-50%);
 }
 .trip-updated-at[hidden] { display: none; }
-.trip-updated-at-compact { display: none; }
 .trip-live-indicator {
-    --live-color: #82c9ad;
+    --live-color: #2f8a68;
     display: inline-flex;
     min-width: 0;
     align-items: center;
@@ -153,7 +171,7 @@ button {
     border: 1px solid color-mix(in srgb, var(--live-color) 42%, transparent);
     border-radius: 999px;
     background: color-mix(in srgb, var(--live-color) 10%, transparent);
-    color: #dce9e5;
+    color: color-mix(in srgb, var(--live-color) 70%, var(--ink));
     font: 600 9px "DM Mono";
     letter-spacing: .03em;
     white-space: nowrap;
@@ -178,16 +196,14 @@ button {
 }
 .trip-live-indicator[data-state="connecting"],
 .trip-live-indicator[data-state="reconnecting"] {
-    --live-color: #e0b85f;
-    color: #f3e5bd;
+    --live-color: #b98a1c;
 }
 .trip-live-indicator[data-state="error"],
 .trip-live-indicator[data-state="closed"],
 .trip-live-indicator[data-state="paused"] {
-    --live-color: #aeb8b8;
-    color: #ccd3d3;
+    --live-color: #7c8686;
 }
-.trip-live-indicator[data-state="error"] { --live-color: #dc817a; }
+.trip-live-indicator[data-state="error"] { --live-color: #c4463d; }
 .trip-live-indicator[data-state="connecting"] .trip-live-dot,
 .trip-live-indicator[data-state="reconnecting"] .trip-live-dot {
     animation: trip-live-breathe 1.4s ease-in-out infinite;
@@ -210,70 +226,114 @@ button {
     .trip-live-indicator .trip-live-dot,
     .trip-live-indicator.is-receiving .trip-live-dot::after { animation: none; }
 }
+/* Status dot on the "Guardado" menu summary: the glanceable remnant of the
+   metadata that used to live in the header. */
+.sync-dot {
+    --sync-color: #8d938f;
+    position: relative;
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--sync-color);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--sync-color) 28%, transparent);
+}
+[data-sync-state="live"] .sync-dot,
+[data-sync-state="synced"] .sync-dot { --sync-color: #5fd0a0; }
+[data-sync-state="saving"] .sync-dot,
+[data-sync-state="pending"] .sync-dot { --sync-color: #e6b94f; }
+[data-sync-state="attention"] .sync-dot { --sync-color: #ef7a70; }
+[data-sync-state="live"] .sync-dot::after,
+[data-sync-state="saving"] .sync-dot::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border: 1px solid var(--sync-color);
+    border-radius: inherit;
+    animation: sync-dot-pulse 1.8s ease-out infinite;
+}
+@keyframes sync-dot-pulse {
+    from { opacity: .9; transform: scale(1); }
+    to { opacity: 0; transform: scale(2.4); }
+}
+@media (prefers-reduced-motion: reduce) {
+    [data-sync-state] .sync-dot::after { animation: none; }
+}
 .currency-config-trigger {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 2px 7px;
-    border: 1px solid #ffffff30;
+    min-height: 28px;
+    padding: 2px 9px;
+    border: 1px solid var(--line);
     border-radius: 999px;
-    background: #ffffff0d;
-    color: #dce5e5;
-    font: 500 10px "DM Mono";
+    background: var(--card);
+    color: var(--ink);
+    font: 500 11px "DM Mono";
+    white-space: nowrap;
 }
 .currency-config-trigger:hover,
 .currency-config-trigger:focus-visible {
-    border-color: #ffffff70;
-    background: #ffffff18;
+    border-color: #c9c4b9;
+    background: var(--sand);
 }
-.currency-config-trigger > span { color: #f1c865; font-size: 12px; }
-.currency-config-trigger strong { font: inherit; }
+.currency-config-trigger > span { color: #b5830f; font-size: 12px; }
+.currency-config-trigger strong { font: inherit; color: inherit; }
 .exchange-rate-status {
     color: var(--muted);
     font: 10px "DM Mono";
     white-space: nowrap;
 }
 .budget-total {
-    max-width: 130px;
-    padding: 2px 6px;
-    border: 1px solid #ffffff30;
+    min-height: 28px;
+    max-width: 150px;
+    padding: 2px 9px;
+    overflow: hidden;
+    border: 1px solid var(--line);
     border-radius: 999px;
-    background: #ffffff0d;
-    color: #f1c865;
-    font: 500 10px "DM Mono";
+    background: var(--card);
+    color: #7a5a0c;
+    font: 600 11px "DM Mono";
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 .budget-total:hover,
 .budget-total:focus-visible {
-    border-color: #ffffff70;
-    background: #ffffff18;
+    border-color: #c9c4b9;
+    background: var(--sand);
 }
-.brand .trip-title {
-    font-family: "Playfair Display", serif;
-    font-size: 21px;
-    font-weight: 700;
+.trip-hero .trip-title {
+    display: block;
+    font: 700 30px "Playfair Display", serif;
     margin: 0;
-    letter-spacing: 0.2px;
     background: transparent;
     border: 0;
     border-bottom: 1px dashed transparent;
-    color: #fff;
-    width: min(100%, 360px);
+    color: var(--ink);
+    width: min(100%, 640px);
     max-width: 100%;
     padding: 1px 0;
     outline: none;
     transition: border-color 0.15s ease;
 }
-.brand .trip-title::placeholder {
-    color: #ffffff66;
+.trip-hero .trip-title::placeholder {
+    color: #1d273055;
 }
-.brand .trip-title:hover {
-    border-bottom-color: #ffffff45;
+.trip-hero .trip-title:hover {
+    border-bottom-color: #1d273040;
 }
-.brand .trip-title:focus {
+.trip-hero .trip-title:focus {
     border-bottom-color: var(--red);
 }
+.trip-hero .trip-title[readonly] {
+    cursor: default;
+}
+.trip-hero .trip-title[readonly]:hover,
+.trip-hero .trip-title[readonly]:focus {
+    border-bottom-color: transparent;
+}
 .top-actions {
+    grid-column: 3;
     display: flex;
     justify-self: end;
     gap: 9px;
@@ -284,6 +344,7 @@ button {
     gap: 9px;
 }
 .top-search {
+    grid-column: 2;
     position: static;
     width: min(300px, 22vw);
     min-width: 0;

@@ -64,7 +64,7 @@
 /* The resize handle stays: it is a device-local reading preference, and it
    occupies its own grid column, so hiding it would collapse the map panel. */
 
-.public-view .intro { display: none; }
+.public-view .intro > p { display: none; }
 /* Empty-state copy written for an editor ("arrastra aquí…", "escribe un
    título…") only confuses a reader who cannot edit anything. */
 .read-only-plan .backlog-group .empty,

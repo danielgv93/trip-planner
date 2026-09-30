@@ -1254,23 +1254,6 @@ html.is-timeline-select-modifier
         display: none;
     }
 
-    .top .brand-meta .currency-config-trigger,
-    .top .brand-meta .budget-total {
-        display: none;
-    }
-
-    .top .trip-updated-at {
-        max-width: 115px;
-    }
-
-    .top .trip-updated-at-full { display: none; }
-    .top .trip-updated-at-compact { display: inline; }
-
-    .top .brand .trip-title {
-        width: min(30vw, 110px);
-        min-width: 0;
-    }
-
     .companion-card {
         padding: 15px;
     }

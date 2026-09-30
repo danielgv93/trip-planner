@@ -20,7 +20,7 @@
             rel="stylesheet"
             href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css"
         />
-        <link rel="stylesheet" href="styles/app.css?v=20260930-6" />
+        <link rel="stylesheet" href="styles/app.css?v=20260930-7" />
     </head>
 <body>
         <div id="collaborationLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -38,7 +38,7 @@
                 <a class="primary" href="./">Ir al planificador</a>
             </div>
         </div>
-        <header class="top trip-context-header">
+        <header class="top trip-context-header" data-hero-visible="true">
             <div class="brand">
                 <img
                     class="stamp"
@@ -46,38 +46,12 @@
                     alt=""
                     aria-hidden="true"
                 />
-                <div>
-                    <input
-                        id="tripTitle"
-                        class="trip-title"
-                        aria-label="Título del viaje"
-                        placeholder="Nombre del viaje"
-                        maxlength="60"
-                    />
-                    <div id="tripIdentity" class="trip-identity" role="group" hidden>
-                        <span class="trip-identity-badge"><svg id="tripIdentityIcon" viewBox="0 0 24 24" aria-hidden="true"></svg><span id="tripIdentityLabel"></span></span>
-                        <span id="tripIdentityOwner" class="trip-identity-owner" hidden></span>
-                        <span id="tripIdentityPermission" class="trip-identity-permission" hidden></span>
-                        <button id="tripIdentityMembers" type="button" aria-label="Ver miembros del viaje" title="Ver miembros" aria-haspopup="dialog" aria-controls="collaboratorsDialog" hidden></button>
-                    </div>
-                    <div class="brand-meta">
-                        <time id="tripUpdatedAt" class="trip-updated-at" hidden></time>
-                        <button id="tripLiveIndicator" class="trip-live-indicator" type="button" aria-live="polite" hidden>
-                            <span class="trip-live-dot" aria-hidden="true"></span>
-                            <span class="trip-live-label">En vivo</span>
-                        </button>
-                        <button id="currencyConfigBtn" class="currency-config-trigger" type="button" aria-haspopup="dialog" aria-controls="currencyDialog">
-                            <span aria-hidden="true">⇄</span><strong id="currencyConfigLabel">JPY → EUR</strong>
-                        </button>
-                        <button
-                            id="tripBudgetTotal"
-                            class="budget-total"
-                            type="button"
-                            aria-haspopup="dialog"
-                            aria-controls="budgetDialog"
-                        >Total: 0,00</button>
-                    </div>
-                </div>
+                <button
+                    id="tripCompactTitle"
+                    class="trip-compact-title"
+                    type="button"
+                    title="Ir al título del viaje"
+                >Viaje</button>
             </div>
             <button
                 id="spotSearchBtn"
@@ -132,13 +106,20 @@
                         </div>
                     </details>
                     <details class="nav-group sync-menu" id="syncMenu">
-                        <summary>Guardado <svg class="nav-group-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></summary>
+                        <summary id="syncMenuSummary" data-sync-state="local" title="Guardado solo en este dispositivo" aria-label="Guardado: solo en este dispositivo"><span class="sync-dot" aria-hidden="true"></span>Guardado <svg class="nav-group-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></summary>
                         <div class="nav-group-items sync-menu-items">
                             <span class="nav-group-title sync-section-title">Online</span>
                             <div id="tripPersistenceBar" class="trip-persistence-bar" role="status">
                                 <div class="trip-persistence-copy">
                                     <strong id="tripPersistenceContext" hidden></strong>
                                     <span id="tripPersistenceStatus">Solo en este dispositivo</span>
+                                    <div class="trip-persistence-meta">
+                                        <time id="tripUpdatedAt" class="trip-updated-at" hidden></time>
+                                        <button id="tripLiveIndicator" class="trip-live-indicator" type="button" aria-live="polite" hidden>
+                                            <span class="trip-live-dot" aria-hidden="true"></span>
+                                            <span class="trip-live-label">En vivo</span>
+                                        </button>
+                                    </div>
                                 </div>
                                 <button id="tripPersistenceReview" type="button" hidden>Revisar</button>
                                 <button id="tripPersistenceExport" type="button" hidden>Exportar ahora</button>
@@ -253,10 +234,21 @@
         </div>
         <main>
             <div id="plannerView" class="planner-view">
-            <section class="intro">
-                <div>
-                    <div class="eyebrow">Planificador colaborativo</div>
-                    <h2>Ideas, orden y una ruta clara.</h2>
+            <section class="intro trip-hero">
+                <div class="trip-hero-main">
+                    <input
+                        id="tripTitle"
+                        class="trip-title"
+                        aria-label="Título del viaje"
+                        placeholder="Nombre del viaje"
+                        maxlength="60"
+                    />
+                    <div id="tripIdentity" class="trip-identity" role="group" hidden>
+                        <span class="trip-identity-badge"><svg id="tripIdentityIcon" viewBox="0 0 24 24" aria-hidden="true"></svg><span id="tripIdentityLabel"></span></span>
+                        <span id="tripIdentityOwner" class="trip-identity-owner" hidden></span>
+                        <span id="tripIdentityPermission" class="trip-identity-permission" hidden></span>
+                        <button id="tripIdentityMembers" type="button" aria-label="Ver miembros del viaje" title="Ver miembros" aria-haspopup="dialog" aria-controls="collaboratorsDialog" hidden></button>
+                    </div>
                 </div>
                 <p>
                     Arrastra las paradas para reordenarlas o muévelas entre
@@ -266,9 +258,23 @@
             <section class="workspace">
                 <div class="planner">
                     <div class="itinerary-toolbar" aria-label="Opciones del itinerario">
+                        <div class="itinerary-toolbar-lead">
                         <div class="itinerary-overview">
                             <strong>Itinerario</strong>
                             <span id="itineraryOverview">Vista general del viaje</span>
+                        </div>
+                        <div class="itinerary-money">
+                            <button id="currencyConfigBtn" class="currency-config-trigger" type="button" aria-haspopup="dialog" aria-controls="currencyDialog">
+                                <span aria-hidden="true">⇄</span><strong id="currencyConfigLabel">JPY → EUR</strong>
+                            </button>
+                            <button
+                                id="tripBudgetTotal"
+                                class="budget-total"
+                                type="button"
+                                aria-haspopup="dialog"
+                                aria-controls="budgetDialog"
+                            >Total: 0,00</button>
+                        </div>
                         </div>
                         <div class="itinerary-toolbar-actions">
                         <button id="toggleAllDays" class="fold-all-button" type="button" aria-label="Plegar todos los días" title="Plegar todos los días" hidden>
@@ -1415,6 +1421,6 @@
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
         <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js"></script>
-        <script type="module" src="js/app/main.js?v=20260828-6"></script>
+        <script type="module" src="js/app/main.js?v=20260930-7"></script>
     </body>
 </html>

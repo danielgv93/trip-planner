@@ -2,21 +2,21 @@
  * Single stylesheet entry point. The order preserves the established cascade;
  * add new imports deliberately instead of relying on directory traversal.
  */
-@import url("./foundation/base.css?v=20260930-1");
+@import url("./foundation/base.css?v=20260930-7");
 @import url("./foundation/modal.css");
 @import url("./features/search.css");
-@import url("./features/planner.css?v=20260930-2");
+@import url("./features/planner.css?v=20260930-7");
 @import url("./layout/workspace-resize.css");
 @import url("./features/map-notes.css");
 @import url("./features/dialog-finance.css");
 @import url("./features/dialogs.css");
-@import url("./features/taxonomy.css");
+@import url("./features/taxonomy.css?v=20260930-7");
 @import url("./features/health.css");
 @import url("./features/route-simulator.css?v=20260828-6");
 @import url("./features/reminders.css");
-@import url("./features/cloud-library.css?v=20260930-4");
+@import url("./features/cloud-library.css?v=20260930-7");
 @import url("./features/collaboration.css");
-@import url("./features/public-share.css");
-@import url("./layout/responsive.css?v=20260930-2");
-@import url("./features/companion.css?v=20260825-2");
+@import url("./features/public-share.css?v=20260930-7");
+@import url("./layout/responsive.css?v=20260930-7");
+@import url("./features/companion.css?v=20260930-7");
 @import url("./features/llm-chat.css");

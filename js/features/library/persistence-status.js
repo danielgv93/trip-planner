@@ -1,6 +1,6 @@
 import { store } from "../../core/store.js";
 import { getTripRepository } from "./workspace.js";
-import { stateFromOperationQueue, SYNC_COPY } from "../cloud/sync-state.js";
+import { stateFromOperationQueue, syncIndicator, SYNC_COPY } from "../cloud/sync-state.js";
 import { liveConnectionPresentation } from "../cloud/live-connection-presentation.js";
 import { liveTripIsPaused, pauseLiveTripStream, resumeLiveTripStream } from "../cloud/live-trip.js";
 import { confirmAction, toast } from "../../shared/notify.js";
@@ -44,6 +44,7 @@ async function renderStatus() {
             authenticated: Boolean(store.accountSession),
             fallback: envelope?.syncState || "local",
         });
+    const queueState = state;
     if (!["saving", "error"].includes(state) && envelope?.remote.id) {
         if (store.liveTripSyncState === "pull-error") state = "live-pull-error";
         else if (store.liveTripConnectionState === "connecting") state = "live-connecting";
@@ -67,6 +68,16 @@ async function renderStatus() {
         ? `${baseCopy} · presencia no disponible`
         : baseCopy;
     renderLiveIndicator(envelope?.remote.id);
+    const summary = document.querySelector("#syncMenuSummary");
+    const indicator = syncIndicator({
+        state: queueState,
+        hasRemote: Boolean(envelope?.remote.id),
+        liveConnection: store.liveTripConnectionState,
+        livePullError: store.liveTripSyncState === "pull-error",
+    });
+    summary.dataset.syncState = indicator.state;
+    summary.title = indicator.label;
+    summary.setAttribute("aria-label", indicator.label);
     exportButton.hidden = state !== "error";
     reviewButton.hidden = state !== "localized-conflict";
     document.querySelector("#tripPersistenceBar").dataset.state = state;
