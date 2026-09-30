@@ -19,6 +19,19 @@
     border-color: #d7d3ca;
     box-shadow: 0 9px 22px #24323a1a;
 }
+@media (max-width: 860px) {
+    /* One scrollable line: the sticky stack must stay short on phones. */
+    .tag-bar {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
+        padding: 6px 10px;
+        margin-bottom: 8px;
+    }
+    .tag-bar::-webkit-scrollbar { display: none; }
+    .tag-bar > * { flex: 0 0 auto; }
+}
 .tag-label {
     font: 11px "DM Mono";
     color: var(--muted);
