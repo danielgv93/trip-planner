@@ -24,6 +24,7 @@ export function memberAvatar(member, { photo = null } = {}) {
     const element = document.createElement("span");
     element.className = "member-avatar";
     element.dataset.role = member.role;
+    element.dataset.userId = member.userId;
     element.title = `${member.displayName} · ${MEMBER_ROLE_LABEL[member.role] || member.role}`;
     if (photo) {
         const image = document.createElement("img");

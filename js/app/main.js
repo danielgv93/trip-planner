@@ -20,6 +20,7 @@ import "../features/workspace/workspace-resize.js";
 import "../features/workspace/sticky-pane.js";
 import "../features/library/library.js";
 import "../features/library/persistence-status.js";
+import "../features/library/trip-identity.js";
 import "../features/cloud/account.js";
 import "../features/cloud/conflicts.js";
 import "../features/cloud/history.js";

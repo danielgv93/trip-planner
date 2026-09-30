@@ -457,6 +457,19 @@ document.querySelector("#libraryImportFile").addEventListener("change", async (e
     }
 });
 
+export async function openLibraryTrip(id, { remoteOnly = false } = {}) {
+    const preflight = store.readOnly ? { status: "none" } : await preflightActiveEditor();
+    if (preflight.status === "invalid") {
+        toast("Revisa los datos de la edición actual antes de cambiar de viaje.", "info");
+        return;
+    }
+    await waitForActiveCommit();
+    if (remoteOnly) await openRemoteTrip(id);
+    else await switchTrip(id);
+    repaintActiveTrip();
+    dialog.close();
+}
+
 async function runLibraryAction(action, id) {
     try {
         if (action === "focus") {
@@ -464,13 +477,9 @@ async function runLibraryAction(action, id) {
             return;
         }
         if (action === "open") {
-            await switchTrip(id);
-            repaintActiveTrip();
-            dialog.close();
+            await openLibraryTrip(id);
         } else if (action === "open-remote") {
-            await openRemoteTrip(id);
-            repaintActiveTrip();
-            dialog.close();
+            await openLibraryTrip(id, { remoteOnly: true });
         } else if (action === "rename") {
             const current = store.tripLibrary.find((trip) => trip.id === id);
             const title = await promptAction({ title: "Renombrar viaje", message: "El título cambiará también dentro del plan.", inputLabel: "Nombre", inputPlaceholder: current.document.tripTitle, confirmLabel: "Guardar" });

@@ -28,13 +28,15 @@ function showLiveActivity(event) {
 }
 
 async function renderStatus() {
+    const activeId = store.activeTripId;
     const label = document.querySelector("#tripPersistenceStatus");
     const exportButton = document.querySelector("#tripPersistenceExport");
     const reviewButton = document.querySelector("#tripPersistenceReview");
-    const envelope = store.activeTripId ? await getTripRepository()?.getTrip(store.activeTripId) : null;
-    const operations = store.activeTripId
-        ? await getTripRepository()?.listOperations(store.activeTripId) || []
+    const envelope = activeId ? await getTripRepository()?.getTrip(activeId) : null;
+    const operations = activeId
+        ? await getTripRepository()?.listOperations(activeId) || []
         : [];
+    if (activeId !== store.activeTripId) return;
     let state = store.saveStatus === "saving" || store.saveStatus === "error"
         ? store.saveStatus
         : stateFromOperationQueue(operations, {

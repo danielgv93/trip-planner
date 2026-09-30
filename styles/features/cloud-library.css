@@ -20,6 +20,58 @@
 
 .trip-persistence-bar button { padding: 4px 9px; white-space: nowrap; }
 
+.trip-persistence-copy { display: grid; gap: 4px; min-width: 0; }
+.trip-persistence-copy strong { display: flex; align-items: center; gap: 6px; font-size: .7rem; font-weight: 600; overflow-wrap: anywhere; }
+.trip-persistence-copy strong::before { content: ""; width: 6px; height: 6px; flex: none; border-radius: 50%; background: #8d938f; }
+.trip-persistence-copy strong[data-kind="shared"]::before { background: #387c6e; }
+.trip-persistence-copy [hidden] { display: none; }
+.trip-identity { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 7px; margin: 2px 0 4px; font-size: .67rem; line-height: 1.2; color: #c6d5d2; }
+.trip-identity-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border: 1px solid #ffffff24; border-radius: 99px; color: #d0d9d9; background: #ffffff06; font-weight: 600; }
+.trip-identity[data-kind="shared"] .trip-identity-badge { color: #bde3d6; background: #5eaa8c1a; border-color: #8bc4ad40; }
+.trip-identity svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.trip-identity-owner { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trip-identity-permission { color: #a9bcb7; font-size: .85rem; }
+.trip-identity-permission svg { display: block; }
+.trip-identity [hidden] { display: none; }
+.trip-identity button { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; min-height: 22px; border: 0; padding: 0; border-radius: 99px; background: #ffffff10; color: #d0dedb; font-size: .9rem; }
+.trip-identity button:hover { background: #ffffff22; }
+.trip-identity button:focus-visible { outline: 2px solid #d0dedb; outline-offset: 3px; }
+.trip-identity button .member-avatar { width: 21px; height: 21px; font-size: .53rem; border: 2px solid #1d2d36; }
+.trip-identity button .member-avatar + .member-avatar { margin-left: -6px; }
+.trip-identity button .member-avatar[data-presence] { box-shadow: none; outline: 2px solid #899896; outline-offset: 1px; }
+.trip-identity button .member-avatar[data-presence="online"] { outline-color: #71d2a1; }
+.trip-identity button .member-avatar[data-presence="unknown"] { outline-style: dashed; outline-color: #7c8c8b; }
+.trip-identity button:has(.member-avatar[data-presence]) { gap: 2px; margin-inline: 2px; }
+.trip-identity-more { padding: 0 4px; font-size: .58rem; }
+.trip-identity[hidden], .trip-name-warning[hidden] { display: none; }
+.trip-name-warning { display: flex; align-items: center; gap: 10px; padding: 8px clamp(16px, 4vw, 58px); background: #f5efe2; color: #796344; border-bottom: 1px solid #e4dac7; font-size: .74rem; }
+.trip-name-warning-icon { display: grid; place-items: center; flex: none; width: 27px; height: 27px; border-radius: 8px; background: #e9dfca; }
+.trip-name-warning-icon svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.trip-name-warning p { margin: 0; line-height: 1.3; font-weight: 600; }
+.trip-name-warning-targets { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.trip-name-warning button { display: inline-flex; align-items: center; gap: 7px; padding: 5px 9px; border: 1px solid #cddbd3; border-radius: 7px; background: #fcfdfb; color: #2f6b5c; font: inherit; text-align: left; }
+.trip-name-warning button:hover { background: #e6efe9; border-color: #8bad9c; }
+.trip-name-warning button .member-avatar { width: 21px; height: 21px; font-size: .55rem; border: 0; }
+.trip-name-warning button > span:not(.member-avatar) { overflow-wrap: anywhere; }
+.trip-name-warning button:focus-visible { outline: 2px solid #2f6b5c; outline-offset: 2px; }
+#tripNameWarningDismiss { flex: none; width: 28px; height: 28px; justify-content: center; border: 0; padding: 0; background: transparent; color: #796344; font-size: 1.2rem; }
+#tripNameWarningDismiss:hover { background: #e9dfca; }
+
+/* Identity can wrap with long names; the sticky header must grow with it. */
+.top { min-height: 72px; }
+.top.trip-context-header { height: auto; padding-block: 12px; }
+.trip-context-header .brand > div:last-child { display: grid; gap: 6px; }
+.trip-context-header .trip-identity { margin: 0; }
+.trip-context-header .brand-meta { flex-wrap: wrap; row-gap: 6px; }
+@media (max-width: 860px) {
+    .trip-identity { font-size: .63rem; }
+    .trip-identity-owner { max-width: 100px; }
+    .trip-name-warning { display: grid; grid-template-columns: 27px minmax(0, 1fr) 28px; gap: 6px 9px; }
+    .trip-name-warning-targets { grid-column: 2; grid-row: 2; margin-left: 0; min-width: 0; }
+    #tripNameWarningDismiss { grid-column: 3; grid-row: 1; }
+    .trip-name-warning button { font-size: .7rem; }
+}
+
 .library-dialog {
     width: min(980px, calc(100vw - 28px));
     max-height: min(820px, calc(100dvh - 28px));
