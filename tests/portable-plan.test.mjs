@@ -130,3 +130,15 @@ test("normalizar entradas cloud no permite que sus metadatos entren al documento
         [],
     );
 });
+
+
+test("el tipo de cambio es local y no forma parte del documento ni de su hash", () => {
+    const legacy = { ...legacyPlan(), exchangeRate: 0.006, exchangeRateDate: "2026-09-29" };
+    const normalized = normalizePortablePlan(legacy);
+    const portable = portablePlanFrom({ ...normalized, exchangeRate: 0.007, exchangeRateDate: "2026-09-30" });
+    for (const document of [normalized, portable, createTripEnvelope({ id: "local", document: legacy }).document]) {
+        assert.equal(Object.hasOwn(document, "exchangeRate"), false);
+        assert.equal(Object.hasOwn(document, "exchangeRateDate"), false);
+    }
+    assert.equal(canonicalPlanHash(legacy), canonicalPlanHash({ ...legacy, exchangeRate: 9, exchangeRateDate: "otra fecha" }));
+});

@@ -154,9 +154,9 @@ reminder = {
 }
 ```
 
-`save()` writes `localStorage["trip-planner"]` with schema **version 31** (`STORAGE_VERSION` in `core/store.js`). Portable JSON uses its own independently versioned **version 28** (`PLAN_VERSION` in `core/plan-json.js`). Loading still accepts the legacy `japan-planner` key and old saves whose root is directly an array of days. If the persisted shape changes, bump the relevant version and preserve these read fallbacks/migrations.
+`save()` writes `localStorage["trip-planner"]` with schema **version 31** (`STORAGE_VERSION` in `core/store.js`). Portable JSON uses its own independently versioned **version 30** (`PLAN_VERSION` in `core/plan-json.js`). Loading still accepts the legacy `japan-planner` key and old saves whose root is directly an array of days. If the persisted shape changes, bump the relevant version and preserve these read fallbacks/migrations.
 
-JSON export includes the portable plan data needed for restoration (`days`, `backlog`, `backlogGroups`, title, tags/categories, currencies/rate, note pages, route settings, travel legs, and reminders) plus `version` and `exportedAt`. Import requires `days` to be an array and supplies fallbacks or migrations for optional/older fields, including legacy `tripNotes` and route-time overrides. Keep import and export in sync when adding a portable persisted field. Browser-only presentation state such as `backlogCollapsed`, the selected note page, basemap, workspace split, itinerary density, active filters, and undo history is intentionally excluded.
+JSON export includes the portable plan data needed for restoration (`days`, `backlog`, `backlogGroups`, title, tags/categories, currencies, note pages, route settings, travel legs, and reminders) plus `version` and `exportedAt`. Import requires `days` to be an array and supplies fallbacks or migrations for optional/older fields, including legacy `tripNotes` and route-time overrides. Keep import and export in sync when adding a portable persisted field. Exchange rates and their dates are device-local derived data and are excluded from portable documents and cloud mutations. Browser-only presentation state such as `backlogCollapsed`, the selected note page, basemap, workspace split, itinerary density, active filters, and undo history is intentionally excluded.
 
 ## Core conventions
 

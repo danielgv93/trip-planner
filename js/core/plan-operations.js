@@ -16,8 +16,8 @@ export const PLAN_OPERATION_KINDS = Object.freeze([
 
 const TARGET_FIELDS = Object.freeze({
     plan: new Set([
-        "tripTitle", "localCurrency", "foreignCurrency", "exchangeRate",
-        "exchangeRateDate", "routeProfile", "routeVisualization",
+        "tripTitle", "localCurrency", "foreignCurrency",
+        "routeProfile", "routeVisualization",
     ]),
     day: new Set(["date", "title", "startTime"]),
     spot: new Set([

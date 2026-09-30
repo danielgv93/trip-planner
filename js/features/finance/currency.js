@@ -1,5 +1,4 @@
 import { store } from "../../core/store.js";
-import { derivedPlanOperation, updateFieldsIntent } from "../../core/plan-operation-commit.js";
 
 export const CURRENCIES = [
     ["EUR", "Euro"], ["USD", "Dólar estadounidense"], ["GBP", "Libra esterlina"],
@@ -30,26 +29,22 @@ export const localAmount = (amount) => store.exchangeRate
     ? formatMoney(amount * store.exchangeRate, store.localCurrency)
     : "Conversión no disponible";
 
+// Updating derived conversion data must not enqueue a trip mutation.
 export async function refreshExchangeRate() {
-    if (store.foreignCurrency === store.localCurrency) {
-        const date = new Date().toISOString().slice(0, 10);
-        await derivedPlanOperation((document) => updateFieldsIntent(
-            document,
-            { type: "plan", id: "plan" },
-            { exchangeRate: 1, exchangeRateDate: date },
-        ), { undo: false });
+    const { foreignCurrency, localCurrency } = store;
+    if (foreignCurrency === localCurrency) {
+        store.exchangeRate = 1;
+        store.exchangeRateDate = new Date().toISOString().slice(0, 10);
         return true;
     }
     try {
-        const response = await fetch(`https://api.frankfurter.dev/v1/latest?from=${encodeURIComponent(store.foreignCurrency)}&to=${encodeURIComponent(store.localCurrency)}`);
+        const response = await fetch(`https://api.frankfurter.dev/v1/latest?from=${encodeURIComponent(foreignCurrency)}&to=${encodeURIComponent(localCurrency)}`);
         if (!response.ok) throw new Error();
-        const data = await response.json(), rate = Number(data?.rates?.[store.localCurrency]);
+        const data = await response.json(), rate = Number(data?.rates?.[localCurrency]);
         if (!Number.isFinite(rate) || rate <= 0) throw new Error();
-        await derivedPlanOperation((document) => updateFieldsIntent(
-            document,
-            { type: "plan", id: "plan" },
-            { exchangeRate: rate, exchangeRateDate: data.date || new Date().toISOString().slice(0, 10) },
-        ), { undo: false });
+        if (store.foreignCurrency !== foreignCurrency || store.localCurrency !== localCurrency) return false;
+        store.exchangeRate = rate;
+        store.exchangeRateDate = data.date || new Date().toISOString().slice(0, 10);
         return true;
     } catch {
         return false;

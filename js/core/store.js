@@ -387,10 +387,13 @@ export function applyPortablePlanState(plan) {
     store.tags = plan.tags;
     store.categories = plan.categories;
     store.tripTitle = plan.tripTitle;
+    // Rates are device-local derived data, never part of a trip document.
+    if (store.localCurrency !== plan.localCurrency || store.foreignCurrency !== plan.foreignCurrency) {
+        store.exchangeRate = null;
+        store.exchangeRateDate = "";
+    }
     store.localCurrency = plan.localCurrency;
     store.foreignCurrency = plan.foreignCurrency;
-    store.exchangeRate = plan.exchangeRate;
-    store.exchangeRateDate = plan.exchangeRateDate;
     store.tripNotePages = plan.tripNotePages;
     store.routeProfile = plan.routeProfile;
     store.routeVisualization = plan.routeVisualization;

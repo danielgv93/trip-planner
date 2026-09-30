@@ -50,6 +50,8 @@ function startExchangeRate() {
     });
 }
 
+document.addEventListener("active-trip-changed", startExchangeRate);
+
 // A visitor arriving from a share link gets a completely different startup: no
 // local repository, no cloud session, no companion mode and no assistant. The
 // device of whoever opens the link stays untouched.

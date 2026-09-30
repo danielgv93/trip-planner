@@ -87,8 +87,6 @@ export function summarizePlanRevision(previous, next) {
     const settingsChanged = [
         "localCurrency",
         "foreignCurrency",
-        "exchangeRate",
-        "exchangeRateDate",
         "routeProfile",
         "routeVisualization",
     ].filter((key) => JSON.stringify(previous?.[key]) !== JSON.stringify(next[key])).length;

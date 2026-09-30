@@ -21,8 +21,6 @@ const SNAPSHOT_KEYS = [
     "tripTitle",
     "localCurrency",
     "foreignCurrency",
-    "exchangeRate",
-    "exchangeRateDate",
     "tripNotePages",
     "activeTripNotePageId",
     "routeProfile",

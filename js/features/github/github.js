@@ -123,8 +123,6 @@ const PLAN_SNAPSHOT_KEYS = [
     "tripTitle",
     "localCurrency",
     "foreignCurrency",
-    "exchangeRate",
-    "exchangeRateDate",
     "tripNotePages",
     "days",
     "backlog",

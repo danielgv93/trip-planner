@@ -90,7 +90,7 @@ async function changeCurrency(key, value) {
     await derivedPlanOperation((document) => updateFieldsIntent(
         document,
         { type: "plan", id: "plan" },
-        { [key]: value, exchangeRate: null, exchangeRateDate: "" },
+        { [key]: value },
     ));
     syncCurrencyUi();
     const ok = await refreshExchangeRate();
@@ -151,8 +151,6 @@ $("#resetBtn").onclick = () => {
             tripTitle: DEFAULT_TITLE,
             localCurrency: "EUR",
             foreignCurrency: "JPY",
-            exchangeRate: null,
-            exchangeRateDate: "",
             tripNotePages: [{ id: "notes-general", title: "General", content: "" }],
             travelLegs: {},
             reminders: [],

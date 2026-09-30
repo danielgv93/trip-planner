@@ -33,8 +33,6 @@ function emptyDocument(title = "Nuevo viaje") {
         tripTitle: title,
         localCurrency: "EUR",
         foreignCurrency: "JPY",
-        exchangeRate: null,
-        exchangeRateDate: "",
         tripNotePages: [{ id: "notes-general", title: "General", content: "" }],
         days: [{ id: tripId(), date: today, title: "Primer día", spots: [] }],
         backlog: [],

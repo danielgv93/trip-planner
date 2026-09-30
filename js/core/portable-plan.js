@@ -12,7 +12,7 @@ import { migrateLegacyTravelLegs } from "./travel-legs.js";
 import { normalizeTripNotePages } from "./note-pages.js";
 import { normalizeReminders } from "./reminders.js";
 
-export const PLAN_VERSION = 29;
+export const PLAN_VERSION = 30;
 
 function isRecord(value) {
     return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -160,10 +160,6 @@ export function normalizePortablePlan(value, {
         tripTitle: typeof value.tripTitle === "string" ? value.tripTitle : defaultTitle,
         localCurrency: typeof value.localCurrency === "string" ? value.localCurrency : "EUR",
         foreignCurrency: typeof value.foreignCurrency === "string" ? value.foreignCurrency : "JPY",
-        exchangeRate: Number.isFinite(value.exchangeRate) && value.exchangeRate > 0
-            ? value.exchangeRate
-            : null,
-        exchangeRateDate: typeof value.exchangeRateDate === "string" ? value.exchangeRateDate : "",
         tripNotePages,
         days,
         backlog,
@@ -200,8 +196,6 @@ export function portablePlanFrom(source) {
         tripTitle: source.tripTitle,
         localCurrency: source.localCurrency,
         foreignCurrency: source.foreignCurrency,
-        exchangeRate: source.exchangeRate,
-        exchangeRateDate: source.exchangeRateDate,
         tripNotePages: source.tripNotePages,
         days: days.map(({ collapsed: _collapsed, ...day }) => day),
         backlog: source.backlog,

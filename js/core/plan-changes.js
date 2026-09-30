@@ -196,8 +196,6 @@ export function buildPlanChanges(previousPlan, nextPlan) {
         { label: "Título del viaje", read: (plan) => plan.tripTitle },
         { label: "Moneda local", read: (plan) => plan.localCurrency },
         { label: "Moneda extranjera", read: (plan) => plan.foreignCurrency },
-        { label: "Tipo de cambio", read: (plan) => plan.exchangeRate },
-        { label: "Fecha del cambio", read: (plan) => plan.exchangeRateDate },
         { label: "Páginas de notas", read: (plan) => plan.tripNotePages, format: (value) => `${Array.isArray(value) ? value.length : 0} página(s)` },
         { label: "Modo de viaje", read: (plan) => plan.routeProfile, format: (value) => routeProfiles[value] || previewValue(value) },
         { label: "Tipo de ruta", read: (plan) => plan.routeVisualization, format: (value) => routeTypes[value] || previewValue(value) },

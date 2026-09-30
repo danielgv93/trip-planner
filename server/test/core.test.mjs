@@ -1,3 +1,4 @@
+import { PLAN_VERSION } from "../../js/core/portable-plan.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
@@ -64,7 +65,7 @@ test("las métricas colaborativas son acotadas y no aceptan contenido", () => {
 
 test("los documentos se validan, normalizan y limitan antes de persistir", () => {
     const normalized = validatePlanDocument({ days: [{ id: "d", spots: [] }] }, config);
-    assert.equal(normalized.version, 28);
+    assert.equal(normalized.version, PLAN_VERSION);
     assert.throws(() => validatePlanDocument({ days: "no" }, config), /documento/);
     assert.throws(() => validatePlanDocument({ version: 999, days: [] }, config), /Versión/);
 });
