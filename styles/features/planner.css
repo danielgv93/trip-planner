@@ -760,6 +760,7 @@ body.compact-itinerary .backlog-group-delete { width: 26px; height: 26px; }
 .day.collapsed .day-head {
     border-bottom: 0;
 }
+.day.collapsed .day-time-tools,
 .day.collapsed .spots,
 .day.collapsed .add-place,
 .day.collapsed .quick-add,
