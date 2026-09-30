@@ -2577,3 +2577,137 @@ body.preview-mode .quick-add {
         transition: none;
     }
 }
+
+/* Pinned day header: scroll-linked morph from the full header to one compact
+   line. sticky-days.js drives `--stuck-p` (0..1, a pure function of scroll),
+   the inline height and a compensating margin-bottom, so the flow below never
+   moves. Classes: is-stuck (p>0), is-morphing (0<p<1), is-pinned-compact
+   (p=1). Height, margin and padding of the head are never CSS-transitioned. */
+:root { --day-head-compact-h: 42px; }
+.day:not(.backlog) .day-head {
+    --stuck-p: 0;
+    --head-pl: 15px;
+    --head-pr: 15px;
+    --head-gap: 11px;
+}
+@media (max-width: 860px) {
+    .day:not(.backlog) .day-head {
+        --head-pl: 10px;
+        --head-pr: 10px;
+        --head-gap: 7px;
+    }
+}
+/* Geometry must never animate: the flow is compensated from scroll position. */
+.day:not(.backlog) .day-head .date-box,
+.day:not(.backlog) .day-head .day-title-edit,
+.day:not(.backlog) .day-head .day-collapse,
+.day:not(.backlog) .day-head .day-overflow-button {
+    transition-property: background-color, border-color, color, box-shadow, opacity, transform;
+}
+/* Compact density starts from its own unpinned padding/gap so p>0 never jumps. */
+body.compact-itinerary .day:not(.backlog) .day-head {
+    --head-pl: 9px;
+    --head-pr: 9px;
+    --head-gap: 7px;
+}
+/* Morph (0<p<1): same layout as the full header, shrinking continuously.
+   The head itself is never clipped (the absolutely positioned overflow menu
+   must stay visible); only the inner parts that shrink are clipped. The
+   density min-height would otherwise stop the inline height from shrinking. */
+.day:not(.backlog):not(.collapsed) .day-head.is-morphing {
+    min-height: 0;
+    padding-left: calc(var(--head-pl) - (var(--head-pl) - 4px) * var(--stuck-p));
+    padding-right: calc(var(--head-pr) - (var(--head-pr) - 6px) * var(--stuck-p));
+    gap: calc(var(--head-gap) - (var(--head-gap) - 6px) * var(--stuck-p));
+}
+.day:not(.backlog):not(.collapsed) .day-head.is-morphing .date-box {
+    transform: scale(calc(1 - 0.3 * var(--stuck-p)));
+    transform-origin: left center;
+    margin-right: calc(-14px * var(--stuck-p));
+    background: color-mix(in srgb, var(--sand) calc((1 - var(--stuck-p)) * 100%), transparent);
+}
+.day:not(.backlog):not(.collapsed) .day-head.is-morphing .date-box:hover {
+    transform: scale(calc(1 - 0.3 * var(--stuck-p)));
+}
+.day:not(.backlog):not(.collapsed) .day-head.is-morphing .day-title-edit,
+.day:not(.backlog):not(.collapsed) .day-head.is-morphing .health-badge {
+    opacity: max(0, calc(1 - var(--stuck-p) * 1.6));
+}
+.day:not(.backlog):not(.collapsed) .day-head.is-morphing .day-title small,
+.day:not(.backlog):not(.collapsed) .day-head.is-morphing .day-load-meter {
+    opacity: max(0, calc(1 - var(--stuck-p) * 1.6));
+    max-height: calc((1 - var(--stuck-p)) * 40px);
+    overflow: clip;
+}
+.day:not(.backlog):not(.collapsed) .day-head.is-morphing .day-title {
+    overflow: clip;
+    overflow-clip-margin: 4px;
+}
+.day:not(.backlog):not(.collapsed) .day-head.is-morphing .day-name {
+    font-size: calc(1em - 3px * var(--stuck-p));
+}
+.day:not(.backlog):not(.collapsed) .day-head.is-morphing .day-handle {
+    width: calc(40px - 12px * var(--stuck-p));
+}
+.day:not(.backlog) .day-head.is-pinned-compact {
+    min-height: 0;
+    padding: 2px 6px 2px 4px;
+    gap: 6px;
+}
+.day:not(.backlog) .day-head.is-pinned-compact .day-handle {
+    width: 28px;
+    height: 34px;
+}
+.day:not(.backlog) .day-head.is-pinned-compact .day-handle svg {
+    width: 16px;
+    height: 16px;
+}
+.day:not(.backlog) .day-head.is-pinned-compact .date-box {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    width: auto;
+    padding: 0;
+    background: transparent;
+}
+.day:not(.backlog) .day-head.is-pinned-compact .date-box:hover {
+    background: transparent;
+    transform: none;
+}
+.day:not(.backlog) .day-head.is-pinned-compact .date-box::after,
+.day:not(.backlog) .day-head.is-pinned-compact .date-box span {
+    display: none;
+}
+.day:not(.backlog) .day-head.is-pinned-compact .date-box::before {
+    content: attr(data-weekday);
+    order: -1;
+    color: #876d48;
+    font: 11px "DM Mono";
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+}
+.day:not(.backlog) .day-head.is-pinned-compact .date-box strong {
+    font-size: 15px;
+    line-height: 1;
+}
+.day:not(.backlog) .day-head.is-pinned-compact .day-title {
+    display: flex;
+    align-items: center;
+}
+.day:not(.backlog) .day-head.is-pinned-compact .title-line {
+    flex: 1 1 auto;
+}
+.day:not(.backlog) .day-head.is-pinned-compact .day-name {
+    font-size: 13px;
+}
+.day:not(.backlog) .day-head.is-pinned-compact .day-title-edit,
+.day:not(.backlog) .day-head.is-pinned-compact .day-title small,
+.day:not(.backlog) .day-head.is-pinned-compact .day-load-meter,
+.day:not(.backlog) .day-head.is-pinned-compact .health-badge {
+    display: none;
+}
+.day:not(.backlog) .day-head.is-pinned-compact .day-collapse,
+.day:not(.backlog) .day-head.is-pinned-compact .day-overflow-button {
+    width: 34px;
+    height: 34px;
+}
