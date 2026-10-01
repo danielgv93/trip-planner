@@ -554,6 +554,10 @@ body.preview-mode .spot.travel-card {
     .spot-actions {
         transition: none;
     }
+    .place-segmented::before,
+    .place-segmented span {
+        transition: none;
+    }
     .day-load-track,
     .day-load-detail {
         transition: none;
