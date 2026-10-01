@@ -426,6 +426,7 @@ body.preview-mode .spot.travel-card {
     body.compact-itinerary .spot-tags .tag,
     body.compact-itinerary .spot-timing { display: none; }
     body.compact-itinerary .category-badge { display: inline-flex; }
+    body.compact-itinerary .spot-tag-tail > .spot-tag-tail-name { max-width: 5.5em; }
 }
 
 /* Below 1200px the search collapses to an icon so the header never wraps to a

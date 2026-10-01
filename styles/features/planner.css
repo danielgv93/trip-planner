@@ -306,24 +306,130 @@ body.compact-itinerary .spot-hours { font-size: 9px; }
 body.compact-itinerary .spot-hours-rail { display: none; }
 body.compact-itinerary .spot-duration { font-size: 9px; }
 body.compact-itinerary .spot-kind-badge { flex: none; margin: 0; font-size: 9px; }
+/* Compact rows replace the loose tag pills with a tail fused to the left of
+   the category badge. At rest it shows the first tag and a "+N"; hovering
+   the badge unrolls the rest leftwards, so the badge never leaves its column. */
 body.compact-itinerary .spot-tags {
-    flex: 0 0 auto;
+    --tail-ink: color-mix(in srgb, var(--category-color, #6b6b6b) 70%, #1d2628);
+    --tail-wash: color-mix(in srgb, var(--category-color, #6b6b6b) 12%, #fff);
+    --tail-edge: color-mix(in srgb, var(--category-color, #6b6b6b) 30%, transparent);
+    flex: 0 1 auto;
     display: flex;
+    align-items: stretch;
     flex-wrap: nowrap;
-    gap: 3px;
-    max-width: 100px;
+    gap: 0;
+    min-width: 0;
     margin: 0;
-    overflow: hidden;
 }
-body.compact-itinerary .spot-content:has(.spot-reminders) .spot-tags .tag { display: none; }
-body.compact-itinerary .spot-tags .tag:not(:first-of-type) { display: none; }
-body.compact-itinerary .category-badge,
-body.compact-itinerary .spot-tags .tag { padding: 2px 5px; font-size: 8px; white-space: nowrap; }
+body.compact-itinerary .spot-tags .tag { display: none; }
 body.compact-itinerary .category-badge {
     flex: 0 1 auto;
     min-width: 0;
+    max-width: 100px;
+    padding: 2px 5px;
+    overflow: hidden;
+    font-size: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+body.compact-itinerary .spot-tag-tail {
+    display: inline-flex;
+    flex: 0 1 auto;
+    align-items: center;
+    min-width: 0;
+    padding: 0 5px 0 6px;
+    border-radius: 4px 0 0 4px;
+    background: var(--tail-wash);
+    box-shadow:
+        inset 1px 0 0 var(--tail-edge),
+        inset 0 1px 0 var(--tail-edge),
+        inset 0 -1px 0 var(--tail-edge);
+    color: var(--tail-ink);
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+body.compact-itinerary .spot-tag-tail + .category-badge {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+body.compact-itinerary .spot-tag-tail-names {
+    display: inline-block;
+    flex: none;
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateX(6px);
+    transition:
+        max-width 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.2s ease,
+        transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+body.compact-itinerary .spot-tag-tail-track { display: inline-flex; align-items: center; }
+body.compact-itinerary .spot-tag-tail > .spot-tag-tail-name {
+    min-width: 0;
+    max-width: 8em;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+body.compact-itinerary .spot-tag-tail-names .spot-tag-tail-name::before {
+    content: "·";
+    margin: 0 4px;
+    opacity: 0.45;
+}
+body.compact-itinerary .spot-tag-tail-count {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    max-width: 3em;
+    margin-left: 4px;
+    overflow: hidden;
+    opacity: 0.7;
+    font-variant-numeric: tabular-nums;
+    transition:
+        max-width 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.16s ease;
+}
+body.compact-itinerary .spot-tag-tail-name.is-match,
+body.compact-itinerary .spot-tag-tail.has-hidden-match .spot-tag-tail-count {
+    text-decoration: underline;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 2px;
+}
+body.compact-itinerary .spot:hover .spot-tag-tail {
+    --tail-wash: color-mix(in srgb, var(--category-color, #6b6b6b) 18%, #fff);
+}
+@media (hover: hover) {
+    body.compact-itinerary .spot-tags:hover .spot-tag-tail {
+        --tail-edge: color-mix(in srgb, var(--category-color, #6b6b6b) 55%, transparent);
+    }
+    body.compact-itinerary .spot-tags:hover .spot-tag-tail-names {
+        max-width: 18rem;
+        opacity: 1;
+        transform: none;
+        transition-delay: 80ms;
+    }
+    body.compact-itinerary .spot-tags:hover .spot-tag-tail > .spot-tag-tail-name { max-width: none; }
+    body.compact-itinerary .spot-tags:hover .spot-tag-tail-count {
+        max-width: 0;
+        margin-left: 0;
+        opacity: 0;
+        transition-delay: 80ms;
+    }
+    /* Size the unroll to the real text where the browser can interpolate
+       to intrinsic sizes, so short tails don't spend the curve idling. */
+    @supports (interpolate-size: allow-keywords) {
+        body.compact-itinerary .spot-tag-tail { interpolate-size: allow-keywords; }
+        body.compact-itinerary .spot-tags:hover .spot-tag-tail-names { max-width: max-content; }
+    }
+}
+.days.is-dragging .spot-tag-tail-names { max-width: 0 !important; opacity: 0 !important; }
+.days.is-dragging .spot-tag-tail-count { max-width: 3em !important; margin-left: 4px !important; opacity: 0.7 !important; }
+@media (prefers-reduced-motion: reduce) {
+    body.compact-itinerary .spot-tag-tail-names,
+    body.compact-itinerary .spot-tag-tail-count { transform: none; transition: opacity 0.12s linear; }
 }
 body.compact-itinerary .spot-cost { padding-left: 6px; font-size: 9px; }
 body.compact-itinerary .spot-actions .spot-overflow-button {
