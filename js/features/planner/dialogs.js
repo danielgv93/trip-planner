@@ -7,6 +7,7 @@ import { openModal } from "../../shared/modal.js";
 import { toast, confirmAction } from "../../shared/notify.js";
 import { categoryDefaultSpotKind, dayPositionConstraintViolation, positionConstraintInsertionIndex, spotKind, spotPositionConstraint } from "../../core/itinerary.js";
 import { buildTimelineProjection } from "../timeline/timeline.js";
+import { resolveTravelForLeg } from "../timeline/travel-resolver.js";
 import {
     PLACE_FOCUS_TARGETS,
     buildPlaceSummary,
@@ -332,7 +333,7 @@ function updatePlaceEditorState() {
 
 function renderPlaceReadPanel(spot) {
     const day = editing?.dayId === "backlog" ? null : dayBy(editing?.dayId);
-    const projection = day ? buildTimelineProjection(day) : null;
+    const projection = day ? buildTimelineProjection(day, { travelForLeg: resolveTravelForLeg }) : null;
     const summary = buildPlaceSummary(spot, { categories: store.categories, currency: store.foreignCurrency, timelineItem: findTimelineItem(projection, spot?.id) });
     const category = summary.identity.category
         ? `<span class="place-read-chip is-category" style="--category-color:${safeColor(summary.identity.category.color)}">${esc(summary.identity.category.label)}</span>`
