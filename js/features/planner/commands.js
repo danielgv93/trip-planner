@@ -201,3 +201,47 @@ export function moveDay(dayId, at) {
         { containerId: "days", beforeId },
     ));
 }
+
+// Creates a brand-new spot in a day (or the backlog). `index` is only a
+// preference: anchored stops can force a different slot, and a null answer from
+// the helper means no compatible slot exists. Resolves to the index the spot
+// was inserted at, or `null` when nothing was created. `onResolvedIndex` runs
+// before the commit repaints, so callers can adjust view state for that render.
+export async function createSpotAt(listId, fields, { index, backlogGroupId, onResolvedIndex } = {}) {
+    const target = listId === "backlog" ? store.backlog : dayBy(listId)?.spots;
+    if (!target) return null;
+    const spot = {
+        id: randomUUID(),
+        name: "",
+        address: "",
+        note: "",
+        tags: [],
+        kind: "activity",
+        ...fields,
+    };
+    if (!Number.isFinite(spot.lat) || !Number.isFinite(spot.lng)) {
+        delete spot.lat;
+        delete spot.lng;
+    }
+    if (listId === "backlog" && backlogGroupId) spot.backlogGroupId = backlogGroupId;
+    const insertAt = listId === "backlog"
+        ? target.length
+        : positionConstraintInsertionIndex(
+            target,
+            spot,
+            Number.isInteger(index) ? Math.min(Math.max(index, 0), target.length) : target.length,
+        );
+    if (insertAt === null) {
+        toast("No hay una posición compatible con los anclajes actuales.", "info");
+        return null;
+    }
+    store.active = listId;
+    onResolvedIndex?.(insertAt);
+    const beforeId = target[insertAt]?.id ?? null;
+    await derivedPlanOperation(() => insertEntityIntent(
+        { type: "spot", id: spot.id },
+        spot,
+        { containerId: listId, beforeId, backlogGroupId },
+    ));
+    return insertAt;
+}

@@ -13,6 +13,9 @@ import { createAuthController } from "../modules/auth/auth-controller.js";
 import { createAuthenticationMiddleware } from "../modules/auth/auth-middleware.js";
 import { registerAuthRoutes } from "../modules/auth/auth-routes.js";
 import { createAuthService } from "../modules/auth/auth-service.js";
+import { createPlacesController } from "../modules/places/places-controller.js";
+import { registerPlacesRoutes } from "../modules/places/places-routes.js";
+import { createPlacesService } from "../modules/places/places-service.js";
 import { createSystemController } from "../modules/system/system-controller.js";
 import { registerProtectedSystemRoutes, registerPublicSystemRoutes } from "../modules/system/system-routes.js";
 import { createSystemService } from "../modules/system/system-service.js";
@@ -47,6 +50,7 @@ export function createApi({
     const tripPresenceService = createTripPresenceService({ database, events, config, logger, metrics });
     const tripPresenceController = createTripPresenceController(tripPresenceService);
     const tripStreamController = createTripStreamController({ database, events, presenceService: tripPresenceService });
+    const placesController = createPlacesController(createPlacesService({ config }));
     const accountController = createAccountController({
         accountService: createAccountService({ database, now }),
         config,
@@ -64,6 +68,7 @@ export function createApi({
     app.use(createAuthenticationMiddleware(authService));
     registerProtectedSystemRoutes(app, systemController);
     registerTripRoutes(app, tripController, tripShareController, tripMemberController, tripStreamController, tripPresenceController);
+    registerPlacesRoutes(app, placesController);
     registerAccountRoutes(app, accountController);
 
     app.use(routeNotFound);

@@ -104,6 +104,10 @@ El cliente muestra siempre la interfaz cloud y comprueba `/api/session` al arran
   operaciones por usuario y viaje.
 - `PRESENCE_TTL_MS`, `PRESENCE_RATE_LIMIT`, `PRESENCE_RATE_WINDOW_MS`,
   `PRESENCE_CLEANUP_LIMIT`: caducidad, límites y limpieza acotada de presencia.
+- `PLACES_RATE_LIMIT`, `PLACES_RATE_WINDOW_MS`: límite por cuenta de la
+  resolución de enlaces cortos de Google Maps (`POST /api/places/resolve-link`).
+  Solo se contactan `maps.app.goo.gl` y `goo.gl/maps`; cada redirección se valida
+  contra los dominios de Google Maps y no se descarga ningún cuerpo.
 - `SESSION_DAYS`: caducidad fija de la sesión revocable (máximo 90).
 - `TRUST_PROXY`: solo debe activarse detrás de un proxy controlado que reescriba `X-Forwarded-For`.
 

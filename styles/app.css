@@ -5,7 +5,7 @@
 @import url("./foundation/base.css?v=20260930-7");
 @import url("./foundation/modal.css");
 @import url("./features/search.css");
-@import url("./features/planner.css?v=20260930-7");
+@import url("./features/planner.css?v=20260930-8");
 @import url("./layout/workspace-resize.css");
 @import url("./features/map-notes.css");
 @import url("./features/dialog-finance.css");
@@ -20,3 +20,4 @@
 @import url("./layout/responsive.css?v=20260930-7");
 @import url("./features/companion.css?v=20260930-7");
 @import url("./features/llm-chat.css");
+@import url("./features/choice-menu.css");

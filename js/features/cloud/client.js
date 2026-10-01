@@ -75,6 +75,7 @@ export function createCloudClient({ baseUrl = "", timeoutMs = 12_000, csrfToken 
         getPublicTrip: (token) => request(`/api/public/trips/${encodeURIComponent(token)}`),
         listRevisions: (id, { before, limit = 30 } = {}) => request(`/api/trips/${encodeURIComponent(id)}/revisions?limit=${limit}${before ? `&before=${before}` : ""}`),
         getRevision: (id, revision) => request(`/api/trips/${encodeURIComponent(id)}/revisions/${revision}`),
+        resolveMapsLink: (url) => request("/api/places/resolve-link", { method: "POST", body: { url } }),
         exportAccount: () => request("/api/account/export"),
         updateProfile: (profile) => request("/api/account/profile", { method: "PATCH", body: profile }),
         changePassword: (currentPassword, newPassword) => request("/api/account/password", { method: "PATCH", body: { currentPassword, newPassword } }),

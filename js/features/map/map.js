@@ -31,6 +31,18 @@ const map = L.map("map", {
 }).setView([20, 0], 2);
 L.control.zoom({ position: "bottomright" }).addTo(map);
 registerBasemapMap(map);
+// Right click (or long press on touch) asks to add a stop at that point. The map
+// only reports the request; the planner decides whether and where to add it.
+map.on("contextmenu", ({ latlng, originalEvent }) => {
+    document.dispatchEvent(new CustomEvent("map:add-place-request", {
+        detail: {
+            lat: +latlng.lat.toFixed(6),
+            lng: +latlng.wrap().lng.toFixed(6),
+            x: originalEvent?.clientX ?? 0,
+            y: originalEvent?.clientY ?? 0,
+        },
+    }));
+});
 let routeLayer = L.layerGroup().addTo(map);
 let legendControl = null;
 const viewportResetTracker = createMapViewportResetTracker();

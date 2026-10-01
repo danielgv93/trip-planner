@@ -435,8 +435,18 @@ async function requestPlaceClose({ discardToRead = false } = {}) {
 function populatePlaceForm(spot, prefill) {
     kindTouched = Boolean(spot); setPlaceKind(spotKind(spot));
     store.selectedLocation = Number.isFinite(spot?.lat) && Number.isFinite(spot?.lng) ? { lat: spot.lat, lng: spot.lng, display_name: spot.address || spot.name } : null;
+    const prefillLocation = !spot && Number.isFinite(prefill?.location?.lat) && Number.isFinite(prefill?.location?.lng)
+        ? prefill.location
+        : null;
+    if (prefillLocation) {
+        store.selectedLocation = {
+            lat: prefillLocation.lat,
+            lng: prefillLocation.lng,
+            display_name: prefill.address || prefill.name || `Punto elegido en el mapa (${prefillLocation.lat.toFixed(5)}, ${prefillLocation.lng.toFixed(5)})`,
+        };
+    }
     $("#placeName").value = spot ? spot.name || "" : typeof prefill?.name === "string" ? prefill.name : "";
-    $("#placeAddress").value = spot?.address || ""; $("#placeNote").value = spot?.note || "";
+    $("#placeAddress").value = spot ? spot.address || "" : typeof prefill?.address === "string" ? prefill.address : ""; $("#placeNote").value = spot?.note || "";
     $("#placeCost").value = Number.isFinite(spot?.cost) ? spot.cost : ""; $("#placeCostCurrency").textContent = store.foreignCurrency;
     $("#placeOpeningTime").value = normalizeTime(spot?.openingTime) || ""; $("#placeClosingTime").value = normalizeTime(spot?.closingTime) || "";
     $("#placeVisitMinutes").value = Number.isInteger(spot?.visitMinutes) && spot.visitMinutes > 0 ? spot.visitMinutes : "";
@@ -452,7 +462,7 @@ function populatePlaceForm(spot, prefill) {
 export function openDialog(dayId, spot, prefill = {}) {
     cancelPendingSearch();
     returnFocus = document.activeElement;
-    editing = { dayId, spot, backlogGroupId: prefill.backlogGroupId, onSave: typeof prefill.onSave === "function" ? prefill.onSave : null };
+    editing = { dayId, spot, backlogGroupId: prefill.backlogGroupId, insertIndex: Number.isInteger(prefill.insertIndex) ? prefill.insertIndex : null, onSave: typeof prefill.onSave === "function" ? prefill.onSave : null };
     dialog.dataset.presenceTarget = spot?.id ? `spot:${spot.id}` : dayId === "backlog" ? "backlog:all" : `day:${dayId}`;
     populatePlaceForm(spot, prefill);
     const focusTarget = PLACE_FOCUS_TARGETS[prefill.focus];
@@ -470,8 +480,24 @@ export function openDialog(dayId, spot, prefill = {}) {
               : $("#placeName");
         control?.focus({ preventScroll: true });
     });
-    const prefilledName = !spot && typeof prefill?.name === "string" && prefill.name.trim();
+    const prefilledName = !spot && !prefill?.location && typeof prefill?.name === "string" && prefill.name.trim();
     if (prefilledName) queueSearch(prefilledName, { clearsLocation: false });
+    return editing;
+}
+
+// Fills the name/address of a still-open create dialog with a late suggestion
+// (for example a reverse-geocoded map point) without overwriting what the user
+// has already typed. `token` is the value returned by openDialog().
+export function suggestPlaceDetails(token, { name = "", address = "" } = {}) {
+    if (!token || editing !== token || token.spot || placeMode === "read" || !dialog.open) return;
+    const nameInput = $("#placeName"), addressInput = $("#placeAddress");
+    if (name && !nameInput.value.trim()) nameInput.value = name;
+    if (address && !addressInput.value.trim()) {
+        addressInput.value = address;
+        if (store.selectedLocation) store.selectedLocation.display_name = address;
+        $("#searchStatus").textContent = "Ubicación actual: " + address;
+    }
+    updatePlaceEditorState();
 }
 
 async function searchPlaces(q) {
@@ -729,7 +755,11 @@ async function commitPlaceEditor({ stayOpen = false } = {}) {
         : positionConstraintInsertionIndex(
               target,
               { id: "__new__", name, ...(positionConstraint ? { positionConstraint } : {}) },
-              positionConstraint === "first" ? 0 : target.length,
+              positionConstraint === "first"
+                  ? 0
+                  : positionConstraint !== "last" && editing.insertIndex !== null
+                    ? Math.min(Math.max(editing.insertIndex, 0), target.length)
+                    : target.length,
           );
     if (!spot && newSpotInsertAt === null) {
         toast("No hay una posición compatible con los anclajes actuales.", "error");

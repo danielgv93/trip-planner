@@ -47,6 +47,8 @@ export function loadConfig(env = process.env) {
         presenceRateLimit: integer(env, "PRESENCE_RATE_LIMIT", 120, { min: 10, max: 2_000 }),
         presenceRateWindowMs: integer(env, "PRESENCE_RATE_WINDOW_MS", 60_000, { min: 10_000, max: 600_000 }),
         presenceCleanupLimit: integer(env, "PRESENCE_CLEANUP_LIMIT", 500, { min: 10, max: 5_000 }),
+        placesRateLimit: integer(env, "PLACES_RATE_LIMIT", 30, { min: 5, max: 1_000 }),
+        placesRateWindowMs: integer(env, "PLACES_RATE_WINDOW_MS", 60_000, { min: 10_000, max: 600_000 }),
         sessionDays: integer(env, "SESSION_DAYS", 30, { max: 90 }),
         trustProxy: truthy.has(String(env.TRUST_PROXY || "false").toLowerCase()),
     };

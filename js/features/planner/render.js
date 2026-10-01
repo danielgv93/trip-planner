@@ -81,6 +81,7 @@ import {
 import { formatDurationMinutes } from "./duration-presentation.js";
 import {
     configurePlannerCommands,
+    createSpotAt,
     duplicateDay,
     duplicateSpot,
     insertDayAfter,
@@ -206,8 +207,16 @@ function updateTagFilter(changeFilter) {
     drawMap();
 }
 
-function renderList(list, spots, isBacklog = false) {
+// `insertSlotsFor` is the day id whose list gets between-stops insertion slots;
+// omit it (backlog, read-only, preview, collapsed) to render none.
+function renderList(list, spots, isBacklog = false, { insertSlotsFor = null } = {}) {
     const visible = spots.filter(spotMatchesFilter);
+    const filtered = store.activeTagFilter.size > 0;
+    // Under a tag filter DOM positions no longer match array indexes (the same
+    // reason drag-and-drop is blocked), so only an end-of-day slot is offered.
+    const addSlot = (index, empty = false) => {
+        if (insertSlotsFor) list.append(createInsertSlot(insertSlotsFor, index, empty));
+    };
     const activeSequence = spots.filter(spotIsEnabled);
     const connectorPairs = visibleConsecutiveTravelLegs(spots, {
         enabled: spotIsEnabled,
@@ -221,6 +230,8 @@ function renderList(list, spots, isBacklog = false) {
         list.innerHTML = store.activeTagFilter.size > 0
             ? '<div class="empty">Ninguna parada coincide con el filtro</div>'
             : '<div class="empty">Arrastra aquí una idea o añade una nueva.</div>';
+    if (!visible.length) addSlot(spots.length, true);
+    else if (!filtered) addSlot(0);
     visible.forEach((s) => {
         const activeIndex = activeSequence.findIndex((spot) => String(spot.id) === String(s.id));
         const previous = activeIndex > 0 ? activeSequence[activeIndex - 1] : null;
@@ -341,7 +352,12 @@ function renderList(list, spots, isBacklog = false) {
             wireMapLegHighlight(connector, s.id, next.id);
             list.append(connector);
         }
+        // A single travel card spanning this stop and the next one must not be
+        // split: the slot after it is added by the hidden endpoint's own turn.
+        const coversNext = pairIsVisible && outgoing?.embeddedEndpoints?.includes("to");
+        if (!filtered && !coversNext) addSlot(spots.indexOf(s) + 1);
     });
+    if (filtered && visible.length) addSlot(spots.length, false);
     wireHoursComparison(list);
 }
 
@@ -803,17 +819,35 @@ document.addEventListener("trip:route-times-updated", () => {
     refreshTravelLegConnectors();
 });
 
-function quickAddKey(dayId, backlogGroupId) {
-    return dayId === "backlog"
-        ? `backlog:${backlogGroupId || "ungrouped"}`
-        : dayId;
+function quickAddKey(dayId, backlogGroupId, index) {
+    if (dayId === "backlog") return `backlog:${backlogGroupId || "ungrouped"}`;
+    return `${dayId}@${index}`;
 }
 
+// Backlog sections keep their end-of-list button.
 function quickAddMarkup(dayId, buttonLabel, backlogGroupId) {
     const key = quickAddKey(dayId, backlogGroupId);
     if (quickAddOpenFor !== key)
         return `<button class="add-place">${buttonLabel}</button>`;
+    return quickAddEditorMarkup();
+}
+
+function quickAddEditorMarkup() {
     return `<div class="quick-add"><input class="quick-add-input" type="text" aria-label="Nombre de la nueva parada" placeholder="Nombre de la parada…" autocomplete="off"><button class="quick-add-details" type="button">Detalles…</button></div>`;
+}
+
+// A day's insertion slot: the "+" line between two stops, or the inline editor
+// when this exact position is the one being edited. It is deliberately not a
+// `.spot`, so drag-and-drop, FLIP and index math never see it.
+function createInsertSlot(dayId, index, empty) {
+    const slot = document.createElement("div");
+    const open = quickAddOpenFor === quickAddKey(dayId, undefined, index);
+    slot.className = `spot-insert-slot${empty ? " is-empty" : ""}${open ? " is-open" : ""}`;
+    slot.dataset.insertIndex = String(index);
+    slot.innerHTML = open
+        ? quickAddEditorMarkup()
+        : `<button class="spot-insert" type="button" aria-label="Añadir una parada aquí" title="Añadir una parada aquí"><span class="spot-insert-plus" aria-hidden="true">＋</span>${empty ? '<span class="spot-insert-label">Añadir una parada</span>' : ""}</button>`;
+    return slot;
 }
 
 function closeQuickAdd() {
@@ -822,22 +856,41 @@ function closeQuickAdd() {
     render({ persist: false });
 }
 
+function openQuickAdd(key) {
+    quickAddOpenFor = key;
+    quickAddDraft = "";
+    render({ persist: false });
+}
+
 function wireQuickAdd(card, dayId, backlogGroupId) {
-    const key = quickAddKey(dayId, backlogGroupId);
     const addButton = card.querySelector(".add-place");
     if (addButton) {
-        addButton.addEventListener("click", () => {
-            quickAddOpenFor = key;
-            quickAddDraft = "";
-            render({ persist: false });
-        });
+        addButton.addEventListener("click", () => openQuickAdd(quickAddKey(dayId, backlogGroupId)));
         return;
     }
+    const editor = card.querySelector(".quick-add");
+    if (editor) wireQuickAddEditor(editor, { dayId, backlogGroupId, key: quickAddKey(dayId, backlogGroupId) });
+}
 
-    const editor = card.querySelector(".quick-add"),
-        input = editor?.querySelector(".quick-add-input"),
-        detailsButton = editor?.querySelector(".quick-add-details");
-    if (!editor || !input || !detailsButton) return;
+function wireInsertSlots(card, dayId) {
+    card.querySelectorAll(".spot-insert").forEach((button) => {
+        const index = Number(button.closest(".spot-insert-slot").dataset.insertIndex);
+        button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            if (store.readOnly || store.previewMode) return;
+            openQuickAdd(quickAddKey(dayId, undefined, index));
+        });
+    });
+    const editor = card.querySelector(".spot-insert-slot .quick-add");
+    if (!editor) return;
+    const index = Number(editor.closest(".spot-insert-slot").dataset.insertIndex);
+    wireQuickAddEditor(editor, { dayId, index, key: quickAddKey(dayId, undefined, index) });
+}
+
+function wireQuickAddEditor(editor, { dayId, backlogGroupId, index, key }) {
+    const input = editor.querySelector(".quick-add-input"),
+        detailsButton = editor.querySelector(".quick-add-details");
+    if (!input || !detailsButton) return;
 
     input.value = quickAddDraft;
     input.addEventListener("input", () => {
@@ -848,27 +901,16 @@ function wireQuickAdd(card, dayId, backlogGroupId) {
             event.preventDefault();
             const name = input.value.trim();
             if (!name) return;
-            const target =
-                dayId === "backlog" ? store.backlog : dayBy(dayId)?.spots;
-            if (!target) return;
-            const spot = { id: id(), name, address: "", note: "", tags: [], kind: "activity" };
-            if (dayId === "backlog" && backlogGroupId)
-                spot.backlogGroupId = backlogGroupId;
-            const insertAt = dayId === "backlog"
-                ? target.length
-                : positionConstraintInsertionIndex(target, spot, target.length);
-            if (insertAt === null) {
-                toast("No hay una posición compatible con los anclajes actuales.", "info");
-                return;
-            }
-            quickAddDraft = "";
-            store.active = dayId;
-            const beforeId = target[insertAt]?.id ?? null;
-            void derivedPlanOperation(() => insertEntityIntent(
-                { type: "spot", id: spot.id },
-                spot,
-                { containerId: dayId, beforeId, backlogGroupId },
-            ));
+            void createSpotAt(dayId, { name }, {
+                index,
+                backlogGroupId,
+                // Keep the editor open for rapid entry: for a day it moves to
+                // the slot right after the stop that was just created.
+                onResolvedIndex: (at) => {
+                    quickAddDraft = "";
+                    quickAddOpenFor = dayId === "backlog" ? key : quickAddKey(dayId, undefined, at + 1);
+                },
+            });
         } else if (event.key === "Escape") {
             event.preventDefault();
             event.stopPropagation();
@@ -889,7 +931,7 @@ function wireQuickAdd(card, dayId, backlogGroupId) {
         quickAddOpenFor = null;
         quickAddDraft = "";
         render({ persist: false });
-        openDialog(dayId, undefined, { name, backlogGroupId });
+        openDialog(dayId, undefined, { name, backlogGroupId, insertIndex: index });
     });
 
     requestAnimationFrame(() => {
@@ -1130,9 +1172,11 @@ export function render() {
             (collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
         el.dataset.presenceTarget = `day:${day.id}`;
-        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><div class="date-box editable" title="Cambiar fecha" data-weekday="${esc(weekdayShort(day.date))}"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta">${esc(day.title)}</span><button class="day-title-edit" type="button" title="Editar nombre del día" aria-label="Editar nombre de ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button></div><small><span class="day-count">${activeSpotCount} ${activeSpotCount === 1 ? "parada" : "paradas"}<span class="day-count-long"> ${activeSpotCount === 1 ? "activa" : "activas"}</span></span><span class="day-cost"> · ${esc(formatCost(sumCosts(day.spots)))}</span><span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span><span class="day-route-hint"> · pulsa para ver ruta</span></small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><div class="day-actions"><button class="day-collapse" type="button" title="${collapsed ? "Desplegar día" : "Plegar día"}" aria-label="${collapsed ? "Desplegar" : "Plegar"} ${esc(day.title || "día")}" aria-expanded="${collapsed ? "false" : "true"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><span class="day-overflow-control"><button class="day-overflow-button" type="button" title="Más acciones" aria-label="Más acciones para ${esc(day.title || "día")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></div></div>${renderDayTimeTools(day)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}<button class="day-insert" type="button" title="Insertar un día aquí" aria-label="Insertar un día después de ${esc(day.title || "este día")}"><span aria-hidden="true">+ Día</span></button>`;
+        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><div class="date-box editable" title="Cambiar fecha" data-weekday="${esc(weekdayShort(day.date))}"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta">${esc(day.title)}</span><button class="day-title-edit" type="button" title="Editar nombre del día" aria-label="Editar nombre de ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button></div><small><span class="day-count">${activeSpotCount} ${activeSpotCount === 1 ? "parada" : "paradas"}<span class="day-count-long"> ${activeSpotCount === 1 ? "activa" : "activas"}</span></span><span class="day-cost"> · ${esc(formatCost(sumCosts(day.spots)))}</span><span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span><span class="day-route-hint"> · pulsa para ver ruta</span></small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><div class="day-actions"><button class="day-collapse" type="button" title="${collapsed ? "Desplegar día" : "Plegar día"}" aria-label="${collapsed ? "Desplegar" : "Plegar"} ${esc(day.title || "día")}" aria-expanded="${collapsed ? "false" : "true"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><span class="day-overflow-control"><button class="day-overflow-button" type="button" title="Más acciones" aria-label="Más acciones para ${esc(day.title || "día")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></div></div>${renderDayTimeTools(day)}<div class="spots"></div><button class="day-insert" type="button" title="Insertar un día aquí" aria-label="Insertar un día después de ${esc(day.title || "este día")}"><span aria-hidden="true">+ Día</span></button>`;
         el.querySelector(".day-actions").insertAdjacentHTML("afterbegin", healthBadgeMarkup(day));
-        renderList(el.querySelector(".spots"), day.spots);
+        renderList(el.querySelector(".spots"), day.spots, false, {
+            insertSlotsFor: store.readOnly || store.previewMode || collapsed ? null : day.id,
+        });
         wireDayTimeTools(el, day.id);
         applyDayLoad(el, day);
         const loadMeter = el.querySelector(".day-load-meter");
@@ -1217,9 +1261,15 @@ export function render() {
             e.stopPropagation();
             void insertDayAfter(day.id);
         };
-        wireQuickAdd(el, day.id);
+        wireInsertSlots(el, day.id);
         daysEl.append(el);
     });
+    // An editor whose slot no longer exists (day deleted or collapsed, filter
+    // toggled, list shortened remotely) must not stay "open" invisibly.
+    if (quickAddOpenFor && !daysEl.querySelector(".quick-add")) {
+        quickAddOpenFor = null;
+        quickAddDraft = "";
+    }
     daysEl.style.minHeight = reservedMinHeight;
     settleDateStrip();
     const tripTotal =
