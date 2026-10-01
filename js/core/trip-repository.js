@@ -483,7 +483,7 @@ export function createTripRepository(storage) {
                 if (!envelope) return { envelope: null, pending: false };
                 const current = await outbox.get(tripId);
                 const sameDocument = sent.type !== "document"
-                    || (current?.document && canonicalPlanHash(current.document) === (sent.hash || canonicalPlanHash(sent.document)));
+                    || (current?.document && canonicalPlanHash(current.document) === canonicalPlanHash(sent.document));
                 const samePatch = JSON.stringify(current?.patch || null) === JSON.stringify(sent.patch || null);
                 const acceptedCurrent = current?.clientMutationId === sent.clientMutationId && sameDocument && samePatch;
                 envelope.remote.baseRevision = Number(revision);

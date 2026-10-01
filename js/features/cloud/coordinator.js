@@ -229,7 +229,9 @@ async function drainItem(item) {
         result = await client.mutateTrip(item.remoteId, {
             baseRevision: item.baseRevision,
             clientMutationId: item.clientMutationId,
-            hash: item.hash || canonicalPlanHash(item.document),
+            // Hash with the current codec: an entry queued by an earlier
+            // release carries a hash the server's normalization rejects.
+            hash: canonicalPlanHash(item.document),
             document: item.document,
             deviceId: deviceId(),
             origin: item.origin,
