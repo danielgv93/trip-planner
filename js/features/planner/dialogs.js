@@ -463,7 +463,7 @@ function populatePlaceForm(spot, prefill) {
 export function openDialog(dayId, spot, prefill = {}) {
     cancelPendingSearch();
     returnFocus = document.activeElement;
-    editing = { dayId, spot, backlogGroupId: prefill.backlogGroupId, insertIndex: Number.isInteger(prefill.insertIndex) ? prefill.insertIndex : null, onSave: typeof prefill.onSave === "function" ? prefill.onSave : null };
+    editing = { dayId, spot, backlogGroupId: prefill.backlogGroupId, insertIndex: Number.isInteger(prefill.insertIndex) ? prefill.insertIndex : null };
     dialog.dataset.presenceTarget = spot?.id ? `spot:${spot.id}` : dayId === "backlog" ? "backlog:all" : `day:${dayId}`;
     populatePlaceForm(spot, prefill);
     const focusTarget = PLACE_FOCUS_TARGETS[prefill.focus];
@@ -819,7 +819,6 @@ async function commitPlaceEditor({ stayOpen = false } = {}) {
             },
         ));
     }
-    const onSave = editing.onSave;
     store.active = editing.dayId;
     const committedTarget = editing.dayId === "backlog" ? store.backlog : dayBy(editing.dayId).spots;
     spot = committedTarget.find((candidate) => candidate.id === spotId);
@@ -831,10 +830,7 @@ async function commitPlaceEditor({ stayOpen = false } = {}) {
         return { status: "committed", spotId: spot.id };
     }
     populatePlaceForm(spot, {});
-    if (onSave) {
-        dialog.close();
-        onSave();
-    } else setPlaceMode("read");
+    setPlaceMode("read");
     return { status: "committed", spotId: spot.id };
 }
 

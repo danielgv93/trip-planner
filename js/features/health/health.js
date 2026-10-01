@@ -23,6 +23,7 @@ const resultsEl = $("#healthResults");
 let runToken = 0;
 let busy = false;
 let activeDayId = null;
+let expandedDayId = null;
 let previewTrigger = null;
 
 function healthDateLabel(value) {
@@ -137,11 +138,14 @@ function renderCenter(focusDayId) {
         const body = `<div class="health-day-body"><div class="health-day-options"><div><strong>Hora de salida</strong><small>Fija el inicio de la simulación de este día.</small></div><label class="health-day-start"><input type="time" data-health-start="${esc(day.id)}" value="${esc(day.startTime || "")}" aria-label="Hora de inicio de ${esc(day.title || "este día")}" /></label></div>${metrics}${issues}${suggestionHtml}</div>`;
         if (focusDayId)
             return `<section class="health-day is-static is-${result.state}" data-health-result="${esc(day.id)}" tabindex="-1"><div class="health-day-summary">${heading}</div>${body}</section>`;
-        return `<details class="health-day is-${result.state}" data-health-result="${esc(day.id)}"${dayIndex === 0 ? " open" : ""}><summary class="health-day-summary">${heading}</summary>${body}</details>`;
+        return `<details class="health-day is-${result.state}" data-health-result="${esc(day.id)}"${day.id === (expandedDayId ?? scopedDays[0]?.id) ? " open" : ""}><summary class="health-day-summary">${heading}</summary>${body}</details>`;
     }).join("");
-    if (focusDayId) requestAnimationFrame(() => resultsEl
-        .querySelector(`[data-health-result="${CSS.escape(focusDayId)}"]`)
-        ?.focus({ preventScroll: true }));
+    const revealId = focusDayId || expandedDayId;
+    if (revealId) requestAnimationFrame(() => {
+        const section = resultsEl.querySelector(`[data-health-result="${CSS.escape(revealId)}"]`);
+        if (!focusDayId) section?.scrollIntoView({ block: "nearest" });
+        section?.focus({ preventScroll: true });
+    });
 }
 
 export async function checkPlan({ focusDayId } = {}) {
@@ -165,8 +169,9 @@ export async function checkPlan({ focusDayId } = {}) {
     renderCenter(focusDayId);
 }
 
-function openHealth(dayId, run = false) {
+function openHealth(dayId, run = false, { expandDayId = null } = {}) {
     activeDayId = dayBy(dayId)?.id || null;
+    expandedDayId = activeDayId ? null : dayBy(expandDayId)?.id || null;
     openModal(dialog);
     renderCenter(activeDayId);
     if (run && !busy) checkPlan({ focusDayId: activeDayId });
@@ -252,24 +257,30 @@ resultsEl.addEventListener("change", async (event) => {
     ));
     renderCenter(day.id);
 });
+// Hand off to an editor dialog and come back to the same view, re-checked,
+// however the editor is dismissed (autosave, save, cancel or Escape).
+function editFromHealth(editorDialog, dayId, openEditor) {
+    const scopeDayId = activeDayId;
+    dialog.close();
+    editorDialog.addEventListener("close", () => {
+        requestAnimationFrame(() => openHealth(scopeDayId, true, { expandDayId: dayId }));
+    }, { once: true });
+    openEditor();
+}
+
 resultsEl.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-health-action]");
     if (!button) return;
     const action = button.dataset.healthAction;
     if (action === "edit") {
         const day = dayBy(button.dataset.day), spot = day?.spots.find((item) => item.id === button.dataset.spot);
-        if (spot) {
-            dialog.close();
-            openDialog(day.id, spot, {
-                focus: button.dataset.focus,
-                onSave: () => openHealth(day.id, true),
-            });
-        }
+        if (spot)
+            editFromHealth($("#placeDialog"), day.id, () => openDialog(day.id, spot, { focus: button.dataset.focus }));
         return;
     }
     if (action === "edit-travel") {
-        dialog.close();
-        openTravelLegDialog(button.dataset.day, button.dataset.from, button.dataset.to);
+        editFromHealth($("#travelTimeDialog"), button.dataset.day, () =>
+            openTravelLegDialog(button.dataset.day, button.dataset.from, button.dataset.to));
         return;
     }
     if (action === "suggestion-preview") {
