@@ -330,7 +330,6 @@ body.preview-mode .travel-card .spot-cost { grid-column: 3; }
         align-self: flex-start;
         margin: 0 0 5px;
     }
-    .notes-dialog textarea,
     .trip-notes-preview { min-height: 52vh; }
     .trip-notes-workspace {
         grid-template-columns: minmax(125px, 0.3fr) minmax(0, 1fr);

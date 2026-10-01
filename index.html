@@ -579,19 +579,22 @@
                             </div>
                             <div class="trip-notes-view-actions">
                                 <span>Markdown</span>
-                                <button id="tripNotesMode" type="button" aria-pressed="false">Previsualizar</button>
                             </div>
                         </div>
-                        <textarea
+                        <div
                             id="tripNotes"
-                            maxlength="5000"
+                            class="trip-notes-preview trip-notes-rich-editor"
+                            contenteditable="true"
+                            role="textbox"
+                            aria-multiline="true"
                             aria-label="Notas generales del viaje"
-                            placeholder="Añade reservas, teléfonos, enlaces o cualquier recordatorio útil…"
-                        ></textarea>
+                            aria-describedby="tripNotesHelp"
+                            tabindex="0"
+                            data-placeholder="Añade reservas, teléfonos, enlaces o cualquier recordatorio útil…"
+                        ></div>
                         <div id="tripNotesLinks" class="trip-notes-editor-links" aria-label="Enlaces detectados en las notas" hidden></div>
-                        <div id="tripNotesPreview" class="trip-notes-preview" aria-label="Vista previa de las notas" hidden></div>
                         <div class="trip-notes-meta">
-                            <span>Admite # títulos, **negrita**, listas y enlaces</span>
+                            <span id="tripNotesHelp">Formato al escribir: # título, - lista, **negrita**, *cursiva*, > cita y enlaces</span>
                             <span id="tripNotesStatus" class="trip-notes-status" aria-live="polite"></span>
                         </div>
                     </div>

@@ -443,24 +443,6 @@
     text-transform: uppercase;
     letter-spacing: 0.4px;
 }
-.notes-dialog textarea {
-    display: block;
-    width: 100%;
-    min-height: min(360px, 48vh);
-    max-height: 55vh;
-    resize: vertical;
-    padding: 10px 11px;
-    border: 1px solid #ddd7ca;
-    border-radius: 6px;
-    outline: none;
-    background: #fffefa;
-    color: var(--ink);
-    font-size: 13px;
-    line-height: 1.55;
-}
-.notes-dialog textarea[hidden] {
-    display: none;
-}
 .trip-notes-editor-links {
     display: flex;
     align-items: center;
@@ -557,10 +539,6 @@
 }
 .trip-notes-preview a { color: var(--green); }
 .trip-notes-preview-empty { color: var(--muted); font-style: italic; }
-.notes-dialog textarea:focus {
-    border-color: var(--green);
-    box-shadow: 0 0 0 3px #386f6615;
-}
 .trip-notes-meta {
     display: flex;
     justify-content: space-between;
@@ -623,4 +601,38 @@
     border-radius: 2px;
     display: inline-block;
     flex: none;
+}
+
+.trip-notes-rich-editor {
+    outline: none;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    cursor: text;
+}
+.trip-notes-rich-editor:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px #386f6615;
+}
+.trip-notes-rich-editor:has(> p:only-child > br:only-child)::before {
+    content: attr(data-placeholder);
+    position: absolute;
+    color: var(--muted);
+    pointer-events: none;
+}
+.trip-notes-rich-editor p,
+.trip-notes-rich-editor li {
+    min-height: 1.55em;
+}
+.trip-notes-rich-editor pre {
+    padding: 12px;
+    border-radius: 6px;
+    background: #f1eee7;
+    white-space: pre-wrap;
+}
+.trip-notes-rich-editor pre code {
+    padding: 0;
+}
+.trip-notes-rich-editor .trip-notes-rule {
+    min-height: 0.7em;
+    border-bottom: 1px solid var(--line);
 }

@@ -3,7 +3,8 @@ import { activeTripNotePage } from "../../core/note-pages.js";
 import { $, id } from "../../shared/dom.js";
 import { openModal } from "../../shared/modal.js";
 import { confirmAction, promptAction } from "../../shared/notify.js";
-import { extractNoteLinks, inlineMarkdown } from "./markdown.js";
+import { extractNoteLinks, noteHeadings } from "./markdown.js";
+import { createNoteEditor } from "./editor.js";
 import { createDraftAutosaveController } from "../../shared/draft-autosave.js";
 import {
     deleteEntityIntent,
@@ -17,8 +18,6 @@ const toggle = $("#tripNotesToggle");
 const dialog = $("#tripNotesDialog");
 const summary = $("#tripNotesSummary");
 const status = $("#tripNotesStatus");
-const modeButton = $("#tripNotesMode");
-const preview = $("#tripNotesPreview");
 const editorLinks = $("#tripNotesLinks");
 const index = $("#tripNotesIndex");
 const indexEmpty = $("#tripNotesIndexEmpty");
@@ -42,76 +41,6 @@ function summaryText() {
     return clean || "Reservas, enlaces y recordatorios";
 }
 
-function plainHeadingText(value) {
-    return value
-        .replace(/\s+#+\s*$/, "")
-        .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-        .replace(/[*_~`]/g, "")
-        .trim();
-}
-
-function noteHeadings(source) {
-    const headings = [];
-    const lines = source.replace(/\r/g, "").split("\n");
-    let offset = 0;
-    for (const line of lines) {
-        const match = line.match(/^(#{1,6})\s+(.+?)\s*$/);
-        if (match) {
-            const text = plainHeadingText(match[2]);
-            if (text) {
-                headings.push({
-                    id: `trip-note-heading-${headings.length + 1}`,
-                    level: match[1].length,
-                    text,
-                    offset,
-                });
-            }
-        }
-        offset += line.length + 1;
-    }
-    return headings;
-}
-
-function markdownToHtml(source, headings = noteHeadings(source)) {
-    if (!source.trim()) return '<p class="trip-notes-preview-empty">Todavía no hay notas en esta página.</p>';
-    const lines = source.replace(/\r/g, "").split("\n");
-    const output = [];
-    let list = null;
-    let headingIndex = 0;
-    const closeList = () => {
-        if (list) output.push(`</${list}>`);
-        list = null;
-    };
-    for (const line of lines) {
-        const heading = line.match(/^(#{1,6})\s+(.+?)\s*$/);
-        const bullet = line.match(/^\s*[-*]\s+(.+)$/);
-        const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
-        if (heading) {
-            closeList();
-            const level = heading[1].length;
-            const item = headings[headingIndex++];
-            const headingId = item?.id || `trip-note-heading-${headingIndex}`;
-            output.push(`<h${level} id="${headingId}" tabindex="-1">${inlineMarkdown(heading[2].replace(/\s+#+\s*$/, ""))}</h${level}>`);
-        } else if (bullet || ordered) {
-            const type = bullet ? "ul" : "ol";
-            if (list !== type) {
-                closeList();
-                output.push(`<${type}>`);
-                list = type;
-            }
-            output.push(`<li>${inlineMarkdown((bullet || ordered)[1])}</li>`);
-        } else {
-            closeList();
-            if (!line.trim()) continue;
-            if (line.startsWith("> ")) output.push(`<blockquote>${inlineMarkdown(line.slice(2))}</blockquote>`);
-            else output.push(`<p>${inlineMarkdown(line)}</p>`);
-        }
-    }
-    closeList();
-    return output.join("");
-}
-
 function renderTabs() {
     tabs.replaceChildren();
     for (const page of store.tripNotePages) {
@@ -131,7 +60,7 @@ function renderTabs() {
 }
 
 function renderIndex() {
-    const source = currentPage().content;
+    const source = noteEditor.value;
     const headings = noteHeadings(source);
     index.replaceChildren();
     indexEmpty.hidden = headings.length > 0;
@@ -146,11 +75,10 @@ function renderIndex() {
         link.title = heading.text;
         index.append(link);
     }
-    preview.innerHTML = markdownToHtml(source, headings);
 }
 
 function renderEditorLinks() {
-    const links = extractNoteLinks(currentPage().content);
+    const links = extractNoteLinks(noteEditor.value);
     editorLinks.replaceChildren();
     editorLinks.hidden = notes.hidden || links.length === 0;
     if (!links.length) return;
@@ -170,37 +98,22 @@ function renderEditorLinks() {
 }
 
 function jumpToHeading(link) {
-    if (!notes.hidden) {
-        const offset = Number(link.dataset.offset);
-        const lineNumber = notes.value.slice(0, offset).split("\n").length - 1;
-        const lineHeight = Number.parseFloat(getComputedStyle(notes).lineHeight) || 20;
-        notes.focus();
-        notes.setSelectionRange(offset, offset);
-        notes.scrollTop = Math.max(0, lineNumber * lineHeight - notes.clientHeight * 0.2);
-        return;
-    }
-    const heading = preview.querySelector(`#${CSS.escape(link.hash.slice(1))}`);
+    const heading = notes.querySelector(`#${CSS.escape(link.hash.slice(1))}`);
     if (!heading) return;
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    preview.scrollTo({
-        top: Math.max(0, heading.offsetTop - preview.offsetTop - 10),
-        behavior: reducedMotion ? "auto" : "smooth",
-    });
-    heading.focus({ preventScroll: true });
+    heading.scrollIntoView({ block: "nearest" });
+    notes.focus({ preventScroll: true });
+    if (!store.readOnly) {
+        const range = document.createRange();
+        range.selectNodeContents(heading);
+        range.collapse(true);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
 }
 
-function showMode(mode) {
-    const writing = mode === "write";
-    notes.hidden = !writing;
-    preview.hidden = writing;
-    renderEditorLinks();
-    modeButton.setAttribute("aria-pressed", String(!writing));
-    modeButton.textContent = writing ? "Previsualizar" : "Seguir editando";
-    if (writing) notes.focus();
-    else renderIndex();
-}
-
-function selectPage(pageId, { focus = true } = {}) {
+async function selectPage(pageId, { focus = true } = {}) {
+    await notesAutosave.flush("page-change");
     if (!store.tripNotePages.some((page) => page.id === pageId)) return;
     store.activeTripNotePageId = pageId;
     saveLocalPreferences();
@@ -212,7 +125,7 @@ function selectPage(pageId, { focus = true } = {}) {
 export function syncTripNotes() {
     const page = currentPage();
     store.activeTripNotePageId = page.id;
-    notes.value = page.content;
+    noteEditor.setValue(page.content);
     notes.setAttribute("aria-label", `Notas: ${page.title}`);
     notes.dataset.presenceTarget = `note-page:${page.id}:content`;
     dialog.dataset.presenceTarget = `note-page:${page.id}`;
@@ -224,9 +137,7 @@ export function syncTripNotes() {
 }
 
 toggle.addEventListener("click", () => {
-    // A public visitor can read the notes but never edit them, so the dialog
-    // opens straight in the rendered view instead of the editor.
-    showMode(store.readOnly ? "preview" : "write");
+    noteEditor.setValue(currentPage().content);
     openModal(dialog);
     if (!store.readOnly) notes.focus();
 });
@@ -236,7 +147,7 @@ tabs.addEventListener("click", (event) => {
     if (tab) selectPage(tab.dataset.pageId);
 });
 
-tabs.addEventListener("keydown", (event) => {
+tabs.addEventListener("keydown", async (event) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     const allTabs = [...tabs.querySelectorAll("[role=tab]")];
     const current = allTabs.indexOf(document.activeElement);
@@ -245,11 +156,13 @@ tabs.addEventListener("keydown", (event) => {
     let next = event.key === "Home" ? 0 : event.key === "End" ? allTabs.length - 1 : current;
     if (event.key === "ArrowLeft") next = (current - 1 + allTabs.length) % allTabs.length;
     if (event.key === "ArrowRight") next = (current + 1) % allTabs.length;
-    selectPage(allTabs[next].dataset.pageId, { focus: false });
+    await selectPage(allTabs[next].dataset.pageId, { focus: false });
     tabs.querySelector(`[data-page-id="${CSS.escape(allTabs[next].dataset.pageId)}"]`)?.focus();
 });
 
 addPageButton.addEventListener("click", async () => {
+    if (store.readOnly) return;
+    await notesAutosave.flush("page-action");
     const title = await promptAction({
         title: "Nueva página",
         message: "Ponle un nombre corto para encontrarla fácilmente.",
@@ -274,6 +187,8 @@ addPageButton.addEventListener("click", async () => {
 });
 
 renamePageButton.addEventListener("click", async () => {
+    if (store.readOnly) return;
+    await notesAutosave.flush("page-action");
     const page = currentPage();
     const title = await promptAction({
         title: "Renombrar página",
@@ -293,6 +208,8 @@ renamePageButton.addEventListener("click", async () => {
 });
 
 deletePageButton.addEventListener("click", async () => {
+    if (store.readOnly) return;
+    await notesAutosave.flush("page-action");
     if (store.tripNotePages.length === 1) return;
     const page = currentPage();
     const accepted = await confirmAction({
@@ -313,18 +230,27 @@ deletePageButton.addEventListener("click", async () => {
     syncTripNotes();
 });
 
+const noteEditor = createNoteEditor(notes, {
+    readOnly: () => store.readOnly,
+    onInput: () => { renderIndex(); renderEditorLinks(); },
+});
+
 notesAutosave = createDraftAutosaveController({
     root: notes,
-    read: () => ({ pageId: currentPage().id, content: notes.value }),
+    read: () => ({ pageId: currentPage().id, content: noteEditor.value }),
     disabled: () => store.readOnly,
     debounceMs: 450,
     commit: ({ pageId, content }) => derivedPlanOperation((document) => setFieldIntent(
         document,
         { type: "note-page", id: pageId, field: "content" },
         content,
-    )),
+    ), { undo: false }),
     onState: ({ state }) => {
-        if (state === "dirty" || state === "saving") status.textContent = "Guardando…";
+        if (state === "dirty" || state === "saving") {
+            clearTimeout(statusTimer);
+            status.textContent = "Guardando…";
+        }
+        if (state === "error") status.textContent = "No se pudo guardar";
         if (state === "saved") {
             summary.textContent = summaryText();
             renderIndex();
@@ -334,14 +260,6 @@ notesAutosave = createDraftAutosaveController({
             statusTimer = setTimeout(() => { status.textContent = ""; }, 900);
         }
     },
-});
-
-notes.addEventListener("blur", () => {
-    status.textContent = currentPage().content ? "Guardado" : "";
-});
-
-modeButton.addEventListener("click", () => {
-    showMode(notes.hidden ? "write" : "preview");
 });
 
 index.addEventListener("click", (event) => {
