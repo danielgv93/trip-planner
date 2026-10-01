@@ -13,6 +13,16 @@
       "id": "notes-reservas",
       "title": "Reservas",
       "content": "- Shibuya Sky 17:30\n- teamLab Planets 10:00"
+    },
+    {
+      "id": "notes-vacia",
+      "title": "Vacía",
+      "content": ""
+    },
+    {
+      "id": "notes-markdown",
+      "title": "Título de página con exactamente cincuenta letras",
+      "content": "## Checklist\n\n- [x] Pasaporte\n- [ ] Adaptador tipo A\n\n| Ciudad | Noches |\n| --- | --- |\n| Tokio | 4 |\n| Kioto | 5 |\n\n```\ncódigo sin formato\n```\n\n<script>alert(\"nota\")</script> & <b>negrita HTML</b>\n\n[Enlace](https://example.com)"
     }
   ],
   "days": [
@@ -33,7 +43,8 @@
           "lat": 35.772,
           "lng": 140.3929,
           "kind": "waypoint",
-          "mapEnabled": true
+          "mapEnabled": true,
+          "visitedAt": "2026-11-02T06:30:00.000Z"
         },
         {
           "id": "s-01-hotel",
@@ -45,7 +56,8 @@
           "lat": 35.6938,
           "lng": 139.7034,
           "kind": "activity",
-          "mapEnabled": true
+          "mapEnabled": true,
+          "visitedAt": "2026-11-02T09:15:00.000Z"
         },
         {
           "id": "s-01-omoide",
@@ -117,6 +129,23 @@
           "kind": "activity",
           "mapEnabled": true,
           "visitMinutes": 60,
+          "scheduleNotApplicable": true,
+          "cost": 0
+        },
+        {
+          "address": "",
+          "note": "Mismo nombre y coordenadas que otra parada del día.",
+          "tags": [],
+          "kind": "activity",
+          "mapEnabled": true,
+          "id": "s-02-sensoji-noche",
+          "name": "Templo Senso-ji",
+          "category": "sight",
+          "lat": 35.7148,
+          "lng": 139.7967,
+          "plannedStart": "21:00",
+          "visitMinutes": 30,
+          "optional": true,
           "scheduleNotApplicable": true
         }
       ]
@@ -147,8 +176,10 @@
           "id": "s-03-takeshita",
           "name": "Calle Takeshita",
           "address": "",
-          "note": "",
-          "tags": [],
+          "note": "<script>alert(\"xss\")</script> & 'comillas' \"dobles\"\nSegunda línea",
+          "tags": [
+            "sin-registrar"
+          ],
           "category": "other",
           "lat": 35.6716,
           "lng": 139.7031,
@@ -242,6 +273,19 @@
           "kind": "activity",
           "mapEnabled": false,
           "visitMinutes": 90
+        },
+        {
+          "address": "",
+          "note": "",
+          "tags": [],
+          "kind": "activity",
+          "mapEnabled": true,
+          "id": "s-04-sin-ubicacion",
+          "name": "Restaurante sin ubicación",
+          "category": "food",
+          "visitMinutes": 60,
+          "scheduleNotApplicable": true,
+          "cost": 1999.5
         }
       ]
     },
@@ -350,7 +394,9 @@
           "kind": "activity",
           "mapEnabled": true,
           "plannedStart": "19:30",
-          "visitMinutes": 90
+          "visitMinutes": 90,
+          "openingTime": "17:00",
+          "closingTime": "01:00"
         }
       ]
     },
@@ -507,13 +553,30 @@
           "openingTime": "10:00",
           "closingTime": "17:00",
           "visitMinutes": 60
+        },
+        {
+          "address": "",
+          "note": "Cierra temprano: provoca conflicto de horario.",
+          "tags": [
+            "templos"
+          ],
+          "kind": "activity",
+          "mapEnabled": true,
+          "id": "s-09-chionin",
+          "name": "Templo Chion-in",
+          "category": "sight",
+          "lat": 35.0054,
+          "lng": 135.7835,
+          "openingTime": "09:00",
+          "closingTime": "13:30",
+          "visitMinutes": 60
         }
       ]
     },
     {
       "id": "day-10",
       "date": "2026-11-11",
-      "title": "Excursión a Nara",
+      "title": "",
       "stage": "Nara",
       "startTime": "08:30",
       "spots": [
@@ -560,6 +623,33 @@
           "mapEnabled": true,
           "visitMinutes": 45,
           "optional": true
+        },
+        {
+          "address": "",
+          "note": "",
+          "tags": [],
+          "kind": "waypoint",
+          "mapEnabled": true,
+          "id": "s-10-mirador",
+          "name": "Mirador en ruta",
+          "category": "sight",
+          "lat": 34.6869,
+          "lng": 135.8456
+        },
+        {
+          "address": "",
+          "note": "",
+          "tags": [],
+          "kind": "activity",
+          "mapEnabled": true,
+          "id": "s-10-categoria-borrada",
+          "name": "Tienda con categoría eliminada",
+          "category": "categoria-borrada",
+          "lat": 34.6835,
+          "lng": 135.8284,
+          "visitMinutes": 20,
+          "scheduleNotApplicable": true,
+          "optional": true
         }
       ]
     },
@@ -580,7 +670,23 @@
           "lat": 34.6655,
           "lng": 135.5013,
           "kind": "activity",
-          "mapEnabled": true
+          "mapEnabled": true,
+          "positionConstraint": "locked"
+        },
+        {
+          "address": "",
+          "note": "",
+          "tags": [],
+          "kind": "activity",
+          "mapEnabled": true,
+          "id": "s-11-donki",
+          "name": "Don Quijote Dotonbori",
+          "category": "other",
+          "lat": 34.6688,
+          "lng": 135.5029,
+          "openingTime": "00:00",
+          "closingTime": "00:00",
+          "visitMinutes": 45
         },
         {
           "id": "s-11-dotonbori",
@@ -594,7 +700,8 @@
           "kind": "activity",
           "mapEnabled": true,
           "plannedStart": "19:00",
-          "visitMinutes": 120
+          "visitMinutes": 120,
+          "positionConstraint": "last"
         }
       ]
     },
@@ -636,46 +743,51 @@
           "mapEnabled": true,
           "visitMinutes": 60,
           "cost": 1500
+        },
+        {
+          "address": "",
+          "note": "",
+          "tags": [
+            "reserva"
+          ],
+          "kind": "activity",
+          "mapEnabled": true,
+          "id": "s-12-kaiseki",
+          "name": "Comida kaiseki",
+          "category": "food",
+          "lat": 34.7025,
+          "lng": 135.4959,
+          "plannedStart": "12:00",
+          "fixedStart": true,
+          "visitMinutes": 90,
+          "cost": 8000
+        },
+        {
+          "address": "",
+          "note": "",
+          "tags": [
+            "reserva"
+          ],
+          "kind": "activity",
+          "mapEnabled": true,
+          "id": "s-12-show",
+          "name": "Espectáculo de bunraku",
+          "category": "museum",
+          "lat": 34.6667,
+          "lng": 135.5063,
+          "plannedStart": "13:00",
+          "fixedStart": true,
+          "visitMinutes": 60,
+          "cost": 6000
         }
       ]
     },
     {
       "id": "day-13",
       "date": "2026-11-14",
-      "title": "Osaka · Shinsekai",
+      "title": "Día libre",
       "stage": "Osaka",
-      "startTime": "10:00",
-      "spots": [
-        {
-          "id": "s-13-shinsekai",
-          "name": "Shinsekai",
-          "address": "",
-          "note": "",
-          "tags": [],
-          "category": "food",
-          "lat": 34.6525,
-          "lng": 135.5063,
-          "kind": "activity",
-          "mapEnabled": true,
-          "visitMinutes": 90
-        },
-        {
-          "id": "s-13-kuromon",
-          "name": "Mercado Kuromon",
-          "address": "",
-          "note": "",
-          "tags": [],
-          "category": "food",
-          "lat": 34.6654,
-          "lng": 135.5066,
-          "kind": "activity",
-          "mapEnabled": true,
-          "openingTime": "09:00",
-          "closingTime": "18:00",
-          "visitMinutes": 60,
-          "cost": 2500
-        }
-      ]
+      "spots": []
     },
     {
       "id": "day-14",
@@ -765,6 +877,88 @@
       "category": "other",
       "kind": "activity",
       "mapEnabled": true
+    },
+    {
+      "id": "s-13-shinsekai",
+      "name": "Shinsekai",
+      "address": "",
+      "note": "",
+      "tags": [],
+      "category": "food",
+      "lat": 34.6525,
+      "lng": 135.5063,
+      "kind": "activity",
+      "mapEnabled": true,
+      "visitMinutes": 90,
+      "backlogGroupId": "group-osaka"
+    },
+    {
+      "id": "s-13-kuromon",
+      "name": "Mercado Kuromon",
+      "address": "",
+      "note": "",
+      "tags": [],
+      "category": "food",
+      "lat": 34.6654,
+      "lng": 135.5066,
+      "kind": "activity",
+      "mapEnabled": true,
+      "openingTime": "09:00",
+      "closingTime": "18:00",
+      "visitMinutes": 60,
+      "cost": 2500,
+      "backlogGroupId": "group-osaka"
+    },
+    {
+      "address": "Calle <b>falsa</b> 123",
+      "note": "",
+      "tags": [],
+      "kind": "activity",
+      "mapEnabled": true,
+      "id": "b-html",
+      "name": "<img src=x onerror=alert('xss')> Café & \"Bar\"",
+      "category": "food",
+      "lat": 35.6619,
+      "lng": 139.7041,
+      "backlogGroupId": "group-tokio"
+    },
+    {
+      "address": "",
+      "note": "",
+      "tags": [],
+      "kind": "activity",
+      "mapEnabled": true,
+      "id": "b-nombre-largo",
+      "name": "🍜 Ramen Ichiran Shibuya — sucursal abierta 24 horas con cabinas individuales y una cola que suele superar la hora de espera",
+      "category": "food",
+      "lat": 35.6614,
+      "lng": 139.7006,
+      "visitMinutes": 45,
+      "openingTime": "00:00",
+      "closingTime": "00:00"
+    },
+    {
+      "address": "",
+      "note": "",
+      "tags": [],
+      "kind": "activity",
+      "mapEnabled": true,
+      "id": "b-sin-categoria",
+      "name": "Lugar sin categoría",
+      "lat": 35.0116,
+      "lng": 135.7681
+    },
+    {
+      "address": "",
+      "note": "",
+      "tags": [],
+      "kind": "waypoint",
+      "mapEnabled": false,
+      "id": "b-honolulu",
+      "name": "Escala en Honolulu",
+      "category": "transport",
+      "lat": 21.3187,
+      "lng": -157.9225
     }
   ],
   "backlogGroups": [
@@ -774,13 +968,23 @@
     },
     {
       "id": "group-kioto",
-      "title": "Kioto pendiente"
+      "title": "Kioto pendiente",
+      "collapsed": true
+    },
+    {
+      "id": "group-osaka",
+      "title": "Osaka pendiente"
+    },
+    {
+      "id": "group-vacio",
+      "title": "Grupo vacío"
     }
   ],
   "tags": [
     "templos",
     "vistas",
-    "reserva"
+    "reserva",
+    "sin-uso"
   ],
   "categories": [
     {
@@ -814,6 +1018,11 @@
       "id": "other",
       "label": "Otro",
       "color": "#6b6b6b"
+    },
+    {
+      "id": "unused",
+      "label": "Categoría sin usar",
+      "color": "#999999"
     }
   ],
   "routeProfile": "walking",
@@ -839,6 +1048,40 @@
         "from",
         "to"
       ]
+    },
+    "s-03-meiji>s-03-takeshita": {
+      "mode": "metro",
+      "durationMinutes": 5,
+      "line": "JR Yamanote",
+      "note": "Una parada desde Harajuku.",
+      "cost": 170
+    },
+    "s-05-owakudani>s-05-ashi": {
+      "mode": "other",
+      "note": "Teleférico de Hakone sin duración conocida."
+    },
+    "s-05-ryokan>s-06-kyoto-st": {
+      "mode": "train",
+      "durationMinutes": 180,
+      "line": "Odakyu + Shinkansen Hikari",
+      "embeddedEndpoints": [
+        "to"
+      ]
+    },
+    "s-02-sensoji>s-02-ueno": {
+      "mode": "walking",
+      "durationMinutes": 20
+    },
+    "s-07-inari>s-07-tofukuji": {
+      "mode": "train",
+      "durationMinutes": 10,
+      "departureTime": "09:00",
+      "fixedDeparture": true,
+      "line": "JR Nara"
+    },
+    "s-08-tenryuji>s-08-kinkakuji": {
+      "mode": "walking",
+      "durationMinutes": 60
     }
   },
   "reminders": [
@@ -875,6 +1118,63 @@
           "type": "date",
           "date": "2026-11-02"
         }
+      }
+    },
+    {
+      "id": "r-sin-parada",
+      "title": "Confirmar reserva de una parada eliminada",
+      "timing": {
+        "type": "offset",
+        "amount": 3,
+        "unit": "days",
+        "anchor": {
+          "type": "spot"
+        }
+      },
+      "pendingSpotAnchor": true
+    },
+    {
+      "id": "r-backlog",
+      "title": "Comprar entradas del Museo Ghibli",
+      "spotId": "b-ghibli",
+      "timing": {
+        "type": "offset",
+        "amount": 1,
+        "unit": "months",
+        "anchor": {
+          "type": "spot"
+        }
+      }
+    },
+    {
+      "id": "r-fin-de-mes",
+      "title": "Revisar pasaporte",
+      "note": "Un mes antes del 31 de marzo cae en febrero.",
+      "timing": {
+        "type": "offset",
+        "amount": 1,
+        "unit": "months",
+        "anchor": {
+          "type": "date",
+          "date": "2026-03-31"
+        }
+      }
+    },
+    {
+      "id": "r-pasado",
+      "title": "Pedir vacaciones",
+      "timing": {
+        "type": "fixed",
+        "date": "2026-01-15"
+      }
+    },
+    {
+      "id": "r-fijo-con-parada",
+      "title": "Imprimir entradas de teamLab",
+      "spotId": "s-04-teamlab",
+      "timing": {
+        "type": "fixed",
+        "date": "2026-11-04"
       }
     }
   ]
