@@ -203,7 +203,7 @@ main {
 body.compact-itinerary .days { --days-gap: 8px; }
 /* Touch cannot hover the gap open, so the "+ Día" seam stays visible there
    and needs a gap wide enough to hold it. Without editing there is no seam. */
-@media (hover: none) {
+@media not all and (any-hover: hover) {
     body:not(.preview-mode):not(.read-only-plan) .days { --days-gap: 28px; }
     body.compact-itinerary:not(.preview-mode):not(.read-only-plan) .days { --days-gap: 22px; }
 }
@@ -382,13 +382,15 @@ body.compact-itinerary .backlog-group-delete { width: 26px; height: 26px; }
 /* Anchors the "insert a day here" seam that sits in the gap below each card.
    Hovering the gap opens it (only the card below moves, so the pointer stays
    inside); the short delay keeps gaps shut while the pointer merely crosses
-   the list. */
+   the list. Hover-revealed controls key off any-hover/any-pointer, not the
+   primary pointer: touchscreen PCs (seen in Edge on Windows) report a coarse,
+   hoverless primary pointer even while a mouse is in use. */
 :root { --day-insert-open: 18px; }
 .day:not(.backlog) {
     position: relative;
     transition: margin-bottom 0.16s ease;
 }
-@media (hover: hover) {
+@media (any-hover: hover) {
     .day:has(> .day-insert:hover),
     .day:has(> .day-insert:focus-visible) {
         margin-bottom: var(--day-insert-open);
@@ -414,7 +416,7 @@ body.compact-itinerary .backlog-group-delete { width: 26px; height: 26px; }
     opacity: 0;
     transition: opacity 0.14s ease, height 0.16s ease;
 }
-@media (hover: hover) {
+@media (any-hover: hover) {
     .day-insert:hover,
     .day-insert:focus-visible {
         height: calc(var(--days-gap) + var(--day-insert-open));
@@ -457,7 +459,7 @@ body.compact-itinerary .backlog-group-delete { width: 26px; height: 26px; }
 }
 /* Touch has no hover to reveal it, so it stays visible but quiet: just the
    chip, outlined, without the insertion line. */
-@media (hover: none) {
+@media not all and (any-hover: hover) {
     .day-insert { opacity: 1; }
     .day-insert::before { display: none; }
     .day-insert span {
@@ -2209,7 +2211,7 @@ body.preview-mode .spot-insert-slot,
     border: 1px dashed #dedbd4;
     border-radius: 6px;
 }
-@media (hover: hover) and (pointer: fine) {
+@media (any-hover: hover) and (any-pointer: fine) {
     /* Zero-height overlay: revealing a slot never shifts the layout. */
     .spot-insert-slot:not(.is-empty):not(.is-open) {
         height: 0;
@@ -2229,7 +2231,7 @@ body.preview-mode .spot-insert-slot,
         opacity: 1;
     }
 }
-@media (hover: none), (pointer: coarse) {
+@media not all and (any-hover: hover) and (any-pointer: fine) {
     /* No hover on touch: keep every slot visible but quiet. */
     .spot-insert-slot:not(.is-empty):not(.is-open) .spot-insert {
         height: 20px;
@@ -2592,7 +2594,7 @@ body.preview-mode .spot-insert-slot,
     font-size: 12px;
 }
 /* Pointer devices reveal the drag handle on hover/focus; touch keeps it. */
-@media (hover: hover) and (pointer: fine) {
+@media (any-hover: hover) and (any-pointer: fine) {
     .day.collapsed:not(.backlog) .day-handle {
         opacity: 0;
         transition: opacity 0.16s ease, color 0.16s ease, background 0.16s ease;
