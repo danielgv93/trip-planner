@@ -158,8 +158,12 @@ body.preview-mode .spot {
     cursor: default;
 }
 body.preview-mode .spot.travel-card {
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
 }
+body.preview-mode .travel-card-handle-spacer { display: none; }
+body.preview-mode .travel-card-icon { grid-column: 1; }
+body.preview-mode .travel-card-route { grid-column: 2; }
+body.preview-mode .travel-card .spot-cost { grid-column: 3; }
 @media (max-width: 860px) {
     .itinerary-toolbar { align-items: stretch; }
     .itinerary-overview { align-self: center; }

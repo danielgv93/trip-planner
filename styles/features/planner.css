@@ -2517,13 +2517,188 @@ body.preview-mode .spot-insert-slot,
 }
 .spot-position-anchored { border-color: color-mix(in srgb, #b47b20 48%, var(--line)); }
 .spot-waypoint { border-style: dashed; }
-.travel-card {
-    border-color: color-mix(in srgb, #3f7d9c 45%, var(--line));
-    background: color-mix(in srgb, #3f7d9c 6%, var(--surface));
+/* Grouped travel leg: a stop-shaped card holding a mini vertical route
+   (origin, leg, destination). It keeps the stop grid so its icon lines up
+   with the checkboxes and its delete button with the stops' menus. */
+.spot.travel-card {
+    --travel-accent: #3f7d9c;
+    margin-block: 4px;
+    border-color: color-mix(in srgb, var(--travel-accent) 26%, var(--line));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--travel-accent) 5%, var(--card));
+    box-shadow: inset 3px 0 color-mix(in srgb, var(--travel-accent) 70%, transparent);
+    cursor: default;
 }
-.travel-card-icon { align-self: center; font-size: 22px; }
-.travel-card-actions { display: flex; align-items: center; gap: 6px; }
-.travel-card-delete { color: var(--danger, #a33); }
+.spot.travel-card:hover,
+.spot.travel-card.is-map-highlighted {
+    border-color: color-mix(in srgb, var(--travel-accent) 42%, var(--line));
+    background: color-mix(in srgb, var(--travel-accent) 9%, var(--card));
+    box-shadow:
+        inset 3px 0 var(--travel-accent),
+        0 2px 10px #273d350b;
+}
+.travel-card > .handle,
+.travel-card-handle-spacer { grid-column: 1; }
+.travel-card-icon {
+    grid-column: 2;
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--travel-accent) 14%, var(--card));
+    font-size: 16px;
+    line-height: 1;
+}
+.travel-card-route {
+    grid-column: 3;
+    position: relative;
+    display: grid;
+    gap: 3px;
+    width: 100%;
+    margin: 0;
+    border: 0;
+    border-radius: 6px;
+    padding: 4px 6px 4px 22px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+}
+button.travel-card-route { cursor: pointer; }
+button.travel-card-route:hover { background: color-mix(in srgb, var(--travel-accent) 7%, transparent); }
+button.travel-card-route:focus-visible {
+    outline: 2px solid var(--travel-accent);
+    outline-offset: 1px;
+}
+/* The rail joins the origin and destination dots through the leg details. */
+.travel-card-route::before {
+    content: "";
+    position: absolute;
+    top: 13px;
+    bottom: 13px;
+    left: 10px;
+    border-left: 2px dashed color-mix(in srgb, var(--travel-accent) 45%, transparent);
+}
+.travel-card-stop {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+}
+.travel-card-stop::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: -16px;
+    width: 8px;
+    height: 8px;
+    border: 2px solid var(--travel-accent);
+    border-radius: 50%;
+    background: var(--card);
+    transform: translateY(-50%);
+}
+.travel-card-stop.is-grouped {
+    color: var(--ink);
+    font-size: 14px;
+}
+.travel-card-stop.is-grouped::before { background: var(--travel-accent); }
+/* The name keeps its width; the "parada anterior/siguiente" hint yields first. */
+.travel-card-stop-name {
+    flex: 0 0 auto;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.travel-card-stop small {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.travel-card-leg {
+    color: color-mix(in srgb, var(--travel-accent) 80%, var(--ink));
+    font: 600 11px "DM Mono";
+}
+.travel-card-note {
+    color: var(--muted);
+    font-size: 12px;
+}
+.travel-card .spot-cost { grid-column: 4; }
+.travel-card-delete {
+    display: inline-flex;
+    width: 40px;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 0;
+    background: transparent;
+    color: var(--muted);
+    transition: 0.16s ease;
+}
+.travel-card-delete svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.travel-card-delete:hover,
+.travel-card-delete:focus-visible {
+    border-color: color-mix(in srgb, var(--red) 30%, var(--line));
+    background: #d44d430b;
+    color: var(--red);
+    outline: none;
+}
+@media (max-width: 560px) {
+    /* No room to spare on phones: drop the empty handle column. */
+    .travel-card-handle-spacer { display: none; }
+    .spot.travel-card { grid-template-columns: auto 32px minmax(0, 1fr) auto auto; }
+}
+body.compact-itinerary .spot.travel-card { margin-block: 2px; }
+body.compact-itinerary .travel-card-icon {
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+}
+body.compact-itinerary .travel-card-delete { width: 30px; height: 30px; }
+/* Compact rows fold the route onto one line: origin → destination · leg. */
+body.compact-itinerary .travel-card-route {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 6px;
+}
+body.compact-itinerary .travel-card-route::before,
+body.compact-itinerary .travel-card-stop::before,
+body.compact-itinerary .travel-card-stop small,
+body.compact-itinerary .travel-card-note { display: none; }
+body.compact-itinerary .travel-card-stop {
+    flex: 0 1 auto;
+    font-size: 12px;
+}
+body.compact-itinerary .travel-card-stop:first-child::after {
+    content: "→";
+    color: var(--travel-accent);
+}
+body.compact-itinerary .travel-card-leg {
+    order: 3;
+    flex: none;
+    font-size: 10px;
+}
 .companion-timeline-block.is-waypoint {
     z-index: 3;
     top: calc(

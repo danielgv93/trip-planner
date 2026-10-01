@@ -672,7 +672,7 @@ function endpointEligibility(spot, currentKey) {
     );
     return shared
         ? { eligible: false, reason: "Este punto de paso ya participa en otro trayecto." }
-        : { eligible: true, reason: "Dejará de mostrarse como tarjeta independiente." };
+        : { eligible: true, reason: "" };
 }
 
 function paintEndpointOptions() {
@@ -684,7 +684,8 @@ function paintEndpointOptions() {
         const eligibility = endpointEligibility(spot, key);
         checkbox.disabled = !eligibility.eligible;
         if (!eligibility.eligible) checkbox.checked = false;
-        reason.textContent = `${spot.name || "Parada"}: ${eligibility.reason}`;
+        $(`#travelEmbed${suffix}Name`).textContent = spot.name || "Parada sin nombre";
+        reason.textContent = eligibility.reason;
     });
     travelAdvanced.hidden = !["From", "To"].some((suffix) => {
         const checkbox = $(`#travelEmbed${suffix}`);

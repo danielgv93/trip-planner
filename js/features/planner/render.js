@@ -328,13 +328,42 @@ function renderList(list, spots, isBacklog = false, { insertSlotsFor = null } = 
                 : "";
             const price = Number.isFinite(outgoing.cost) && outgoing.cost > 0
                 ? `<span class="spot-cost"><strong>${esc(foreignAmount(outgoing.cost))}</strong><small>${esc(localAmount(outgoing.cost))}</small></span>` : "";
-            const draggable = outgoing.embeddedEndpoints?.includes("from") && outgoing.embeddedEndpoints?.includes("to") && !spotPositionConstraint(s) && !spotPositionConstraint(next);
-            travelCard.innerHTML = `${draggable ? `<button class="handle travel-card-handle" type="button" title="Reordenar viaje" aria-label="Reordenar viaje ${esc(s.name)} a ${esc(next.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button>` : ""}<span class="travel-card-icon" aria-hidden="true">${modeIcons[outgoing.mode] || "↝"}</span><span class="spot-content"><span class="spot-name">${esc(s.name || "Origen")} → ${esc(next.name || "Destino")}</span><span class="spot-meta">${esc(outgoing.line || presentation.modeLabel)} · ${presentation.minutes ? `${presentation.minutes} min` : "Duración pendiente"}</span>${outgoing.departureTime ? `<span class="spot-timing">Salida ${esc(outgoing.departureTime)}${arrival ? ` · llegada ${esc(arrival)}` : ""}</span>` : ""}${outgoing.note ? `<span class="spot-meta">${esc(outgoing.note)}</span>` : ""}</span>${price}<span class="travel-card-actions"><button type="button" class="travel-card-edit" aria-label="Editar trayecto">Editar</button><button type="button" class="travel-card-delete" aria-label="Eliminar trayecto">×</button></span>`;
+            const embedsFrom = outgoing.embeddedEndpoints.includes("from");
+            const embedsTo = outgoing.embeddedEndpoints.includes("to");
+            const draggable = embedsFrom && embedsTo && !spotPositionConstraint(s) && !spotPositionConstraint(next);
+            const editable = !store.readOnly && !store.previewMode;
+            const routeLabel = `${s.name || "Origen"} → ${next.name || "Destino"}`;
+            // The card reads as a tiny vertical route: origin, the leg itself,
+            // destination. A grouped endpoint lives only inside the card; the
+            // other one still has its own row right above or below it.
+            const endpoint = (spot, fallback, grouped, outsideHint) =>
+                `<span class="travel-card-stop${grouped ? " is-grouped" : ""}"${grouped ? "" : ` title="También aparece como ${outsideHint} en el día"`}><span class="travel-card-stop-name">${esc(spot.name || fallback)}</span>${grouped ? "" : `<small>${outsideHint}</small>`}</span>`;
+            const legDetails = [
+                esc(outgoing.line || presentation.modeLabel),
+                presentation.minutes ? `${presentation.minutes} min` : "Duración pendiente",
+                outgoing.departureTime ? `${esc(outgoing.departureTime)}${arrival ? ` → ${esc(arrival)}` : ""}` : "",
+            ].filter(Boolean).join(" · ");
+            const route = `${endpoint(s, "Origen", embedsFrom, "parada anterior")}<span class="travel-card-leg">${legDetails}</span>${outgoing.note ? `<span class="travel-card-note">${esc(outgoing.note)}</span>` : ""}${endpoint(next, "Destino", embedsTo, "parada siguiente")}`;
+            const leading = draggable && editable
+                ? `<button class="handle travel-card-handle" type="button" title="Reordenar trayecto" aria-label="Reordenar trayecto ${esc(routeLabel)}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button>`
+                : '<span class="travel-card-handle-spacer" aria-hidden="true"></span>';
+            const body = editable
+                ? `<button type="button" class="spot-content travel-card-route" title="Editar trayecto" aria-label="Editar trayecto ${esc(routeLabel)}, ${esc(legDetails)}" aria-haspopup="dialog">${route}</button>`
+                : `<span class="spot-content travel-card-route">${route}</span>`;
+            const actions = editable
+                ? `<span class="spot-actions travel-card-actions"><button type="button" class="travel-card-delete" title="Eliminar trayecto" aria-label="Eliminar trayecto ${esc(routeLabel)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M9 7l1-3h4l1 3M6 7l1 14h10l1-14"/></svg></button></span>`
+                : "";
+            travelCard.innerHTML = `${leading}<span class="travel-card-icon" aria-hidden="true">${modeIcons[outgoing.mode] || "↝"}</span>${body}${price}${actions}`;
             wireMapLegHighlight(travelCard, s.id, next.id);
-            travelCard.querySelector(".travel-card-edit").addEventListener("click", () => {
-                openTravelTimeDialog(list.closest(".day")?.dataset.day, { dataset: { timelineTravelFrom: String(s.id), timelineTravelTo: String(next.id), timelineTravelMinutes: String(outgoing.durationMinutes || "") } });
+            const editButton = travelCard.querySelector("button.travel-card-route");
+            editButton?.addEventListener("click", () => {
+                openTravelTimeDialog(
+                    list.closest(".day")?.dataset.day,
+                    { dataset: { timelineTravelFrom: String(s.id), timelineTravelTo: String(next.id), timelineTravelMinutes: String(outgoing.durationMinutes || "") } },
+                    { returnFocus: editButton },
+                );
             });
-            travelCard.querySelector(".travel-card-delete").addEventListener("click", async () => {
+            travelCard.querySelector(".travel-card-delete")?.addEventListener("click", async () => {
                 const ok = await confirmAction({ title: "Eliminar trayecto", message: `¿Eliminar el trayecto ${s.name} → ${next.name}?`, confirmLabel: "Eliminar" });
                 if (!ok) return;
                 const key = travelLegKey(s.id, next.id);

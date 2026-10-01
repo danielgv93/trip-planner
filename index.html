@@ -722,13 +722,11 @@
                     </div>
                 </details>
                 <details id="travelAdvanced" class="travel-progressive-details">
-                    <summary>Organización avanzada</summary>
+                    <summary>Agrupar en una tarjeta de trayecto</summary>
                     <div class="travel-advanced-options">
-                        <label><input id="travelEmbedFrom" type="checkbox" /> Agrupar el origen en la tarjeta del trayecto</label>
-                        <p id="travelEmbedFromReason" class="form-hint"></p>
-                        <label><input id="travelEmbedTo" type="checkbox" /> Agrupar el destino en la tarjeta del trayecto</label>
-                        <p id="travelEmbedToReason" class="form-hint"></p>
-                        <p class="form-hint">Al agrupar un punto de paso, deja de mostrarse como tarjeta independiente.</p>
+                        <p class="form-hint">Los puntos de paso agrupados se muestran dentro de la tarjeta del trayecto en lugar de como paradas sueltas.</p>
+                        <label class="travel-embed-option"><input id="travelEmbedFrom" type="checkbox" /><span><small>Origen</small><strong id="travelEmbedFromName"></strong><span id="travelEmbedFromReason" class="travel-embed-reason"></span></span></label>
+                        <label class="travel-embed-option"><input id="travelEmbedTo" type="checkbox" /><span><small>Destino</small><strong id="travelEmbedToName"></strong><span id="travelEmbedToReason" class="travel-embed-reason"></span></span></label>
                     </div>
                 </details>
                 <p id="travelTimeHint" class="form-hint">El modo y el ajuste solo afectan a este tramo y recalculan el resto del timeline.</p>
