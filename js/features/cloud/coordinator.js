@@ -15,7 +15,16 @@ import {
 } from "../library/workspace.js";
 import { cloudClientConfig } from "./config.js";
 import { createCloudClient } from "./client.js";
-import { cloudAvailabilityAfterError, conflictResolutionEffects, nextRetryDelay, stateAfterFailure } from "./sync-state.js";
+import {
+    cloudAvailabilityAfterError,
+    conflictResolutionEffects,
+    isTripAccessLost,
+    nextRetryDelay,
+    REMOTE_LIST_LIMIT,
+    revokedRemoteIds,
+    stateAfterFailure,
+} from "./sync-state.js";
+import { toast } from "../../shared/notify.js";
 import { createSingleFlight, reconciliationDecision } from "./live-sync-contracts.js";
 import { createOperationOutboxDrain } from "./operation-outbox.js";
 import { LIVE_COLLABORATION_PROTOCOL_VERSION } from "./protocol-capability.js";
@@ -25,6 +34,8 @@ let client = null;
 let retryTimer = null;
 let attempts = 0;
 let remoteLibrary = [];
+let remoteLibraryComplete = false;
+const accessLossFlights = new Map();
 const conflicts = new Map();
 const reconciliationFlights = new Map();
 let deviceIdentifier = null;
@@ -159,7 +170,8 @@ export async function deleteCloudAccount(password) {
 export async function refreshRemoteTrips() {
     if (!store.accountSession) return [];
     const [active, archived] = await Promise.all([client.listTrips(false), client.listTrips(true)]);
-    remoteLibrary = [...active.trips, ...archived.trips].map((trip) => ({ ...trip, remoteOnly: true }));
+    remoteLibraryComplete = active.trips.length < REMOTE_LIST_LIMIT && archived.trips.length < REMOTE_LIST_LIMIT;
+    remoteLibrary =[...active.trips, ...archived.trips].map((trip) => ({ ...trip, remoteOnly: true }));
     await getTripRepository()?.setPreference("remoteLibrary", remoteLibrary);
     emitRemoteLibrary();
     return remoteLibrary;
@@ -292,6 +304,10 @@ async function drainOutboxOnce() {
                 else summary.confirmed.push({ tripId: item.tripId, revision: result.revision, hash: result.hash });
                 attempts = 0;
             } catch (error) {
+                if (isTripAccessLost(error)) {
+                    await handleTripAccessLost(item.tripId);
+                    continue;
+                }
                 const state = stateAfterFailure(error, { online: navigator.onLine, authenticated: Boolean(store.accountSession) });
                 await setEnvelopeState(item.tripId, state);
                 if (state === "conflict") {
@@ -349,7 +365,9 @@ function operationDrainForCurrentClient() {
                     detail: { tripId: localId, localSequence: entry.localSequence, conflict: result?.error || error?.details },
                 }));
             }
-            if (state === "pending" && error) {
+            if (state === "pending" && isTripAccessLost(error)) {
+                void handleTripAccessLost(localId);
+            } else if (state === "pending" && error) {
                 const next = stateAfterFailure(error, {
                     online: globalThis.navigator?.onLine !== false,
                     authenticated: Boolean(store.accountSession),
@@ -414,6 +432,11 @@ async function reconcileRemoteTripOnce(localId, reason, { targetRevision = 0, is
             });
             return { ...result, reason };
         } catch (error) {
+            if (isTripAccessLost(error)) {
+                setLiveSyncState("idle", null, { reason, tripId: localId });
+                await handleTripAccessLost(localId);
+                return { status: "revoked", reason };
+            }
             setLiveSyncState("pull-error", error, { reason, tripId: localId, targetRevision: Number(targetRevision) || null });
             throw error;
         }
@@ -461,6 +484,11 @@ async function reconcileRemoteTripOnce(localId, reason, { targetRevision = 0, is
         });
         return { status: decision, reason, revision: Number(remote.current_revision) };
     } catch (error) {
+        if (isTripAccessLost(error)) {
+            setLiveSyncState("idle", null, { reason, tripId: localId });
+            await handleTripAccessLost(localId);
+            return { status: "revoked", reason };
+        }
         setLiveSyncState("pull-error", error, { reason, tripId: localId, targetRevision: Number(targetRevision) || null });
         console.warn("live_trip_reconcile_failed", {
             reason,
@@ -500,6 +528,9 @@ async function resumeSync() {
     await drainOutbox();
     await activateEligibleTrips();
     await drainOperationOutbox();
+    if (store.accountSession && !store.accountSession.offline) {
+        await refreshRemoteTrips().then(pruneRevokedTrips).catch(() => {});
+    }
     if (store.activeTripId) await reconcileRemoteTrip(store.activeTripId, "resume");
 }
 
@@ -540,36 +571,77 @@ export async function resolveConflict(localId, action) {
     if (action === "local") drainOutbox();
 }
 
+// A trip that vanished from the account is one this user was removed from — or
+// the owner deleted. Either way the local copy is stale. It must run after a
+// successful `refreshRemoteTrips`: an empty list from a failed request would
+// otherwise read as "removed from everything".
+async function pruneRevokedTrips() {
+    const repository = getTripRepository();
+    const linked = (await repository.listTrips({ includeArchived: true })).filter((trip) => trip.remote.id);
+    const revoked = new Set(revokedRemoteIds(linked.map((trip) => trip.remote.id), remoteLibrary, {
+        complete: remoteLibraryComplete,
+    }));
+    for (const local of linked) {
+        if (revoked.has(local.remote.id)) await handleTripAccessLost(local.id);
+    }
+}
+
 export async function checkRemoteUpdates() {
     if (!store.accountSession || !navigator.onLine) return;
     await refreshRemoteTrips();
+    await pruneRevokedTrips();
     const repository = getTripRepository();
-    const pendingIds = new Set([
-        ...(await repository.listOutbox()).map((item) => item.tripId),
-        ...(await repository.listOperations()).map((item) => item.tripId),
-    ]);
     for (const local of await repository.listTrips({ includeArchived: true })) {
         if (!local.remote.id) continue;
         const remote = remoteLibrary.find((item) => item.id === local.remote.id);
-        // A trip that vanished from the account is one this user was removed
-        // from — or the owner deleted. Either way the local copy is stale.
-        if (!remote) {
-            if (!pendingIds.has(local.id)) await dropRevokedTrip(local.id);
-            continue;
-        }
+        if (!remote) continue;
         await reconcileRemoteTrip(local.id, "library-refresh", {
             targetRevision: Number(remote.current_revision),
-        });
+        }).catch(() => {});
     }
+}
+
+// Single entry point for every way of learning that access is gone: the live
+// `access-revoked`/`trip-deleted` events, a trip missing from the account list,
+// or a TRIP_NOT_FOUND answer to a pull or a push. Unsent edits cannot reach the
+// cloud any more, so they survive as a local copy instead of being discarded.
+export function handleTripAccessLost(localId, { notice = null } = {}) {
+    if (!localId) return Promise.resolve(false);
+    if (accessLossFlights.has(localId)) return accessLossFlights.get(localId);
+    const flight = (async () => {
+        const repository = getTripRepository();
+        const envelope = await repository?.getTrip(localId);
+        if (!envelope?.remote.id) return false;
+        const hasPendingWork = Boolean(await repository.getOutbox(localId))
+            || (await repository.listOperations(localId)).length > 0;
+        const wasActive = store.activeTripId === localId;
+        let copyId = null;
+        if (hasPendingWork) {
+            copyId = tripId();
+            await repository.putTrip(createTripEnvelope({
+                id: copyId,
+                document: { ...envelope.document, tripTitle: `${envelope.document.tripTitle} (copia local)` },
+                preferences: envelope.preferences,
+            }));
+        }
+        await dropRevokedTrip(localId, { nextId: wasActive ? copyId : null });
+        const title = envelope.document.tripTitle || "este viaje";
+        const message = notice || `Ya no tienes acceso a «${title}»: te quitaron como colaborador o se eliminó.`;
+        toast(copyId ? `${message} Tus cambios sin enviar se guardaron como copia local.` : message, "error");
+        return true;
+    })().finally(() => accessLossFlights.delete(localId));
+    accessLossFlights.set(localId, flight);
+    return flight;
 }
 
 // Losing access is not an error to retry: the local copy simply stops being a
 // mirror of anything, so it is removed rather than left to fail forever.
-export async function dropRevokedTrip(localId) {
+export async function dropRevokedTrip(localId, { nextId = null } = {}) {
     const repository = getTripRepository();
     await repository.deleteTripPermanently(localId);
     if (store.activeTripId === localId) {
-        const next = (await repository.listTrips()).find((trip) => !trip.pendingDeletion);
+        const next = (nextId && await repository.getTrip(nextId))
+            || (await repository.listTrips()).find((trip) => !trip.pendingDeletion);
         if (next) await switchTrip(next.id);
         else store.activeTripId = null;
     }
@@ -630,7 +702,9 @@ export async function initializeCloud() {
     emitRemoteLibrary();
     await refreshCloudSession();
     if (store.accountSession) {
-        await refreshRemoteTrips().catch(() => {});
+        // Startup is the moment a collaborator removed while this device was
+        // closed finds out: no live stream was open to deliver the event.
+        await refreshRemoteTrips().then(pruneRevokedTrips).catch(() => {});
         await drainOutbox();
         await activateEligibleTrips();
         await repository?.recoverSendingOperations();

@@ -5,7 +5,9 @@ import {
     CLOUD_AVAILABILITY_COPY,
     cloudAvailabilityAfterError,
     conflictResolutionEffects,
+    isTripAccessLost,
     nextRetryDelay,
+    revokedRemoteIds,
     stateAfterFailure,
     stateFromOperationQueue,
     SYNC_COPY,
@@ -43,6 +45,22 @@ test("la disponibilidad cloud distingue una API caída de un error de usuario", 
     assert.equal(cloudAvailabilityAfterError({ status: 500 }), "unavailable");
     assert.equal(cloudAvailabilityAfterError({ status: 401 }), "available");
     assert.match(CLOUD_AVAILABILITY_COPY.unavailable, /dispositivo/);
+});
+
+test("solo TRIP_NOT_FOUND cuenta como acceso perdido al viaje", () => {
+    assert.equal(isTripAccessLost({ status: 404, code: "TRIP_NOT_FOUND" }), true);
+    assert.equal(isTripAccessLost({ status: 404, code: "CLOUD_DISABLED" }), false);
+    assert.equal(isTripAccessLost({ status: 404, code: "HTTP_404" }), false);
+    assert.equal(isTripAccessLost({ status: 403, code: "TRIP_FORBIDDEN" }), false);
+    assert.equal(isTripAccessLost({ code: "NETWORK" }), false);
+    assert.equal(isTripAccessLost(null), false);
+});
+
+test("un viaje que desaparece de la cuenta se detecta como revocado solo con listado completo", () => {
+    const remote = [{ id: "a" }, { id: "b" }];
+    assert.deepEqual(revokedRemoteIds(["a", "c", null], remote), ["c"]);
+    assert.deepEqual(revokedRemoteIds(["a", "b"], remote), []);
+    assert.deepEqual(revokedRemoteIds(["c"], remote, { complete: false }), []);
 });
 
 test("el backoff es creciente, acotado y determinista con azar inyectado", () => {

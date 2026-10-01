@@ -37,6 +37,23 @@ export function cloudAvailabilityAfterError(error) {
     return "available";
 }
 
+// The API answers a trip the caller no longer collaborates on exactly like one
+// that never existed (see `readTripAccess`). Only that specific code means the
+// access is gone; a bare 404 may just be a missing endpoint or a disabled cloud.
+export function isTripAccessLost(error) {
+    return error?.status === 404 && error?.code === "TRIP_NOT_FOUND";
+}
+
+// Listing is capped server-side, so a trip missing from a full page may simply
+// not fit in it. Only a page below the cap proves the trip is really gone.
+export const REMOTE_LIST_LIMIT = 500;
+
+export function revokedRemoteIds(localRemoteIds, remoteTrips, { complete = true } = {}) {
+    if (!complete) return [];
+    const known = new Set(remoteTrips.map((trip) => trip.id));
+    return localRemoteIds.filter((id) => id && !known.has(id));
+}
+
 export function nextRetryDelay(attempt, { base = 1_000, cap = 60_000, random = Math.random } = {}) {
     const bounded = Math.min(cap, base * (2 ** Math.max(0, attempt)));
     return Math.round(bounded * (0.75 + random() * 0.5));

@@ -1,7 +1,7 @@
 import { store } from "../../core/store.js";
 import { toast } from "../../shared/notify.js";
 import { getTripRepository, updateEnvelope } from "../library/workspace.js";
-import { dropRevokedTrip, getCloudClient, getCurrentUserId, reconcileRemoteTrip, refreshRemoteTrips } from "./coordinator.js";
+import { getCloudClient, getCurrentUserId, handleTripAccessLost, reconcileRemoteTrip, refreshRemoteTrips } from "./coordinator.js";
 import { isVisuallyRemoteChange, remoteVisualEffects, streamEffectAllowed } from "./live-sync-contracts.js";
 import { createIncrementalTripSync } from "./incremental-sync.js";
 
@@ -139,6 +139,11 @@ function attachHandlers(localId, remoteId, generation) {
         const closed = source?.readyState === EventSource.CLOSED;
         setConnectionState(closed ? "error" : "reconnecting", { tripId: localId });
         console.warn("live_trip_stream_error", { tripId: localId, state: closed ? "error" : "reconnecting", generation });
+        // EventSource gives up for good on a non-200 answer and hides the
+        // status. A stream refused while reconnecting is how a collaborator
+        // removed during a network blip finds out: the explicit pull below
+        // gets the real TRIP_NOT_FOUND and the coordinator drops the trip.
+        if (closed) void reconcileRemoteTrip(localId, "sse-closed").catch(() => {});
     });
     source.addEventListener("revision", async (event) => {
         const payload = safePayload(event, "revision", localId);
@@ -228,14 +233,12 @@ function attachHandlers(localId, remoteId, generation) {
         if (payload.userId !== getCurrentUserId()) return void refreshMembership(localId, remoteId, generation);
         if (!currentStream(localId, remoteId, generation)) return;
         closeStream();
-        await dropRevokedTrip(localId);
-        toast("Ya no colaboras en este viaje.", "error");
+        await handleTripAccessLost(localId, { notice: "Ya no colaboras en este viaje." });
     });
     source.addEventListener("trip-deleted", async () => {
         if (!currentStream(localId, remoteId, generation)) return;
         closeStream();
-        await dropRevokedTrip(localId);
-        toast("El propietario eliminó este viaje.", "error");
+        await handleTripAccessLost(localId, { notice: "El propietario eliminó este viaje." });
     });
 }
 
