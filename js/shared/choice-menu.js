@@ -1,14 +1,17 @@
 // A small, domain-neutral chooser: a titled list of options shown either at a
 // pointer position (context menu) or centred over a backdrop (e.g. after a
-// paste). Callers own what the options mean.
+// paste). Callers own what the options mean. Long option sets can go in
+// `grid`: compact cells whose full name is shown in a caption on hover/focus.
 
 let current = null;
+
+const ARROW_KEYS = new Set(["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"]);
 
 export function closeChoiceMenu() {
     current?.close();
 }
 
-export function openChoiceMenu({ title, items, anchor = null, onSelect, onClose = null }) {
+export function openChoiceMenu({ title, items, grid = [], anchor = null, onSelect, onClose = null }) {
     closeChoiceMenu();
     const previousFocus = document.activeElement;
     const openedAt = Date.now();
@@ -22,6 +25,14 @@ export function openChoiceMenu({ title, items, anchor = null, onSelect, onClose 
     heading.className = "choice-menu-title";
     heading.textContent = title;
     menu.append(heading);
+
+    const choose = (item) => {
+        // The finger that triggered a long press can lift right over an
+        // option; ignore the click that lift may synthesize.
+        if (Date.now() - openedAt < 350) return;
+        close({ restoreFocus: false });
+        onSelect(item.value);
+    };
 
     const buttons = items.map((item) => {
         const button = document.createElement("button");
@@ -38,16 +49,48 @@ export function openChoiceMenu({ title, items, anchor = null, onSelect, onClose 
             detail.textContent = item.detail;
             button.append(detail);
         }
-        button.addEventListener("click", () => {
-            // The finger that triggered a long press can lift right over an
-            // option; ignore the click that lift may synthesize.
-            if (Date.now() - openedAt < 350) return;
-            close({ restoreFocus: false });
-            onSelect(item.value);
-        });
+        button.addEventListener("click", () => choose(item));
         menu.append(button);
         return button;
     });
+
+    let gridBox = null;
+    if (grid.length) {
+        gridBox = document.createElement("div");
+        gridBox.className = "choice-menu-grid";
+        gridBox.setAttribute("role", "group");
+        const caption = document.createElement("div");
+        caption.className = "choice-menu-caption";
+        caption.setAttribute("aria-hidden", "true");
+        const showCaption = (text) => {
+            caption.textContent = text || "\u00a0";
+        };
+        showCaption("");
+        for (const item of grid) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "choice-menu-cell";
+            button.setAttribute("role", "menuitem");
+            button.setAttribute("aria-label", item.label);
+            const label = document.createElement("span");
+            label.textContent = item.short;
+            button.append(label);
+            if (item.detail) {
+                const detail = document.createElement("small");
+                detail.textContent = item.detail;
+                button.append(detail);
+            }
+            button.addEventListener("pointerenter", () => showCaption(item.label));
+            button.addEventListener("focus", () => showCaption(item.label));
+            button.addEventListener("click", () => choose(item));
+            gridBox.append(button);
+            buttons.push(button);
+        }
+        gridBox.addEventListener("pointerleave", () => {
+            showCaption(gridBox.contains(document.activeElement) ? document.activeElement.getAttribute("aria-label") : "");
+        });
+        menu.append(gridBox, caption);
+    }
     root.append(menu);
     document.body.append(root);
 
@@ -69,12 +112,25 @@ export function openChoiceMenu({ title, items, anchor = null, onSelect, onClose 
             event.preventDefault();
             event.stopPropagation();
             close();
-        } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        } else if (ARROW_KEYS.has(event.key)) {
             event.preventDefault();
             const index = buttons.indexOf(document.activeElement);
-            const step = event.key === "ArrowDown" ? 1 : -1;
-            buttons[(index + step + buttons.length) % buttons.length]?.focus();
+            const next = index < 0 ? 0 : (index + arrowStep(event.key, index) + buttons.length) % buttons.length;
+            buttons[next]?.focus();
         }
+    };
+    // Inside the grid, up/down move a whole row; elsewhere every arrow steps
+    // through the options in order.
+    const arrowStep = (key, index) => {
+        const forward = key === "ArrowDown" || key === "ArrowRight";
+        const inGrid = gridBox?.contains(buttons[index]);
+        if (!inGrid || key === "ArrowLeft" || key === "ArrowRight") return forward ? 1 : -1;
+        const columns = getComputedStyle(gridBox).gridTemplateColumns.split(" ").length;
+        const firstCell = items.length;
+        const target = index + (forward ? columns : -columns);
+        if (target < firstCell) return firstCell - 1 - index;
+        if (target >= buttons.length) return buttons.length - index;
+        return target - index;
     };
     const onViewportChange = () => close();
     // Capture so the first outside click only dismisses the menu.

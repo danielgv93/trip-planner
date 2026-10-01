@@ -19,16 +19,22 @@ const SHORT_LINK_ERROR =
 // Read-only visitors, viewers and the full-trip preview never mutate the plan.
 const canEdit = () => !store.readOnly && !store.previewMode;
 
-function targetItems(verb) {
-    const days = store.state.map((day) => {
+// Beyond this many days a row per day no longer fits; days become a grid.
+const DAY_GRID_THRESHOLD = 8;
+
+function targetChoices(verb) {
+    const ideas = { value: "backlog", label: "Añadir a ideas", tone: "ideas" };
+    const days = store.state.map((day, index) => {
         const date = day.date ? fmt(day.date) : null;
         return {
             value: day.id,
             label: `${verb} ${day.title || "día"}`,
+            short: `D${index + 1}`,
             detail: date ? `${date.day} ${date.month}` : "",
         };
     });
-    return [...days, { value: "backlog", label: "Añadir a ideas", tone: "ideas" }];
+    if (days.length < DAY_GRID_THRESHOLD) return { items: [...days, ideas] };
+    return { items: [ideas], grid: days };
 }
 
 function targetLabel(targetId) {
@@ -50,7 +56,7 @@ function chooseTargetFor(place, { title, verb, anchor = null, createDirectly = f
     openChoiceMenu({
         title,
         anchor,
-        items: targetItems(verb),
+        ...targetChoices(verb),
         onSelect: (targetId) => void addPlaceTo(targetId, place, { createDirectly }),
     });
 }
