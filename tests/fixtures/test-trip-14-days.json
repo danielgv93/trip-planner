@@ -1,0 +1,881 @@
+{
+  "version": 30,
+  "tripTitle": "Viaje de prueba · Japón 14 días",
+  "localCurrency": "EUR",
+  "foreignCurrency": "JPY",
+  "tripNotePages": [
+    {
+      "id": "notes-general",
+      "title": "General",
+      "content": "# Viaje de prueba\n\nFixture solo para tests. **No** usar en producción."
+    },
+    {
+      "id": "notes-reservas",
+      "title": "Reservas",
+      "content": "- Shibuya Sky 17:30\n- teamLab Planets 10:00"
+    }
+  ],
+  "days": [
+    {
+      "id": "day-01",
+      "date": "2026-11-02",
+      "title": "Llegada a Tokio",
+      "stage": "Tokio",
+      "startTime": "15:00",
+      "spots": [
+        {
+          "id": "s-01-narita",
+          "name": "Aeropuerto de Narita",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "transport",
+          "lat": 35.772,
+          "lng": 140.3929,
+          "kind": "waypoint",
+          "mapEnabled": true
+        },
+        {
+          "id": "s-01-hotel",
+          "name": "Hotel en Shinjuku",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "hotel",
+          "lat": 35.6938,
+          "lng": 139.7034,
+          "kind": "activity",
+          "mapEnabled": true
+        },
+        {
+          "id": "s-01-omoide",
+          "name": "Omoide Yokocho",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "food",
+          "lat": 35.6933,
+          "lng": 139.6995,
+          "kind": "activity",
+          "mapEnabled": true,
+          "plannedStart": "20:00",
+          "visitMinutes": 90,
+          "cost": 3000
+        }
+      ]
+    },
+    {
+      "id": "day-02",
+      "date": "2026-11-03",
+      "title": "Tokio · Asakusa",
+      "stage": "Tokio",
+      "startTime": "09:00",
+      "spots": [
+        {
+          "id": "s-02-sensoji",
+          "name": "Templo Senso-ji",
+          "address": "",
+          "note": "",
+          "tags": [
+            "templos"
+          ],
+          "category": "sight",
+          "lat": 35.7148,
+          "lng": 139.7967,
+          "kind": "activity",
+          "mapEnabled": true,
+          "openingTime": "06:00",
+          "closingTime": "17:00",
+          "visitMinutes": 90,
+          "positionConstraint": "first"
+        },
+        {
+          "id": "s-02-skytree",
+          "name": "Tokyo Skytree",
+          "address": "",
+          "note": "",
+          "tags": [
+            "vistas"
+          ],
+          "category": "sight",
+          "lat": 35.7101,
+          "lng": 139.8107,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 120,
+          "cost": 3100
+        },
+        {
+          "id": "s-02-ueno",
+          "name": "Parque Ueno",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "sight",
+          "lat": 35.7156,
+          "lng": 139.7745,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 60,
+          "scheduleNotApplicable": true
+        }
+      ]
+    },
+    {
+      "id": "day-03",
+      "date": "2026-11-04",
+      "title": "Tokio · Shibuya",
+      "stage": "Tokio",
+      "startTime": "09:30",
+      "spots": [
+        {
+          "id": "s-03-meiji",
+          "name": "Santuario Meiji",
+          "address": "",
+          "note": "",
+          "tags": [
+            "templos"
+          ],
+          "category": "sight",
+          "lat": 35.6764,
+          "lng": 139.6993,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 75
+        },
+        {
+          "id": "s-03-takeshita",
+          "name": "Calle Takeshita",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "other",
+          "lat": 35.6716,
+          "lng": 139.7031,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 45,
+          "optional": true
+        },
+        {
+          "id": "s-03-crossing",
+          "name": "Cruce de Shibuya",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "sight",
+          "lat": 35.6595,
+          "lng": 139.7005,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 30
+        },
+        {
+          "id": "s-03-sky",
+          "name": "Shibuya Sky",
+          "address": "",
+          "note": "",
+          "tags": [
+            "vistas",
+            "reserva"
+          ],
+          "category": "sight",
+          "lat": 35.6585,
+          "lng": 139.7022,
+          "kind": "activity",
+          "mapEnabled": true,
+          "plannedStart": "17:30",
+          "fixedStart": true,
+          "cost": 2200
+        }
+      ]
+    },
+    {
+      "id": "day-04",
+      "date": "2026-11-05",
+      "title": "Tokio · Museos",
+      "stage": "Tokio",
+      "startTime": "09:00",
+      "spots": [
+        {
+          "id": "s-04-teamlab",
+          "name": "teamLab Planets",
+          "address": "",
+          "note": "",
+          "tags": [
+            "reserva"
+          ],
+          "category": "museum",
+          "lat": 35.6491,
+          "lng": 139.7898,
+          "kind": "activity",
+          "mapEnabled": true,
+          "plannedStart": "10:00",
+          "fixedStart": true,
+          "visitMinutes": 120,
+          "cost": 3800
+        },
+        {
+          "id": "s-04-tsukiji",
+          "name": "Mercado exterior de Tsukiji",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "food",
+          "lat": 35.6654,
+          "lng": 139.7707,
+          "kind": "activity",
+          "mapEnabled": true,
+          "openingTime": "07:00",
+          "closingTime": "14:00",
+          "visitMinutes": 60
+        },
+        {
+          "id": "s-04-ginza",
+          "name": "Ginza",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "other",
+          "lat": 35.6717,
+          "lng": 139.765,
+          "kind": "activity",
+          "mapEnabled": false,
+          "visitMinutes": 90
+        }
+      ]
+    },
+    {
+      "id": "day-05",
+      "date": "2026-11-06",
+      "title": "Hakone",
+      "stage": "Hakone",
+      "startTime": "08:30",
+      "spots": [
+        {
+          "id": "s-05-odawara",
+          "name": "Estación de Odawara",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "transport",
+          "lat": 35.2564,
+          "lng": 139.1551,
+          "kind": "waypoint",
+          "mapEnabled": true
+        },
+        {
+          "id": "s-05-owakudani",
+          "name": "Owakudani",
+          "address": "",
+          "note": "",
+          "tags": [
+            "vistas"
+          ],
+          "category": "sight",
+          "lat": 35.2444,
+          "lng": 139.0197,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 60
+        },
+        {
+          "id": "s-05-ashi",
+          "name": "Crucero por el lago Ashi",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "transport",
+          "lat": 35.2042,
+          "lng": 139.0247,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 40,
+          "cost": 1200
+        },
+        {
+          "id": "s-05-ryokan",
+          "name": "Ryokan en Hakone",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "hotel",
+          "lat": 35.2329,
+          "lng": 139.1069,
+          "kind": "activity",
+          "mapEnabled": true
+        }
+      ]
+    },
+    {
+      "id": "day-06",
+      "date": "2026-11-07",
+      "title": "Hakone → Kioto",
+      "stage": "Kioto",
+      "startTime": "10:00",
+      "spots": [
+        {
+          "id": "s-06-kyoto-st",
+          "name": "Estación de Kioto",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "transport",
+          "lat": 34.9858,
+          "lng": 135.7588,
+          "kind": "waypoint",
+          "mapEnabled": true
+        },
+        {
+          "id": "s-06-hotel",
+          "name": "Hotel en Gion",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "hotel",
+          "lat": 35.0037,
+          "lng": 135.7788,
+          "kind": "activity",
+          "mapEnabled": true
+        },
+        {
+          "id": "s-06-pontocho",
+          "name": "Pontocho",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "food",
+          "lat": 35.0055,
+          "lng": 135.7707,
+          "kind": "activity",
+          "mapEnabled": true,
+          "plannedStart": "19:30",
+          "visitMinutes": 90
+        }
+      ]
+    },
+    {
+      "id": "day-07",
+      "date": "2026-11-08",
+      "title": "Kioto · Fushimi",
+      "stage": "Kioto",
+      "startTime": "07:30",
+      "spots": [
+        {
+          "id": "s-07-inari",
+          "name": "Fushimi Inari Taisha",
+          "address": "",
+          "note": "",
+          "tags": [
+            "templos"
+          ],
+          "category": "sight",
+          "lat": 34.9671,
+          "lng": 135.7727,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 150,
+          "positionConstraint": "first"
+        },
+        {
+          "id": "s-07-tofukuji",
+          "name": "Tofuku-ji",
+          "address": "",
+          "note": "",
+          "tags": [
+            "templos"
+          ],
+          "category": "sight",
+          "lat": 34.9761,
+          "lng": 135.7738,
+          "kind": "activity",
+          "mapEnabled": true,
+          "openingTime": "09:00",
+          "closingTime": "16:00",
+          "visitMinutes": 45,
+          "cost": 600
+        }
+      ]
+    },
+    {
+      "id": "day-08",
+      "date": "2026-11-09",
+      "title": "Kioto · Arashiyama",
+      "stage": "Kioto",
+      "startTime": "08:00",
+      "spots": [
+        {
+          "id": "s-08-bamboo",
+          "name": "Bosque de bambú de Arashiyama",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "sight",
+          "lat": 35.017,
+          "lng": 135.6713,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 45
+        },
+        {
+          "id": "s-08-tenryuji",
+          "name": "Tenryu-ji",
+          "address": "",
+          "note": "",
+          "tags": [
+            "templos"
+          ],
+          "category": "sight",
+          "lat": 35.0156,
+          "lng": 135.6738,
+          "kind": "activity",
+          "mapEnabled": true,
+          "openingTime": "08:30",
+          "closingTime": "17:00",
+          "visitMinutes": 60,
+          "cost": 800
+        },
+        {
+          "id": "s-08-kinkakuji",
+          "name": "Kinkaku-ji",
+          "address": "",
+          "note": "",
+          "tags": [
+            "templos"
+          ],
+          "category": "sight",
+          "lat": 35.0394,
+          "lng": 135.7292,
+          "kind": "activity",
+          "mapEnabled": true,
+          "openingTime": "09:00",
+          "closingTime": "17:00",
+          "visitMinutes": 45,
+          "cost": 500,
+          "positionConstraint": "last"
+        }
+      ]
+    },
+    {
+      "id": "day-09",
+      "date": "2026-11-10",
+      "title": "Kioto · Higashiyama",
+      "stage": "Kioto",
+      "startTime": "09:00",
+      "spots": [
+        {
+          "id": "s-09-kiyomizu",
+          "name": "Kiyomizu-dera",
+          "address": "",
+          "note": "",
+          "tags": [
+            "templos"
+          ],
+          "category": "sight",
+          "lat": 34.9949,
+          "lng": 135.785,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 90,
+          "cost": 500
+        },
+        {
+          "id": "s-09-sannenzaka",
+          "name": "Sannenzaka",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "other",
+          "lat": 34.9963,
+          "lng": 135.7808,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 60,
+          "positionConstraint": "locked"
+        },
+        {
+          "id": "s-09-nishiki",
+          "name": "Mercado Nishiki",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "food",
+          "lat": 35.005,
+          "lng": 135.7649,
+          "kind": "activity",
+          "mapEnabled": true,
+          "openingTime": "10:00",
+          "closingTime": "17:00",
+          "visitMinutes": 60
+        }
+      ]
+    },
+    {
+      "id": "day-10",
+      "date": "2026-11-11",
+      "title": "Excursión a Nara",
+      "stage": "Nara",
+      "startTime": "08:30",
+      "spots": [
+        {
+          "id": "s-10-todaiji",
+          "name": "Todai-ji",
+          "address": "",
+          "note": "",
+          "tags": [
+            "templos"
+          ],
+          "category": "sight",
+          "lat": 34.689,
+          "lng": 135.8398,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 75,
+          "cost": 800
+        },
+        {
+          "id": "s-10-park",
+          "name": "Parque de Nara",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "sight",
+          "lat": 34.6851,
+          "lng": 135.843,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 60,
+          "scheduleNotApplicable": true
+        },
+        {
+          "id": "s-10-kasuga",
+          "name": "Kasuga Taisha",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "sight",
+          "lat": 34.6813,
+          "lng": 135.8484,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 45,
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "day-11",
+      "date": "2026-11-12",
+      "title": "Kioto → Osaka",
+      "stage": "Osaka",
+      "startTime": "11:00",
+      "spots": [
+        {
+          "id": "s-11-hotel",
+          "name": "Hotel en Namba",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "hotel",
+          "lat": 34.6655,
+          "lng": 135.5013,
+          "kind": "activity",
+          "mapEnabled": true
+        },
+        {
+          "id": "s-11-dotonbori",
+          "name": "Dotonbori",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "food",
+          "lat": 34.6687,
+          "lng": 135.5013,
+          "kind": "activity",
+          "mapEnabled": true,
+          "plannedStart": "19:00",
+          "visitMinutes": 120
+        }
+      ]
+    },
+    {
+      "id": "day-12",
+      "date": "2026-11-13",
+      "title": "Osaka · Castillo",
+      "stage": "Osaka",
+      "startTime": "09:30",
+      "spots": [
+        {
+          "id": "s-12-castle",
+          "name": "Castillo de Osaka",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "museum",
+          "lat": 34.6873,
+          "lng": 135.5262,
+          "kind": "activity",
+          "mapEnabled": true,
+          "openingTime": "09:00",
+          "closingTime": "17:00",
+          "visitMinutes": 90,
+          "cost": 600
+        },
+        {
+          "id": "s-12-umeda",
+          "name": "Umeda Sky Building",
+          "address": "",
+          "note": "",
+          "tags": [
+            "vistas"
+          ],
+          "category": "sight",
+          "lat": 34.7053,
+          "lng": 135.4903,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 60,
+          "cost": 1500
+        }
+      ]
+    },
+    {
+      "id": "day-13",
+      "date": "2026-11-14",
+      "title": "Osaka · Shinsekai",
+      "stage": "Osaka",
+      "startTime": "10:00",
+      "spots": [
+        {
+          "id": "s-13-shinsekai",
+          "name": "Shinsekai",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "food",
+          "lat": 34.6525,
+          "lng": 135.5063,
+          "kind": "activity",
+          "mapEnabled": true,
+          "visitMinutes": 90
+        },
+        {
+          "id": "s-13-kuromon",
+          "name": "Mercado Kuromon",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "food",
+          "lat": 34.6654,
+          "lng": 135.5066,
+          "kind": "activity",
+          "mapEnabled": true,
+          "openingTime": "09:00",
+          "closingTime": "18:00",
+          "visitMinutes": 60,
+          "cost": 2500
+        }
+      ]
+    },
+    {
+      "id": "day-14",
+      "date": "2026-11-15",
+      "title": "Regreso",
+      "stage": "Tokio",
+      "startTime": "08:00",
+      "spots": [
+        {
+          "id": "s-14-shin-osaka",
+          "name": "Estación de Shin-Osaka",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "transport",
+          "lat": 34.7334,
+          "lng": 135.5001,
+          "kind": "waypoint",
+          "mapEnabled": true
+        },
+        {
+          "id": "s-14-haneda",
+          "name": "Aeropuerto de Haneda",
+          "address": "",
+          "note": "",
+          "tags": [],
+          "category": "transport",
+          "lat": 35.5494,
+          "lng": 139.7798,
+          "kind": "waypoint",
+          "mapEnabled": true
+        }
+      ]
+    }
+  ],
+  "backlog": [
+    {
+      "id": "b-akihabara",
+      "name": "Akihabara",
+      "address": "",
+      "note": "",
+      "tags": [],
+      "category": "other",
+      "lat": 35.6984,
+      "lng": 139.7731,
+      "kind": "activity",
+      "mapEnabled": true,
+      "backlogGroupId": "group-tokio"
+    },
+    {
+      "id": "b-ghibli",
+      "name": "Museo Ghibli",
+      "address": "",
+      "note": "",
+      "tags": [
+        "reserva"
+      ],
+      "category": "museum",
+      "lat": 35.6962,
+      "lng": 139.5704,
+      "kind": "activity",
+      "mapEnabled": true,
+      "cost": 1000,
+      "backlogGroupId": "group-tokio"
+    },
+    {
+      "id": "b-ginkakuji",
+      "name": "Ginkaku-ji",
+      "address": "",
+      "note": "",
+      "tags": [
+        "templos"
+      ],
+      "category": "sight",
+      "lat": 35.027,
+      "lng": 135.7982,
+      "kind": "activity",
+      "mapEnabled": true,
+      "backlogGroupId": "group-kioto"
+    },
+    {
+      "id": "b-onsen",
+      "name": "Onsen sin ubicación",
+      "address": "",
+      "note": "",
+      "tags": [],
+      "category": "other",
+      "kind": "activity",
+      "mapEnabled": true
+    }
+  ],
+  "backlogGroups": [
+    {
+      "id": "group-tokio",
+      "title": "Tokio pendiente"
+    },
+    {
+      "id": "group-kioto",
+      "title": "Kioto pendiente"
+    }
+  ],
+  "tags": [
+    "templos",
+    "vistas",
+    "reserva"
+  ],
+  "categories": [
+    {
+      "id": "food",
+      "label": "Comida",
+      "color": "#d9822b"
+    },
+    {
+      "id": "hotel",
+      "label": "Alojamiento",
+      "color": "#3f7d9c"
+    },
+    {
+      "id": "sight",
+      "label": "Punto de interés",
+      "color": "#4c9a5b"
+    },
+    {
+      "id": "museum",
+      "label": "Museo",
+      "color": "#8a5fbf"
+    },
+    {
+      "id": "transport",
+      "label": "Transporte",
+      "color": "#c74e88",
+      "connects": false,
+      "defaultSpotKind": "waypoint"
+    },
+    {
+      "id": "other",
+      "label": "Otro",
+      "color": "#6b6b6b"
+    }
+  ],
+  "routeProfile": "walking",
+  "routeVisualization": "straight",
+  "travelLegs": {
+    "s-01-narita>s-01-hotel": {
+      "mode": "train",
+      "durationMinutes": 90,
+      "line": "Narita Express",
+      "cost": 3250
+    },
+    "s-05-odawara>s-05-owakudani": {
+      "mode": "bus",
+      "durationMinutes": 50
+    },
+    "s-14-shin-osaka>s-14-haneda": {
+      "mode": "train",
+      "durationMinutes": 150,
+      "departureTime": "09:00",
+      "fixedDeparture": true,
+      "line": "Shinkansen Nozomi",
+      "embeddedEndpoints": [
+        "from",
+        "to"
+      ]
+    }
+  },
+  "reminders": [
+    {
+      "id": "r-jrpass",
+      "title": "Comprar billetes de Shinkansen",
+      "timing": {
+        "type": "fixed",
+        "date": "2026-10-15"
+      }
+    },
+    {
+      "id": "r-shibuya-sky",
+      "title": "Reservar Shibuya Sky",
+      "spotId": "s-03-sky",
+      "timing": {
+        "type": "offset",
+        "amount": 2,
+        "unit": "weeks",
+        "anchor": {
+          "type": "spot"
+        }
+      }
+    },
+    {
+      "id": "r-seguro",
+      "title": "Contratar seguro de viaje",
+      "note": "Antes de salir",
+      "timing": {
+        "type": "offset",
+        "amount": 1,
+        "unit": "months",
+        "anchor": {
+          "type": "date",
+          "date": "2026-11-02"
+        }
+      }
+    }
+  ]
+}

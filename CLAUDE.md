@@ -22,6 +22,10 @@ fixed or relative reminders.
 - Serve the repository over HTTP (for example, `python3 -m http.server 8000`);
   native ES modules do not work through `file://`.
 - Run the pure-logic suite with `node --test`. There is no lint or build command.
+- For tests that need a full trip, use the test-only 14-day fixture via
+  `loadTestTrip()` from `tests/fixtures/load-test-trip.mjs` (data in
+  `tests/fixtures/test-trip-14-days.json`). Never use it in app code; keep it
+  in sync when portable plan fields change.
 - Also exercise affected UI flows in a browser. Check desktop and mobile when
   changing responsive layout, sticky UI, dialogs, timelines, or drag-and-drop.
 - Keep user-facing copy in Spanish and escape user/imported values before
