@@ -58,33 +58,6 @@ syncCurrencyUi();
 const currencyDialog = $("#currencyDialog");
 $("#currencyConfigBtn").onclick = () => openModal(currencyDialog);
 
-function syncItineraryDensity() {
-    const density = store.itineraryDensity === "compact"
-        ? "compact"
-        : "comfortable";
-    document.body.classList.toggle("compact-itinerary", density === "compact");
-    document.querySelectorAll("[data-density]").forEach((button) => {
-        const active = button.dataset.density === density;
-        button.classList.toggle("active", active);
-        button.setAttribute("aria-pressed", String(active));
-    });
-}
-
-document.querySelectorAll("[data-density]").forEach((button) => {
-    button.addEventListener("click", () => {
-        const density = button.dataset.density;
-        if (!["comfortable", "compact"].includes(density) || density === store.itineraryDensity)
-            return;
-        store.itineraryDensity = density;
-        syncItineraryDensity();
-        saveLocalPreferences();
-        // Compact markup omits secondary route-source copy entirely, so the
-        // destructive render keeps the DOM aligned with the chosen density.
-        render({ persist: false });
-    });
-});
-syncItineraryDensity();
-
 async function changeCurrency(key, value) {
     $("#exchangeRateStatus").textContent = "Actualizando cambio…";
     await derivedPlanOperation((document) => updateFieldsIntent(

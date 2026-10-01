@@ -104,7 +104,7 @@ test("el envoltorio local versionado mantiene identidad y preferencias fuera del
         baseRevision: 7,
         remoteHash: canonicalPlanHash(legacyPlan()),
         syncState: "pending",
-        preferences: { basemap: "osm", itineraryDensity: "compact" },
+        preferences: { basemap: "osm", workspaceSplit: 0.4 },
     });
     assert.equal(envelope.version, LOCAL_TRIP_VERSION);
     assert.equal(envelope.remote.baseRevision, 7);

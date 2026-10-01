@@ -33,7 +33,6 @@ function activePreferences() {
         activeTripNotePageId: store.activeTripNotePageId,
         basemap: store.basemap,
         workspaceSplit: store.workspaceSplit,
-        itineraryDensity: store.itineraryDensity,
     };
 }
 

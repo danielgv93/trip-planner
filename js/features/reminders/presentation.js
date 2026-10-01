@@ -36,7 +36,7 @@ export function remindersForSpot(spotId) {
     );
 }
 
-function compactCountdownLabel(countdown) {
+function shortCountdownLabel(countdown) {
     if (!countdown) return "Pendiente";
     return countdown.days > 0 ? `${countdown.days}d` : countdown.label;
 }
@@ -46,7 +46,7 @@ export function reminderStripMarkup(spotId) {
     if (!reminders.length) return "";
     return `<span class="spot-reminders" aria-label="Fechas clave">${reminders.map((item) => {
         const fullCountdown = item.countdown?.label || "Pendiente";
-        return `<button type="button" data-reminder-edit="${esc(item.reminder.id)}" aria-label="${esc(`${item.reminder.title}, ${fullCountdown}`)}"><span aria-hidden="true">◷</span><b>${esc(item.reminder.title)}</b><small class="reminder-countdown-full">${esc(fullCountdown)}</small><small class="reminder-countdown-compact" aria-hidden="true">${esc(compactCountdownLabel(item.countdown))}</small></button>`;
+        return `<button type="button" data-reminder-edit="${esc(item.reminder.id)}" aria-label="${esc(`${item.reminder.title}, ${fullCountdown}`)}"><span aria-hidden="true">◷</span><b>${esc(item.reminder.title)}</b><small aria-hidden="true">${esc(shortCountdownLabel(item.countdown))}</small></button>`;
     }).join("")}</span>`;
 }
 

@@ -167,10 +167,6 @@ body.preview-mode .travel-card .spot-cost { grid-column: 3; }
 @media (max-width: 860px) {
     .itinerary-toolbar { align-items: stretch; }
     .itinerary-overview { align-self: center; }
-    .day-head {
-        gap: 7px;
-        padding-inline: 10px;
-    }
     .day-actions {
         gap: 0;
     }
@@ -367,15 +363,8 @@ body.preview-mode .travel-card .spot-cost { grid-column: 3; }
     .change-preview-detail b {
         grid-column: 1 / -1;
     }
-    .spot-timing {
-        width: 100%;
-    }
     .spot-hours-detail {
         display: none;
-    }
-    .spot-hours.is-complete:hover .spot-hours-rail,
-    .spot-hours.is-complete:focus-visible .spot-hours-rail {
-        opacity: 1;
     }
     .day-load-detail {
         min-width: 190px;
@@ -385,10 +374,6 @@ body.preview-mode .travel-card .spot-cost { grid-column: 3; }
     }
     .day-time-tabs {
         margin-inline: 12px;
-    }
-    .day-time-tab {
-        min-height: 38px;
-        padding-inline: 13px;
     }
     .day-timeline-panel {
         padding-inline: 12px;
@@ -418,19 +403,10 @@ body.preview-mode .travel-card .spot-cost { grid-column: 3; }
         padding-inline: 0;
     }
     .fold-all-button span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-    .density-option {
-        width: 44px;
-        min-height: 40px;
-        justify-content: center;
-        padding-inline: 0;
-    }
-    .density-option span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-    body.compact-itinerary .spot-content { gap: 5px; }
-    body.compact-itinerary .spot-meta,
-    body.compact-itinerary .spot-tags .tag,
-    body.compact-itinerary .spot-timing { display: none; }
-    body.compact-itinerary .category-badge { display: inline-flex; }
-    body.compact-itinerary .spot-tag-tail > .spot-tag-tail-name { max-width: 5.5em; }
+    .spot-content { gap: 5px; }
+    .spot-meta,
+    .spot-timing { display: none; }
+    .spot-tag-tail > .spot-tag-tail-name { max-width: 5.5em; }
 }
 
 /* Below 1200px the search collapses to an icon so the header never wraps to a
@@ -550,8 +526,6 @@ body.preview-mode .travel-card .spot-cost { grid-column: 3; }
     .tag-bar,
     .spot-hours,
     .spot-hours-icon,
-    .spot-hours-rail,
-    .spot-hours-segment,
     .spot-hours-detail {
         transition: none;
     }

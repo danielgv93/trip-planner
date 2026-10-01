@@ -53,7 +53,6 @@ function preferencesFromStore() {
         activeTripNotePageId: store.activeTripNotePageId,
         basemap: store.basemap,
         workspaceSplit: store.workspaceSplit,
-        itineraryDensity: store.itineraryDensity,
     };
 }
 
@@ -66,7 +65,6 @@ function applyPreferences(preferences = {}) {
     );
     store.basemap = ["liberty", "osm"].includes(preferences.basemap) ? preferences.basemap : store.basemap;
     store.workspaceSplit = Number.isFinite(preferences.workspaceSplit) ? preferences.workspaceSplit : null;
-    store.itineraryDensity = preferences.itineraryDensity === "compact" ? "compact" : "comfortable";
     if (store.tripNotePages.some((page) => page.id === preferences.activeTripNotePageId)) {
         store.activeTripNotePageId = preferences.activeTripNotePageId;
     }

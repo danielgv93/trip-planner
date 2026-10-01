@@ -47,7 +47,6 @@ let menuTrigger = null;
 const dayFormatter = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" });
 
 function repaintActiveTrip() {
-    document.body.classList.toggle("compact-itinerary", store.itineraryDensity === "compact");
     document.body.classList.remove("preview-mode");
     const preview = document.querySelector("#previewBtn");
     if (preview) {

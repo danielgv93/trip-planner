@@ -42,7 +42,6 @@ import {
     openingHourSegments,
     scheduleIntervals,
     schedulesOverlap,
-    scheduleOverlapSegments,
 } from "./schedule.js";
 import { targetFingerprint } from "../../core/plan-operations.js";
 import { createDraftAutosaveController } from "../../shared/draft-autosave.js";
@@ -266,17 +265,10 @@ export function renderSpotHours(spot, color, interactive = true) {
     if (!hasClosing)
         return `<span class="spot-hours" aria-label="Horario: abre a las ${esc(openingTime)}"><span class="spot-hours-icon" aria-hidden="true">◷</span><span class="spot-hours-text">Desde ${esc(openingTime)}</span></span>`;
 
-    const segments = openingHourSegments(openingTime, closingTime),
-        allDay = opening === 0 && closing === 0,
-        rail = segments
-            .map(
-                ({ start, width, equal }) =>
-                    `<span class="spot-hours-segment${equal ? " is-equal" : ""}" style="--segment-start:${start.toFixed(4)}%;--segment-width:${width.toFixed(4)}%"></span>`,
-            )
-            .join("");
+    const allDay = opening === 0 && closing === 0;
     const label = allDay ? "Todo el día" : `${openingTime}–${closingTime}`;
     const detail = allDay ? "Abierto todo el día" : `Abre ${openingTime} · Cierra ${closingTime}`;
-    return `<span class="spot-hours is-complete"${interactive ? ' tabindex="0"' : ""} data-hours-opening="${esc(openingTime)}" data-hours-closing="${esc(closingTime)}" aria-label="Horario: ${esc(allDay ? "todo el día" : `abre a las ${openingTime} y cierra a las ${closingTime}`)}" style="--hours-color:${safeColor(color)}"><span class="spot-hours-icon" aria-hidden="true">◷</span><span class="spot-hours-text">${esc(label)}</span><span class="spot-hours-rail" aria-hidden="true">${rail}<span class="spot-hours-overlaps"></span></span><span class="spot-hours-detail" aria-hidden="true">${esc(detail)}</span></span>`;
+    return `<span class="spot-hours is-complete"${interactive ? ' tabindex="0"' : ""} data-hours-opening="${esc(openingTime)}" data-hours-closing="${esc(closingTime)}" aria-label="Horario: ${esc(allDay ? "todo el día" : `abre a las ${openingTime} y cierra a las ${closingTime}`)}" style="--hours-color:${safeColor(color)}"><span class="spot-hours-icon" aria-hidden="true">◷</span><span class="spot-hours-text">${esc(label)}</span><span class="spot-hours-detail" aria-hidden="true">${esc(detail)}</span></span>`;
 }
 
 function timelineProfilesForDay(day) {
@@ -1763,18 +1755,6 @@ function setHoursDetail(row, text) {
     row.querySelector(".spot-hours-detail").textContent = text;
 }
 
-function setOverlapSegments(row, segments) {
-    const layer = row.querySelector(".spot-hours-overlaps");
-    layer.replaceChildren();
-    segments.forEach(({ start, width }) => {
-        const segment = document.createElement("span");
-        segment.className = "spot-hours-overlap-segment";
-        segment.style.setProperty("--overlap-start", `${start.toFixed(4)}%`);
-        segment.style.setProperty("--overlap-width", `${width.toFixed(4)}%`);
-        layer.append(segment);
-    });
-}
-
 function clearHoursComparison(list) {
     list.classList.remove("hours-comparison");
     list.querySelectorAll(".spot-hours.is-complete").forEach((row) => {
@@ -1785,7 +1765,6 @@ function clearHoursComparison(list) {
                 ? "Abierto todo el día"
                 : `Abre ${row.dataset.hoursOpening} · Cierra ${row.dataset.hoursClosing}`,
         );
-        setOverlapSegments(row, []);
     });
 }
 
@@ -1808,31 +1787,9 @@ function activateHoursComparison(list, activeRow) {
     clearHoursComparison(list);
     list.classList.add("hours-comparison");
     activeRow.classList.add("hours-context-active");
-    setOverlapSegments(
-        activeRow,
-        overlaps.flatMap((row) =>
-            scheduleOverlapSegments(
-                activeRow.dataset.hoursOpening,
-                activeRow.dataset.hoursClosing,
-                row.dataset.hoursOpening,
-                row.dataset.hoursClosing,
-            ),
-        ),
-    );
     rows.forEach((row) => {
         if (row === activeRow) return;
-        const overlapsActive = overlaps.includes(row);
-        row.classList.add(overlapsActive ? "hours-context-overlap" : "hours-context-dimmed");
-        if (overlapsActive)
-            setOverlapSegments(
-                row,
-                scheduleOverlapSegments(
-                    row.dataset.hoursOpening,
-                    row.dataset.hoursClosing,
-                    activeRow.dataset.hoursOpening,
-                    activeRow.dataset.hoursClosing,
-                ),
-            );
+        row.classList.add(overlaps.includes(row) ? "hours-context-overlap" : "hours-context-dimmed");
     });
     if (scheduleIntervals(activeRow.dataset.hoursOpening, activeRow.dataset.hoursClosing).length === 0) {
         setHoursDetail(activeRow, "Horario ambiguo: no se compara con otras paradas");

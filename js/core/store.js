@@ -192,11 +192,6 @@ export const store = {
         saved.workspaceSplit < 1
             ? saved.workspaceSplit
             : null,
-    // Device-local presentation preference. It is persisted with the browser
-    // save, but deliberately excluded from portable plan JSON.
-    itineraryDensity: saved?.itineraryDensity === "compact"
-        ? "compact"
-        : "comfortable",
     previewMode: false,
     // Anonymous public-link viewing. It is the single choke point that keeps a
     // shared trip from touching the visitor's own device storage: see save().
@@ -291,7 +286,6 @@ function localRecoveryValue() {
         travelLegs: store.travelLegs,
         reminders: store.reminders,
         workspaceSplit: store.workspaceSplit,
-        itineraryDensity: store.itineraryDensity,
     };
 }
 

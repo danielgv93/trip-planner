@@ -296,7 +296,7 @@ function renderList(list, spots, isBacklog = false, { insertSlotsFor = null } = 
         const positionBadge = positionConstraint
             ? `<span class="spot-position-badge" title="Las mejoras y los movimientos respetarán este anclaje"><span aria-hidden="true">⌖</span> ${positionLabels[positionConstraint]}</span>`
             : "";
-        // Compact rows fold the tags into a tail glued to the left of the
+        // Rows fold the tags into a tail glued to the left of the
         // category badge: the first tag plus a "+N" at rest, unrolling the
         // rest on hover. Growing leftwards keeps the badge in a fixed column.
         // Tags matching the active filter lead, so the visible one explains
@@ -311,7 +311,7 @@ function renderList(list, spots, isBacklog = false, { insertSlotsFor = null } = 
             ? `<span class="spot-tag-tail${restSpotTags.length ? " has-more" : ""}${restSpotTags.some((tag) => store.activeTagFilter.has(tag)) ? " has-hidden-match" : ""}">${tagTailName(firstSpotTag)}${restSpotTags.length ? `<span class="spot-tag-tail-names"><span class="spot-tag-tail-track">${restSpotTags.map(tagTailName).join("")}</span></span><span class="spot-tag-tail-count" aria-hidden="true">+${restSpotTags.length}</span>` : ""}</span>`
             : "";
         const handleTitle = positionConstraint ? "Parada anclada; edítala para hacerla flexible" : "Reordenar parada";
-        spot.innerHTML = `<button class="handle${positionConstraint ? " is-anchored" : ""}" type="button" title="${handleTitle}" aria-label="${positionConstraint ? "Parada anclada" : "Reordenar"} ${esc(s.name || "parada")}"${positionConstraint ? ' aria-disabled="true"' : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number}<span class="spot-name-label">${esc(s.name)}</span></span>${kindBadge}${positionBadge}${spotNote}${spotTiming}${reminderStripMarkup(s.id)}<span class="spot-tags" style="--category-color:${safeColor(cat.color)}">${spotTagTail}<span class="category-badge">${esc(cat.label)}</span>${s.tags?.length ? s.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join("") : ""}</span></span>${spotCost}<span class="spot-actions"><span class="spot-overflow-control"><button type="button" class="spot-overflow-button" data-act="overflow" title="Más acciones" aria-label="Más acciones para ${esc(s.name || "parada")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></span>`;
+        spot.innerHTML = `<button class="handle${positionConstraint ? " is-anchored" : ""}" type="button" title="${handleTitle}" aria-label="${positionConstraint ? "Parada anclada" : "Reordenar"} ${esc(s.name || "parada")}"${positionConstraint ? ' aria-disabled="true"' : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><label class="spot-toggle" title="${enabled ? "Desactivar parada" : "Activar parada"}"><input type="checkbox" data-act="toggle-enabled" ${enabled ? "checked" : ""} aria-label="${enabled ? "Desactivar" : "Activar"} ${esc(s.name || "parada")}"></label><span class="spot-content"><span class="spot-name">${number}<span class="spot-name-label">${esc(s.name)}</span></span>${kindBadge}${positionBadge}${spotNote}${spotTiming}${reminderStripMarkup(s.id)}<span class="spot-tags" style="--category-color:${safeColor(cat.color)}">${spotTagTail}<span class="category-badge">${esc(cat.label)}</span></span></span>${spotCost}<span class="spot-actions"><span class="spot-overflow-control"><button type="button" class="spot-overflow-button" data-act="overflow" title="Más acciones" aria-label="Más acciones para ${esc(s.name || "parada")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></span>`;
         if (!hiddenAsEndpoint) {
             wireMapSpotHighlight(spot, s.id);
             list.append(spot);
@@ -333,17 +333,17 @@ function renderList(list, spots, isBacklog = false, { insertSlotsFor = null } = 
             const draggable = embedsFrom && embedsTo && !spotPositionConstraint(s) && !spotPositionConstraint(next);
             const editable = !store.readOnly && !store.previewMode;
             const routeLabel = `${s.name || "Origen"} → ${next.name || "Destino"}`;
-            // The card reads as a tiny vertical route: origin, the leg itself,
-            // destination. A grouped endpoint lives only inside the card; the
-            // other one still has its own row right above or below it.
+            // The card reads as one line: origin → destination · leg. A grouped
+            // endpoint lives only inside the card; the other one still has its
+            // own row right above or below it.
             const endpoint = (spot, fallback, grouped, outsideHint) =>
-                `<span class="travel-card-stop${grouped ? " is-grouped" : ""}"${grouped ? "" : ` title="También aparece como ${outsideHint} en el día"`}><span class="travel-card-stop-name">${esc(spot.name || fallback)}</span>${grouped ? "" : `<small>${outsideHint}</small>`}</span>`;
+                `<span class="travel-card-stop${grouped ? " is-grouped" : ""}"${grouped ? "" : ` title="También aparece como ${outsideHint} en el día"`}><span class="travel-card-stop-name">${esc(spot.name || fallback)}</span></span>`;
             const legDetails = [
                 esc(outgoing.line || presentation.modeLabel),
                 presentation.minutes ? `${presentation.minutes} min` : "Duración pendiente",
                 outgoing.departureTime ? `${esc(outgoing.departureTime)}${arrival ? ` → ${esc(arrival)}` : ""}` : "",
             ].filter(Boolean).join(" · ");
-            const route = `${endpoint(s, "Origen", embedsFrom, "parada anterior")}<span class="travel-card-leg">${legDetails}</span>${outgoing.note ? `<span class="travel-card-note">${esc(outgoing.note)}</span>` : ""}${endpoint(next, "Destino", embedsTo, "parada siguiente")}`;
+            const route = `${endpoint(s, "Origen", embedsFrom, "parada anterior")}${endpoint(next, "Destino", embedsTo, "parada siguiente")}<span class="travel-card-leg">${legDetails}</span>`;
             const leading = draggable && editable
                 ? `<button class="handle travel-card-handle" type="button" title="Reordenar trayecto" aria-label="Reordenar trayecto ${esc(routeLabel)}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button>`
                 : '<span class="travel-card-handle-spacer" aria-hidden="true"></span>';

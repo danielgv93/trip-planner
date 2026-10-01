@@ -125,11 +125,10 @@ main {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-/* Narrow planner column: the toolbar stays on one row, so its two action
-   groups keep only their icons (aria-labels and titles remain). */
+/* Narrow planner column: the toolbar stays on one row, so the fold button
+   keeps only its icon (aria-label and title remain). */
 @container itinerary-pane (max-width: 720px) {
-    .fold-all-button span,
-    .density-option span {
+    .fold-all-button span {
         position: absolute;
         width: 1px;
         height: 1px;
@@ -137,58 +136,13 @@ main {
         clip-path: inset(50%);
     }
     .fold-all-button { padding-inline: 9px; }
-    .density-option { padding-inline: 8px; }
 }
 @media (max-width: 620px) {
     .itinerary-toolbar-lead { flex-wrap: wrap; }
     .itinerary-money { flex-wrap: wrap; }
 }
-.density-switch {
-    flex: none;
-    display: inline-flex;
-    gap: 2px;
-    padding: 3px;
-    border: 1px solid #d8d3c9;
-    border-radius: 7px;
-    background: #ece9e2;
-}
-.density-option {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 30px;
-    padding: 5px 9px;
-    border: 0;
-    border-radius: 5px;
-    background: transparent;
-    color: #737b7d;
-    font-size: 11px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
-}
-.density-option svg {
-    width: 15px;
-    height: 15px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.7;
-}
-.density-option:hover,
-.density-option:focus-visible {
-    color: var(--ink);
-    outline: none;
-}
-.density-option:focus-visible {
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 35%, transparent);
-}
-.density-option.active {
-    background: #fff;
-    color: var(--green);
-    box-shadow: 0 1px 5px #24323a18;
-}
 .days {
-    --days-gap: 13px;
+    --days-gap: 8px;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     align-content: start;
@@ -198,289 +152,16 @@ main {
     overflow-anchor: none;
 }
 
-/* Compact remains the same interactive itinerary, with a denser visual
-   hierarchy instead of a separate, feature-limited renderer. */
-body.compact-itinerary .days { --days-gap: 8px; }
 /* Touch cannot hover the gap open, so the "+ Día" seam stays visible there
    and needs a gap wide enough to hold it. Without editing there is no seam. */
 @media not all and (any-hover: hover) {
-    body:not(.preview-mode):not(.read-only-plan) .days { --days-gap: 28px; }
-    body.compact-itinerary:not(.preview-mode):not(.read-only-plan) .days { --days-gap: 22px; }
-}
-body.compact-itinerary .day {
-    border-radius: 8px;
-    box-shadow: 0 3px 12px #24323a0a;
-}
-body.compact-itinerary .day-head {
-    min-height: 52px;
-    gap: 7px;
-    padding: 7px 9px;
-}
-body.compact-itinerary .day-handle,
-body.compact-itinerary .day-collapse,
-body.compact-itinerary .day-overflow-button {
-    width: 32px;
-    height: 32px;
-}
-body.compact-itinerary .day-handle svg,
-body.compact-itinerary .day-collapse svg,
-body.compact-itinerary .day-overflow-button svg { width: 17px; height: 17px; }
-body.compact-itinerary .date-box {
-    width: 39px;
-    padding: 3px 2px;
-}
-body.compact-itinerary .date-box span { font-size: 8px; }
-body.compact-itinerary .date-box strong { font-size: 17px; line-height: 17px; }
-body.compact-itinerary .title-line { line-height: 1.1; }
-body.compact-itinerary .day-title > small { font-size: 10px; }
-body.compact-itinerary .day-title-edit { width: 26px; height: 26px; }
-body.compact-itinerary .day-load-meter { margin-top: 2px; }
-body.compact-itinerary .day-time-tabs { margin: 6px 12px; }
-body.compact-itinerary .day-time-tab {
-    min-height: 24px;
-    padding: 3px 9px;
-    gap: 6px;
-    font-size: 10px;
-}
-body.compact-itinerary .day-time-tab-icon { width: 13px; height: 13px; }
-body.compact-itinerary .day-schedule-body,
-body.compact-itinerary .day-timeline-panel { padding-bottom: 8px; }
-body.compact-itinerary .spots { padding: 3px 5px; }
-body.compact-itinerary .spot {
-    min-height: 38px;
-    grid-template-columns: 28px 25px minmax(0, 1fr) auto 30px;
-    gap: 4px;
-    padding: 2px 4px;
-    border-radius: 5px;
-}
-body.compact-itinerary .handle {
-    width: 28px;
-    height: 32px;
-    border-radius: 6px;
-}
-body.compact-itinerary .handle svg { width: 16px; height: 16px; }
-body.compact-itinerary .spot-toggle { width: 25px; height: 32px; }
-body.compact-itinerary .spot-toggle input { width: 15px; height: 15px; }
-body.compact-itinerary .spot-content {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-}
-body.compact-itinerary .spot-name {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    min-width: 90px;
-    flex: 1 1 auto;
-    font-size: 12px;
-}
-body.compact-itinerary .spot-name-label {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-body.compact-itinerary .number {
-    flex: none;
-    width: 18px;
-    height: 18px;
-    margin: 0;
-    font-size: 9px;
-}
-body.compact-itinerary .spot-meta {
-    max-width: 120px;
-    margin: 0;
-    overflow: hidden;
-    color: #858c8d;
-    font-size: 10px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-body.compact-itinerary .spot-timing {
-    flex: 0 1 145px;
-    width: auto;
-    min-width: 68px;
-    margin: 0;
-}
-body.compact-itinerary .spot-hours { font-size: 9px; }
-body.compact-itinerary .spot-hours-rail { display: none; }
-body.compact-itinerary .spot-duration { font-size: 9px; }
-body.compact-itinerary .spot-kind-badge { flex: none; margin: 0; font-size: 9px; }
-/* Compact rows replace the loose tag pills with a tail fused to the left of
-   the category badge. At rest it shows the first tag and a "+N"; hovering
-   the badge unrolls the rest leftwards, so the badge never leaves its column. */
-body.compact-itinerary .spot-tags {
-    --tail-ink: color-mix(in srgb, var(--category-color, #6b6b6b) 70%, #1d2628);
-    --tail-wash: color-mix(in srgb, var(--category-color, #6b6b6b) 12%, #fff);
-    --tail-edge: color-mix(in srgb, var(--category-color, #6b6b6b) 30%, transparent);
-    flex: 0 1 auto;
-    display: flex;
-    align-items: stretch;
-    flex-wrap: nowrap;
-    gap: 0;
-    min-width: 0;
-    margin: 0;
-}
-body.compact-itinerary .spot-tags .tag { display: none; }
-body.compact-itinerary .category-badge {
-    flex: 0 1 auto;
-    min-width: 0;
-    max-width: 100px;
-    padding: 2px 5px;
-    overflow: hidden;
-    font-size: 8px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-body.compact-itinerary .spot-tag-tail {
-    display: inline-flex;
-    flex: 0 1 auto;
-    align-items: center;
-    min-width: 0;
-    padding: 0 5px 0 6px;
-    border-radius: 4px 0 0 4px;
-    background: var(--tail-wash);
-    box-shadow:
-        inset 1px 0 0 var(--tail-edge),
-        inset 0 1px 0 var(--tail-edge),
-        inset 0 -1px 0 var(--tail-edge);
-    color: var(--tail-ink);
-    font-size: 9px;
-    font-weight: 700;
-    line-height: 1;
-    white-space: nowrap;
-    transition: background-color 0.2s ease, box-shadow 0.2s ease;
-}
-body.compact-itinerary .spot-tag-tail + .category-badge {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-}
-body.compact-itinerary .spot-tag-tail-names {
-    display: inline-block;
-    flex: none;
-    max-width: 0;
-    overflow: hidden;
-    opacity: 0;
-    transform: translateX(6px);
-    transition:
-        max-width 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-        opacity 0.2s ease,
-        transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
-}
-body.compact-itinerary .spot-tag-tail-track { display: inline-flex; align-items: center; }
-body.compact-itinerary .spot-tag-tail > .spot-tag-tail-name {
-    min-width: 0;
-    max-width: 8em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-body.compact-itinerary .spot-tag-tail-names .spot-tag-tail-name::before {
-    content: "·";
-    margin: 0 4px;
-    opacity: 0.45;
-}
-body.compact-itinerary .spot-tag-tail-count {
-    display: inline-flex;
-    flex: none;
-    align-items: center;
-    max-width: 3em;
-    margin-left: 4px;
-    overflow: hidden;
-    opacity: 0.7;
-    font-variant-numeric: tabular-nums;
-    transition:
-        max-width 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-        opacity 0.16s ease;
-}
-body.compact-itinerary .spot-tag-tail-name.is-match,
-body.compact-itinerary .spot-tag-tail.has-hidden-match .spot-tag-tail-count {
-    text-decoration: underline;
-    text-decoration-thickness: 1.5px;
-    text-underline-offset: 2px;
-}
-body.compact-itinerary .spot:hover .spot-tag-tail {
-    --tail-wash: color-mix(in srgb, var(--category-color, #6b6b6b) 18%, #fff);
-}
-@media (hover: hover) {
-    body.compact-itinerary .spot-tags:hover .spot-tag-tail {
-        --tail-edge: color-mix(in srgb, var(--category-color, #6b6b6b) 55%, transparent);
-    }
-    body.compact-itinerary .spot-tags:hover .spot-tag-tail-names {
-        max-width: 18rem;
-        opacity: 1;
-        transform: none;
-        transition-delay: 80ms;
-    }
-    body.compact-itinerary .spot-tags:hover .spot-tag-tail > .spot-tag-tail-name { max-width: none; }
-    body.compact-itinerary .spot-tags:hover .spot-tag-tail-count {
-        max-width: 0;
-        margin-left: 0;
-        opacity: 0;
-        transition-delay: 80ms;
-    }
-    /* Size the unroll to the real text where the browser can interpolate
-       to intrinsic sizes, so short tails don't spend the curve idling. */
-    @supports (interpolate-size: allow-keywords) {
-        body.compact-itinerary .spot-tag-tail { interpolate-size: allow-keywords; }
-        body.compact-itinerary .spot-tags:hover .spot-tag-tail-names { max-width: max-content; }
-    }
-}
-.days.is-dragging .spot-tag-tail-names { max-width: 0 !important; opacity: 0 !important; }
-.days.is-dragging .spot-tag-tail-count { max-width: 3em !important; margin-left: 4px !important; opacity: 0.7 !important; }
-@media (prefers-reduced-motion: reduce) {
-    body.compact-itinerary .spot-tag-tail-names,
-    body.compact-itinerary .spot-tag-tail-count { transform: none; transition: opacity 0.12s linear; }
-}
-body.compact-itinerary .spot-cost { padding-left: 6px; font-size: 9px; }
-body.compact-itinerary .spot-actions .spot-overflow-button {
-    width: 30px;
-    min-width: 30px;
-    height: 30px;
-    border-radius: 6px;
-}
-body.compact-itinerary .spot-actions .spot-overflow-button svg { width: 16px; height: 16px; }
-body.compact-itinerary .travel-leg-connector {
-    /* The connector's vertical rule sits 4px inside this box. A 71px left
-       margin places its axis at 75px, through the stop number's centre. */
-    margin: 0 6px 0 71px;
-    padding-left: 13px;
-}
-body.compact-itinerary .travel-leg-connector-button {
-    min-height: 24px;
-    gap: 0 8px;
-    padding: 1px 7px;
-}
-body.compact-itinerary .travel-leg-connector-route {
-    font-size: 10px;
-    line-height: 1.1;
-}
-body.compact-itinerary .travel-leg-connector-route > span:first-child { width: 17px; height: 17px; font-size: 10px; }
-body.compact-itinerary .travel-leg-connector-action {
-    grid-row: 1;
-    align-self: center;
-    font-size: 9px;
-}
-body.compact-itinerary .quick-add { padding: 5px 7px; }
-body.compact-itinerary .quick-add-input { padding: 6px 8px; font-size: 11px; }
-body.compact-itinerary .quick-add-details { padding: 6px 8px; font-size: 10px; }
-body.compact-itinerary .backlog-groups { gap: 6px; padding: 6px; }
-body.compact-itinerary .backlog-group-head { min-height: 34px; padding: 3px 6px; }
-body.compact-itinerary .backlog-group-collapse,
-body.compact-itinerary .backlog-group-edit,
-body.compact-itinerary .backlog-group-delete { width: 26px; height: 26px; }
-
-@container itinerary-pane (max-width: 760px) {
-    body.compact-itinerary .spot-content { gap: 5px; }
-    body.compact-itinerary .spot-meta,
-    body.compact-itinerary .spot-tags .tag,
-    body.compact-itinerary .spot-timing { display: none; }
-    body.compact-itinerary .category-badge { display: inline-flex; }
+    body:not(.preview-mode):not(.read-only-plan) .days { --days-gap: 22px; }
 }
 .day {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 7px;
-    box-shadow: var(--shadow);
+    border-radius: 8px;
+    box-shadow: 0 3px 12px #24323a0a;
     /* The header sticks to the viewport and is naturally pushed away by the
        next card, so the day itself cannot be an overflow container. */
     overflow: visible;
@@ -603,11 +284,12 @@ body.preview-mode .day-insert,
     z-index: 12;
     display: flex;
     align-items: center;
-    padding: 13px 15px;
+    min-height: 52px;
+    padding: 7px 9px;
     border-bottom: 1px solid var(--line);
     border-radius: 6px 6px 0 0;
     background: var(--card);
-    gap: 11px;
+    gap: 7px;
     transition:
         box-shadow 0.18s ease,
         border-color 0.18s ease,
@@ -630,8 +312,8 @@ body.preview-mode .day-insert,
     position: static;
 }
 .day-handle {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     flex: none;
     display: grid;
     place-items: center;
@@ -644,8 +326,8 @@ body.preview-mode .day-insert,
     border-radius: 8px;
 }
 .day-handle svg {
-    width: 20px;
-    height: 20px;
+    width: 17px;
+    height: 17px;
     fill: currentColor;
 }
 .day-handle:hover,
@@ -682,9 +364,9 @@ body.preview-mode .day-insert,
 .date-box {
     background: var(--sand);
     border-radius: 4px;
-    width: 47px;
+    width: 39px;
     text-align: center;
-    padding: 5px 3px;
+    padding: 3px 2px;
     flex: none;
     position: relative;
     transition: 0.18s ease;
@@ -695,14 +377,14 @@ body.preview-mode .day-insert,
 }
 .date-box span {
     display: block;
-    font: 10px "DM Mono";
+    font: 8px "DM Mono";
     text-transform: uppercase;
     color: #876d48;
     letter-spacing: 0.6px;
 }
 .date-box strong {
-    font: 700 20px "Playfair Display";
-    line-height: 19px;
+    font: 700 17px "Playfair Display";
+    line-height: 17px;
 }
 .date-box.editable {
     cursor: pointer;
@@ -752,6 +434,7 @@ body.preview-mode .day-insert,
     align-items: center;
     gap: 6px;
     min-width: 0;
+    line-height: 1.1;
 }
 .day-name {
     font-weight: 700;
@@ -767,8 +450,8 @@ body.preview-mode .day-insert,
 }
 .day-title-edit {
     flex: none;
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     display: grid;
     place-items: center;
     border: 1px solid transparent;
@@ -809,7 +492,7 @@ body.preview-mode .day-insert,
 .day-title small {
     display: block;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 10px;
     margin-top: 2px;
 }
 /* Empty when a day has no workload data, so the line stays visually
@@ -939,8 +622,8 @@ body.preview-mode .day-insert,
 }
 .day-collapse,
 .day-overflow-button {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     display: grid;
     place-items: center;
     border: 1px solid transparent;
@@ -954,8 +637,8 @@ body.preview-mode .day-insert,
 .day-collapse svg,
 .day-overflow-button svg,
 .day-action-item svg {
-    width: 19px;
-    height: 19px;
+    width: 17px;
+    height: 17px;
     fill: none;
     stroke: currentColor;
     stroke-width: 1.8;
@@ -1026,6 +709,8 @@ body.preview-mode .day-insert,
 }
 .day-action-item svg {
     flex: none;
+    width: 19px;
+    height: 19px;
     color: var(--red);
 }
 .day-action-move-control {
@@ -1069,13 +754,13 @@ body.preview-mode .spot-insert-slot,
     border-bottom: 1px solid var(--line);
     background: #fbfaf7;
 }
-/* Same segmented-control language as .density-switch: an inset track whose
-   active segment lifts to the card surface. */
+/* Segmented control: an inset track whose active segment lifts to the card
+   surface. */
 .day-time-tabs {
     display: inline-flex;
     align-items: stretch;
     gap: 3px;
-    margin: 9px 15px;
+    margin: 6px 12px;
     padding: 3px;
     border: 1px solid #dcd8ce;
     border-radius: 9px;
@@ -1084,14 +769,14 @@ body.preview-mode .spot-insert-slot,
 .day-time-tab {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    min-height: 28px;
-    padding: 4px 11px;
+    gap: 6px;
+    min-height: 24px;
+    padding: 3px 9px;
     border: 0;
     border-radius: 6px;
     background: transparent;
     color: #737b7d;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     cursor: pointer;
     transition: color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
@@ -1105,8 +790,8 @@ body.preview-mode .spot-insert-slot,
     stroke-linejoin: round;
 }
 .day-time-tab-icon {
-    width: 15px;
-    height: 15px;
+    width: 13px;
+    height: 13px;
     stroke-width: 1.8;
 }
 .day-time-tab-chevron {
@@ -1157,10 +842,10 @@ body.preview-mode .spot-insert-slot,
 }
 .day-schedule-body {
     position: relative;
-    padding: 1px 15px 12px;
+    padding: 1px 15px 8px;
 }
 .day-timeline-panel {
-    padding: 4px 15px 14px;
+    padding: 4px 15px 8px;
 }
 .day-timeline-toolbar {
     display: flex;
@@ -1456,7 +1141,7 @@ body.preview-mode .spot-insert-slot,
 }
 .spots {
     min-height: 45px;
-    padding: 8px;
+    padding: 3px 5px;
 }
 .spots.drag-over {
     background: #fbf1ef;
@@ -1465,9 +1150,10 @@ body.preview-mode .spot-insert-slot,
     position: relative;
     display: flex;
     min-width: 0;
-    /* Align the route stem with the centre of the numbered stop above. */
-    margin: 2px 8px 2px 100.5px;
-    padding-left: 18px;
+    /* The connector's vertical rule sits 4px inside this box. A 71px left
+       margin places its axis at 75px, through the stop number's centre. */
+    margin: 0 6px 0 71px;
+    padding-left: 13px;
     transition:
         transform 0.24s cubic-bezier(.2, .8, .2, 1),
         opacity 0.14s ease;
@@ -1497,11 +1183,11 @@ body.preview-mode .spot-insert-slot,
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     width: 100%;
-    min-height: 32px;
-    gap: 0 12px;
+    min-height: 24px;
+    gap: 0 8px;
     border: 1px solid transparent;
     border-radius: 9px;
-    padding: 4px 9px;
+    padding: 1px 7px;
     background: transparent;
     color: var(--muted);
     text-align: left;
@@ -1527,18 +1213,19 @@ body.preview-mode .spot-insert-slot,
     min-width: 0;
     align-items: center;
     gap: 7px;
-    font-size: 12px;
+    font-size: 10px;
+    line-height: 1.1;
 }
 .travel-leg-connector-route > span:first-child {
     display: grid;
     flex: 0 0 auto;
-    width: 20px;
-    height: 20px;
+    width: 17px;
+    height: 17px;
     place-items: center;
     border-radius: 50%;
     background: #eaf3ef;
     color: var(--green);
-    font-size: 12px;
+    font-size: 10px;
 }
 .travel-leg-connector-route strong {
     color: var(--ink);
@@ -1549,7 +1236,7 @@ body.preview-mode .spot-insert-slot,
     grid-row: 1;
     align-self: center;
     color: var(--green);
-    font-size: 11px;
+    font-size: 9px;
     font-weight: 700;
     opacity: 0.82;
 }
@@ -1560,11 +1247,12 @@ body.preview-mode .spot-insert-slot,
 .travel-leg-connector.is-missing .travel-leg-connector-action { color: #8b5b18; }
 .spot {
     display: grid;
-    grid-template-columns: 40px 32px minmax(0, 1fr) auto 40px;
+    grid-template-columns: 28px 25px minmax(0, 1fr) auto 30px;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
+    min-height: 38px;
     border: 1px solid transparent;
-    padding: 8px;
+    padding: 2px 4px;
     border-radius: 5px;
     cursor: grab;
     transition:
@@ -1578,10 +1266,10 @@ body.preview-mode .spot-insert-slot,
     gap: 0;
     justify-items: end;
     text-align: right;
-    padding: 1px 0 1px 8px;
+    padding: 1px 0 1px 6px;
     border-left: 2px solid #e2d3b6;
     color: #6f5837;
-    font: 600 10px "DM Mono";
+    font: 600 9px "DM Mono";
     white-space: nowrap;
 }
 .spot-cost strong { font: inherit; }
@@ -1641,12 +1329,12 @@ body.preview-mode .spot-insert-slot,
     opacity: 0.42;
 }
 .handle {
-    width: 40px;
-    height: 40px;
+    width: 28px;
+    height: 32px;
     display: grid;
     place-items: center;
     border: 0;
-    border-radius: 8px;
+    border-radius: 6px;
     padding: 0;
     background: transparent;
     color: #b3b7b6;
@@ -1654,8 +1342,8 @@ body.preview-mode .spot-insert-slot,
     cursor: grab;
 }
 .handle svg {
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     fill: currentColor;
 }
 .handle:hover,
@@ -1674,41 +1362,63 @@ body.preview-mode .spot-insert-slot,
     color: #805b20;
 }
 .number {
+    flex: none;
     background: var(--green);
     color: white;
-    width: 21px;
-    height: 21px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
     display: grid;
     place-items: center;
-    font: 11px "DM Mono";
-    margin-left: 1px;
+    font: 9px "DM Mono";
 }
 .number-placeholder {
     background: #8f9795;
 }
 .spot-content {
+    display: flex;
+    align-items: center;
+    gap: 7px;
     min-width: 0;
 }
 .spot-name {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 1 1 auto;
+    min-width: 90px;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 12px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
+.spot-name-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .spot-meta {
     display: block;
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 2px;
+    max-width: 120px;
+    overflow: hidden;
+    color: #858c8d;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .spot-timing {
     display: flex;
+    flex: 0 1 145px;
     align-items: center;
     gap: 8px;
-    width: min(100%, 380px);
-    margin-top: 3px;
+    min-width: 68px;
+}
+@container itinerary-pane (max-width: 760px) {
+    .spot-content { gap: 5px; }
+    .spot-meta,
+    .spot-timing { display: none; }
 }
 .spot-hours {
     position: relative;
@@ -1719,7 +1429,7 @@ body.preview-mode .spot-insert-slot,
     min-width: 0;
     min-height: 16px;
     color: var(--muted);
-    font: 11px "DM Mono";
+    font: 9px "DM Mono";
     line-height: 1;
     pointer-events: none;
     transition:
@@ -1735,52 +1445,6 @@ body.preview-mode .spot-insert-slot,
 .spot-hours-text {
     flex: none;
     white-space: nowrap;
-}
-.spot-hours-rail {
-    position: relative;
-    flex: 1 1 90px;
-    min-width: 56px;
-    height: 4px;
-    overflow: hidden;
-    border-radius: 999px;
-    background: #dfe1df;
-    opacity: 0.72;
-    transition:
-        background 0.15s ease,
-        opacity 0.15s ease,
-        transform 0.15s ease,
-        box-shadow 0.15s ease;
-}
-.spot-hours-segment {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: var(--segment-start, 0%);
-    width: var(--segment-width, 0%);
-    min-width: 2px;
-    background: #929b98;
-    border-radius: 999px;
-    opacity: 0.82;
-    transition: opacity 0.15s ease;
-}
-.spot-hours-segment.is-equal {
-    min-width: 100%;
-    background: #929997;
-}
-.spot-hours-overlaps {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-}
-.spot-hours-overlap-segment {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: var(--overlap-start, 0%);
-    width: var(--overlap-width, 0%);
-    min-width: 2px;
-    background: #d68b2b;
-    border-radius: 999px;
 }
 .spot-hours-detail {
     position: absolute;
@@ -1825,40 +1489,17 @@ body.preview-mode .spot-insert-slot,
 .spot-hours.is-complete.hours-context-active .spot-hours-icon {
     color: var(--hours-color, var(--green));
 }
-.spot-hours.is-complete:hover .spot-hours-rail,
-.spot-hours.is-complete:focus-visible .spot-hours-rail,
-.spot-hours.is-complete.hours-context-active .spot-hours-rail {
-    background: #c9d2ce;
-    box-shadow: 0 0 0 2px #386f6624;
-    opacity: 1;
-    transform: scaleY(1.5);
-}
-.spot-hours.is-complete:hover .spot-hours-segment,
-.spot-hours.is-complete:focus-visible .spot-hours-segment,
-.spot-hours.is-complete.hours-context-active .spot-hours-segment {
-    opacity: 1;
-}
 .spot-hours.is-complete:hover .spot-hours-detail,
 .spot-hours.is-complete:focus-visible .spot-hours-detail,
 .spot-hours.is-complete.hours-context-active .spot-hours-detail {
     opacity: 1;
     transform: translateY(0);
 }
-.spot-hours.hours-context-active .spot-hours-segment:not(.is-equal) {
-    background: #3d8075;
-}
 .spots.hours-comparison .spot-hours.is-complete {
     opacity: 0.36;
 }
 .spots.hours-comparison .spot-hours.hours-context-active,
 .spots.hours-comparison .spot-hours.hours-context-overlap {
-    opacity: 1;
-}
-.spot-hours.hours-context-overlap .spot-hours-rail {
-    background: #dfe1df;
-    opacity: 1;
-}
-.spot-hours.hours-context-overlap .spot-hours-segment {
     opacity: 1;
 }
 /* Presentational duration chip: right-aligned beside the hours rail, or on
@@ -1870,7 +1511,7 @@ body.preview-mode .spot-insert-slot,
     gap: 3px;
     margin-left: auto;
     color: var(--muted);
-    font: 11px "DM Mono";
+    font: 9px "DM Mono";
     white-space: nowrap;
 }
 .spot-actions {
@@ -1880,15 +1521,15 @@ body.preview-mode .spot-insert-slot,
 }
 .spot-toggle {
     display: grid;
-    width: 32px;
-    height: 40px;
+    width: 25px;
+    height: 32px;
     place-items: center;
     border-radius: 8px;
     cursor: pointer;
 }
 .spot-toggle input {
-    width: 18px;
-    height: 18px;
+    width: 15px;
+    height: 15px;
     margin: 0;
     accent-color: var(--green);
     cursor: pointer;
@@ -1908,22 +1549,22 @@ body.preview-mode .spot-insert-slot,
     display: inline-flex;
 }
 .spot-actions .spot-overflow-button {
-    width: 40px;
-    min-width: 40px;
-    height: 40px;
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border: 1px solid transparent;
-    border-radius: 8px;
+    border-radius: 6px;
     padding: 0;
     background: transparent;
     color: var(--ink);
     transition: 0.16s ease;
 }
 .spot-overflow-button svg {
-    width: 19px;
-    height: 19px;
+    width: 16px;
+    height: 16px;
     fill: currentColor;
 }
 .spot-actions .spot-overflow-button:hover,
@@ -2208,7 +1849,7 @@ body.preview-mode .spot-insert-slot,
     align-items: center;
     gap: 8px;
     width: 100%;
-    padding: 8px 10px;
+    padding: 5px 7px;
     border-top: 1px dashed #dedbd4;
     border-radius: 0 0 6px 6px;
     background: #fdfcf9;
@@ -2220,9 +1861,9 @@ body.preview-mode .spot-insert-slot,
     border-radius: 4px;
     background: #fff;
     color: var(--ink);
-    padding: 8px 9px;
+    padding: 6px 8px;
     font: inherit;
-    font-size: 13px;
+    font-size: 11px;
     outline: none;
 }
 .quick-add-input::placeholder {
@@ -2238,8 +1879,8 @@ body.preview-mode .spot-insert-slot,
     border-radius: 4px;
     background: #f6e5e1;
     color: var(--red);
-    padding: 8px 10px;
-    font-size: 12px;
+    padding: 6px 8px;
+    font-size: 10px;
     font-weight: 700;
 }
 .quick-add-details:hover,
@@ -2389,8 +2030,8 @@ body.preview-mode .spot-insert-slot,
 }
 .backlog-groups {
     display: grid;
-    gap: 10px;
-    padding: 10px;
+    gap: 6px;
+    padding: 6px;
 }
 .backlog-group {
     overflow: visible;
@@ -2399,11 +2040,11 @@ body.preview-mode .spot-insert-slot,
     background: #fffdf8;
 }
 .backlog-group-head {
-    min-height: 42px;
+    min-height: 34px;
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 8px;
+    padding: 3px 6px;
     border-bottom: 1px solid #e8dfcd;
     background: #f8f0df;
     border-radius: 7px 7px 0 0;
@@ -2426,8 +2067,8 @@ body.preview-mode .spot-insert-slot,
 .backlog-group-edit,
 .backlog-group-delete {
     flex: none;
-    width: 30px;
-    height: 30px;
+    width: 26px;
+    height: 26px;
     border: 0;
     border-radius: 6px;
     background: transparent;
@@ -2455,9 +2096,6 @@ body.preview-mode .spot-insert-slot,
     font-weight: 700;
     outline: none;
 }
-.backlog-group .spots {
-    padding: 4px 8px;
-}
 .backlog-group.collapsed .spots,
 .backlog-group.collapsed .add-place,
 .backlog-group.collapsed .quick-add {
@@ -2466,9 +2104,6 @@ body.preview-mode .spot-insert-slot,
 .backlog-group.collapsed .backlog-group-head {
     border-bottom: 0;
     border-radius: 7px;
-}
-.backlog-ungrouped-head {
-    padding-left: 14px;
 }
 .backlog-footer {
     display: flex;
@@ -2499,11 +2134,12 @@ body.preview-mode .spot-insert-slot,
 }
 .spot-kind-badge {
     display: inline-flex;
+    flex: none;
     align-items: center;
     gap: 4px;
     width: fit-content;
     color: #3f6f86;
-    font-size: 11px;
+    font-size: 9px;
     font-weight: 700;
 }
 .spot-position-badge {
@@ -2517,14 +2153,13 @@ body.preview-mode .spot-insert-slot,
 }
 .spot-position-anchored { border-color: color-mix(in srgb, #b47b20 48%, var(--line)); }
 .spot-waypoint { border-style: dashed; }
-/* Grouped travel leg: a stop-shaped card holding a mini vertical route
-   (origin, leg, destination). It keeps the stop grid so its icon lines up
+/* Grouped travel leg: a stop-shaped card holding the route on one line
+   (origin → destination · leg). It keeps the stop grid so its icon lines up
    with the checkboxes and its delete button with the stops' menus. */
 .spot.travel-card {
     --travel-accent: #3f7d9c;
-    margin-block: 4px;
+    margin-block: 2px;
     border-color: color-mix(in srgb, var(--travel-accent) 26%, var(--line));
-    border-radius: 8px;
     background: color-mix(in srgb, var(--travel-accent) 5%, var(--card));
     box-shadow: inset 3px 0 color-mix(in srgb, var(--travel-accent) 70%, transparent);
     cursor: default;
@@ -2542,24 +2177,24 @@ body.preview-mode .spot-insert-slot,
 .travel-card-icon {
     grid-column: 2;
     display: grid;
-    width: 30px;
-    height: 30px;
+    width: 22px;
+    height: 22px;
     place-items: center;
     border-radius: 50%;
     background: color-mix(in srgb, var(--travel-accent) 14%, var(--card));
-    font-size: 16px;
+    font-size: 12px;
     line-height: 1;
 }
 .travel-card-route {
     grid-column: 3;
-    position: relative;
-    display: grid;
-    gap: 3px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
     width: 100%;
     margin: 0;
     border: 0;
     border-radius: 6px;
-    padding: 4px 6px 4px 22px;
+    padding: 2px 6px;
     background: transparent;
     color: inherit;
     font: inherit;
@@ -2571,43 +2206,21 @@ button.travel-card-route:focus-visible {
     outline: 2px solid var(--travel-accent);
     outline-offset: 1px;
 }
-/* The rail joins the origin and destination dots through the leg details. */
-.travel-card-route::before {
-    content: "";
-    position: absolute;
-    top: 13px;
-    bottom: 13px;
-    left: 10px;
-    border-left: 2px dashed color-mix(in srgb, var(--travel-accent) 45%, transparent);
-}
 .travel-card-stop {
-    position: relative;
     display: flex;
+    flex: 0 1 auto;
     align-items: baseline;
     gap: 6px;
     min-width: 0;
     color: var(--muted);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
 }
-.travel-card-stop::before {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: -16px;
-    width: 8px;
-    height: 8px;
-    border: 2px solid var(--travel-accent);
-    border-radius: 50%;
-    background: var(--card);
-    transform: translateY(-50%);
+.travel-card-stop.is-grouped { color: var(--ink); }
+.travel-card-stop:first-child::after {
+    content: "→";
+    color: var(--travel-accent);
 }
-.travel-card-stop.is-grouped {
-    color: var(--ink);
-    font-size: 14px;
-}
-.travel-card-stop.is-grouped::before { background: var(--travel-accent); }
-/* The name keeps its width; the "parada anterior/siguiente" hint yields first. */
 .travel-card-stop-name {
     flex: 0 0 auto;
     max-width: 100%;
@@ -2615,29 +2228,16 @@ button.travel-card-route:focus-visible {
     white-space: nowrap;
     text-overflow: ellipsis;
 }
-.travel-card-stop small {
-    flex: 1 1 0;
-    min-width: 0;
-    overflow: hidden;
-    color: var(--muted);
-    font-size: 10px;
-    font-weight: 500;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
 .travel-card-leg {
+    flex: none;
     color: color-mix(in srgb, var(--travel-accent) 80%, var(--ink));
-    font: 600 11px "DM Mono";
-}
-.travel-card-note {
-    color: var(--muted);
-    font-size: 12px;
+    font: 600 10px "DM Mono";
 }
 .travel-card .spot-cost { grid-column: 4; }
 .travel-card-delete {
     display: inline-flex;
-    width: 40px;
-    height: 40px;
+    width: 30px;
+    height: 30px;
     align-items: center;
     justify-content: center;
     border: 1px solid transparent;
@@ -2666,38 +2266,6 @@ button.travel-card-route:focus-visible {
 @media (max-width: 560px) {
     /* No room to spare on phones: drop the empty handle column. */
     .travel-card-handle-spacer { display: none; }
-    .spot.travel-card { grid-template-columns: auto 32px minmax(0, 1fr) auto auto; }
-}
-body.compact-itinerary .spot.travel-card { margin-block: 2px; }
-body.compact-itinerary .travel-card-icon {
-    width: 22px;
-    height: 22px;
-    font-size: 12px;
-}
-body.compact-itinerary .travel-card-delete { width: 30px; height: 30px; }
-/* Compact rows fold the route onto one line: origin → destination · leg. */
-body.compact-itinerary .travel-card-route {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 2px 6px;
-}
-body.compact-itinerary .travel-card-route::before,
-body.compact-itinerary .travel-card-stop::before,
-body.compact-itinerary .travel-card-stop small,
-body.compact-itinerary .travel-card-note { display: none; }
-body.compact-itinerary .travel-card-stop {
-    flex: 0 1 auto;
-    font-size: 12px;
-}
-body.compact-itinerary .travel-card-stop:first-child::after {
-    content: "→";
-    color: var(--travel-accent);
-}
-body.compact-itinerary .travel-card-leg {
-    order: 3;
-    flex: none;
-    font-size: 10px;
 }
 .companion-timeline-block.is-waypoint {
     z-index: 3;
@@ -3149,16 +2717,9 @@ body.compact-itinerary .travel-card-leg {
 :root { --day-head-compact-h: 42px; }
 .day:not(.backlog) .day-head {
     --stuck-p: 0;
-    --head-pl: 15px;
-    --head-pr: 15px;
-    --head-gap: 11px;
-}
-@media (max-width: 860px) {
-    .day:not(.backlog) .day-head {
-        --head-pl: 10px;
-        --head-pr: 10px;
-        --head-gap: 7px;
-    }
+    --head-pl: 9px;
+    --head-pr: 9px;
+    --head-gap: 7px;
 }
 /* Geometry must never animate: the flow is compensated from scroll position. */
 .day:not(.backlog) .day-head .date-box,
@@ -3167,16 +2728,10 @@ body.compact-itinerary .travel-card-leg {
 .day:not(.backlog) .day-head .day-overflow-button {
     transition-property: background-color, border-color, color, box-shadow, opacity, transform;
 }
-/* Compact density starts from its own unpinned padding/gap so p>0 never jumps. */
-body.compact-itinerary .day:not(.backlog) .day-head {
-    --head-pl: 9px;
-    --head-pr: 9px;
-    --head-gap: 7px;
-}
 /* Morph (0<p<1): same layout as the full header, shrinking continuously.
    The head itself is never clipped (the absolutely positioned overflow menu
    must stay visible); only the inner parts that shrink are clipped. The
-   density min-height would otherwise stop the inline height from shrinking. */
+   head min-height would otherwise stop the inline height from shrinking. */
 .day:not(.backlog):not(.collapsed) .day-head.is-morphing {
     min-height: 0;
     padding-left: calc(var(--head-pl) - (var(--head-pl) - 4px) * var(--stuck-p));
@@ -3210,7 +2765,7 @@ body.compact-itinerary .day:not(.backlog) .day-head {
     font-size: calc(1em - 3px * var(--stuck-p));
 }
 .day:not(.backlog):not(.collapsed) .day-head.is-morphing .day-handle {
-    width: calc(40px - 12px * var(--stuck-p));
+    width: calc(32px - 4px * var(--stuck-p));
 }
 .day:not(.backlog) .day-head.is-pinned-compact {
     min-height: 0;

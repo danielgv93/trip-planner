@@ -22,7 +22,6 @@ export async function migrateLegacyTrip({ repository, localStorage, createId, no
                 backlogCollapsed: parsed.backlogCollapsed === true,
                 basemap: parsed.basemap,
                 workspaceSplit: parsed.workspaceSplit,
-                itineraryDensity: parsed.itineraryDensity,
                 activeTripNotePageId: parsed.activeTripNotePageId,
             },
         });

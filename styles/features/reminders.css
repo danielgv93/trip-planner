@@ -148,12 +148,8 @@
 .reminder-delete { margin-right: auto; color: #9b382a; }
 
 .spot-reminders { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .4rem; }
-.spot-reminders button { display: inline-flex; align-items: center; gap: .35rem; border: 1px solid #d8c996; border-radius: 999px; background: #fff8dd; color: #655016; padding: .25rem .5rem; font-size: .72rem; cursor: pointer; }
+.spot-reminders button { display: inline-flex; align-items: center; gap: .25rem; border: 1px solid #d8c996; border-radius: 999px; background: #fff8dd; color: #655016; padding: .2rem .4rem; font-size: .72rem; white-space: nowrap; cursor: pointer; }
 .spot-reminders small { color: inherit; opacity: .8; }
-.reminder-countdown-compact { display: none; }
-body.compact-itinerary .spot-reminders button { gap: .25rem; padding: .2rem .4rem; white-space: nowrap; }
-body.compact-itinerary .reminder-countdown-full { display: none; }
-body.compact-itinerary .reminder-countdown-compact { display: inline; }
 .place-reminder-list { display: grid; }
 .place-reminder-list button { display: flex; align-items: center; justify-content: space-between; gap: .75rem; width: 100%; padding: .7rem 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: inherit; text-align: left; }
 .place-reminder-list button span { display: grid; gap: .2rem; }
