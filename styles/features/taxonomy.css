@@ -325,7 +325,7 @@
     color: white;
 }
 /* Spot tags fold into a tail fused to the left of the category badge. At rest it shows the first tag and a "+N"; hovering
-   the badge unrolls the rest leftwards, so the badge never leaves its column. */
+   the stop unrolls the rest leftwards, so the badge never leaves its column. */
 .spot-tags {
     --tail-ink: color-mix(in srgb, var(--category-color, #6b6b6b) 70%, #1d2628);
     --tail-wash: color-mix(in srgb, var(--category-color, #6b6b6b) 12%, #fff);
@@ -425,27 +425,27 @@
     --tail-wash: color-mix(in srgb, var(--category-color, #6b6b6b) 18%, #fff);
 }
 @media (hover: hover) {
-    .spot-tags:hover .spot-tag-tail {
+    .spot:hover .spot-tag-tail {
         --tail-edge: color-mix(in srgb, var(--category-color, #6b6b6b) 55%, transparent);
     }
-    .spot-tags:hover .spot-tag-tail-names {
+    .spot:hover .spot-tag-tail-names {
         max-width: 18rem;
         opacity: 1;
         transform: none;
-        transition-delay: 80ms;
+        transition-delay: 150ms;
     }
-    .spot-tags:hover .spot-tag-tail > .spot-tag-tail-name { max-width: none; }
-    .spot-tags:hover .spot-tag-tail-count {
+    .spot:hover .spot-tag-tail > .spot-tag-tail-name { max-width: none; }
+    .spot:hover .spot-tag-tail-count {
         max-width: 0;
         margin-left: 0;
         opacity: 0;
-        transition-delay: 80ms;
+        transition-delay: 150ms;
     }
     /* Size the unroll to the real text where the browser can interpolate
        to intrinsic sizes, so short tails don't spend the curve idling. */
     @supports (interpolate-size: allow-keywords) {
         .spot-tag-tail { interpolate-size: allow-keywords; }
-        .spot-tags:hover .spot-tag-tail-names { max-width: max-content; }
+        .spot:hover .spot-tag-tail-names { max-width: max-content; }
     }
 }
 .days.is-dragging .spot-tag-tail-names { max-width: 0 !important; opacity: 0 !important; }
