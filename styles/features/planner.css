@@ -188,10 +188,11 @@ main {
     box-shadow: 0 1px 5px #24323a18;
 }
 .days {
+    --days-gap: 13px;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     align-content: start;
-    gap: 13px;
+    gap: var(--days-gap);
     /* render() replaces every card, so native scroll anchoring cannot keep a
        reliable descendant and fights the explicit tag-filter anchor. */
     overflow-anchor: none;
@@ -199,7 +200,13 @@ main {
 
 /* Compact remains the same interactive itinerary, with a denser visual
    hierarchy instead of a separate, feature-limited renderer. */
-body.compact-itinerary .days { gap: 8px; }
+body.compact-itinerary .days { --days-gap: 8px; }
+/* Touch cannot hover the gap open, so the "+ Día" seam stays visible there
+   and needs a gap wide enough to hold it. Without editing there is no seam. */
+@media (hover: none) {
+    body:not(.preview-mode):not(.read-only-plan) .days { --days-gap: 28px; }
+    body.compact-itinerary:not(.preview-mode):not(.read-only-plan) .days { --days-gap: 22px; }
+}
 body.compact-itinerary .day {
     border-radius: 8px;
     box-shadow: 0 3px 12px #24323a0a;
@@ -371,6 +378,107 @@ body.compact-itinerary .backlog-group-delete { width: 26px; height: 26px; }
     /* The header sticks to the viewport and is naturally pushed away by the
        next card, so the day itself cannot be an overflow container. */
     overflow: visible;
+}
+/* Anchors the "insert a day here" seam that sits in the gap below each card.
+   Hovering the gap opens it (only the card below moves, so the pointer stays
+   inside); the short delay keeps gaps shut while the pointer merely crosses
+   the list. */
+:root { --day-insert-open: 18px; }
+.day:not(.backlog) {
+    position: relative;
+    transition: margin-bottom 0.16s ease;
+}
+@media (hover: hover) {
+    .day:has(> .day-insert:hover),
+    .day:has(> .day-insert:focus-visible) {
+        margin-bottom: var(--day-insert-open);
+        transition-delay: 90ms;
+    }
+}
+.day-insert {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1;
+    /* Fills the gap exactly (the 1px skips the card's bottom border). */
+    height: var(--days-gap);
+    margin-top: 1px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #fff;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.14s ease, height 0.16s ease;
+}
+@media (hover: hover) {
+    .day-insert:hover,
+    .day-insert:focus-visible {
+        height: calc(var(--days-gap) + var(--day-insert-open));
+        transition-delay: 90ms;
+    }
+}
+.day-insert::before {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: 50%;
+    height: 2px;
+    margin-top: -1px;
+    border-radius: 2px;
+    background: var(--green);
+}
+.day-insert span {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 20px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: var(--green);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    box-shadow: 0 2px 8px #24323a2e;
+    transition: transform 0.14s ease;
+}
+.day-insert:hover,
+.day-insert:focus-visible { opacity: 1; }
+.day-insert:hover span { transform: scale(1.06); }
+.day-insert:focus-visible { outline: none; }
+.day-insert:focus-visible span {
+    outline: 2px solid color-mix(in srgb, var(--green) 55%, transparent);
+    outline-offset: 2px;
+}
+/* Touch has no hover to reveal it, so it stays visible but quiet: just the
+   chip, outlined, without the insertion line. */
+@media (hover: none) {
+    .day-insert { opacity: 1; }
+    .day-insert::before { display: none; }
+    .day-insert span {
+        height: 20px;
+        padding: 0 9px;
+        border: 1px solid color-mix(in srgb, var(--green) 40%, var(--line));
+        background: var(--card);
+        color: var(--green);
+        font-size: 11px;
+        box-shadow: none;
+    }
+}
+body.preview-mode .day-insert,
+.read-only-plan .day-insert,
+.day-ghost .day-insert,
+.days.is-day-dragging .day-insert,
+.days.is-dragging .day-insert { display: none; }
+@media (prefers-reduced-motion: reduce) {
+    .day:not(.backlog),
+    .day-insert,
+    .day-insert span { transition: none; }
 }
 .day.active {
     border-color: #d44d4390;
@@ -2570,6 +2678,62 @@ body.preview-mode .quick-add {
     background: color-mix(in srgb, var(--green) 16%, var(--card));
 }
 .date-strip-pill.is-current .date-strip-weekday { color: var(--green); }
+/* Reordering days from the strip (date-strip.js). */
+.date-strip.can-reorder .date-strip-pill {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+.date-strip.is-reordering,
+.date-strip.is-reordering .date-strip-pill { cursor: grabbing; }
+.date-strip-pill.is-dragging {
+    z-index: 3;
+    border-color: var(--green);
+    background: var(--card);
+    box-shadow: 0 6px 14px #24323a2e;
+    transition: none;
+}
+.date-strip.is-reordering .date-strip-pill:not(.is-dragging) > * { opacity: 0.6; }
+.date-strip-pill.drop-before::before,
+.date-strip-pill.drop-after::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--green);
+}
+.date-strip-pill.drop-before::before { left: -4px; }
+.date-strip-tip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 40;
+    max-width: min(260px, calc(100vw - 16px));
+    display: grid;
+    gap: 1px;
+    padding: 6px 9px;
+    border-radius: 6px;
+    background: var(--ink);
+    color: #fff;
+    box-shadow: 0 6px 16px #24323a33;
+    pointer-events: none;
+}
+.date-strip-tip[hidden] { display: none; }
+.date-strip-tip strong {
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.date-strip-tip small {
+    color: color-mix(in srgb, #fff 70%, transparent);
+    font-size: 11px;
+    line-height: 1.3;
+}
+.date-strip-pill.drop-after::after { right: -4px; }
 @media (prefers-reduced-motion: reduce) {
     .date-strip-pill,
     .fold-all-button,

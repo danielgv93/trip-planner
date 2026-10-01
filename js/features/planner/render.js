@@ -83,6 +83,7 @@ import {
     configurePlannerCommands,
     duplicateDay,
     duplicateSpot,
+    insertDayAfter,
     moveDay,
     moveSpot,
     moveTravelCard,
@@ -504,13 +505,15 @@ function openDayMoveMenu(button, dayId) {
 
     const currentIndex = store.state.findIndex((day) => day.id === dayId),
         otherDays = store.state.filter((day) => day.id !== dayId),
-        positions = store.state.map((_, index) => ({
-            index,
-            title: index === 0
-                ? "Al principio"
-                : otherDays[index - 1].title || "Día sin nombre",
-            detail: `Posición ${index + 1} de ${store.state.length}`,
-        }));
+        positions = store.state.map((_, index) => {
+            const after = index === 0 ? null : otherDays[index - 1],
+                date = after ? fmt(after.date) : null;
+            return {
+                index,
+                title: after ? after.title || "Día sin nombre" : "Al principio",
+                detail: `${date ? `${weekdayShort(after.date)} ${date.day} ${date.month} · ` : ""}Posición ${index + 1} de ${store.state.length}`,
+            };
+        });
     const menu = document.createElement("span");
     menu.className = "move-menu day-move-menu";
     menu.setAttribute("role", "menu");
@@ -1107,6 +1110,7 @@ export function render() {
     daysEl.append(b);
     renderDateStrip(store.state, {
         onSelect: jumpToDay,
+        onMove: store.readOnly || store.previewMode ? null : moveDay,
         filter: {
             tags: store.tags,
             active: store.activeTagFilter,
@@ -1126,7 +1130,7 @@ export function render() {
             (collapsed ? "collapsed" : "");
         el.dataset.day = day.id;
         el.dataset.presenceTarget = `day:${day.id}`;
-        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><div class="date-box editable" title="Cambiar fecha" data-weekday="${esc(weekdayShort(day.date))}"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta">${esc(day.title)}</span><button class="day-title-edit" type="button" title="Editar nombre del día" aria-label="Editar nombre de ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button></div><small><span class="day-count">${activeSpotCount} ${activeSpotCount === 1 ? "parada" : "paradas"}<span class="day-count-long"> ${activeSpotCount === 1 ? "activa" : "activas"}</span></span><span class="day-cost"> · ${esc(formatCost(sumCosts(day.spots)))}</span><span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span><span class="day-route-hint"> · pulsa para ver ruta</span></small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><div class="day-actions"><button class="day-collapse" type="button" title="${collapsed ? "Desplegar día" : "Plegar día"}" aria-label="${collapsed ? "Desplegar" : "Plegar"} ${esc(day.title || "día")}" aria-expanded="${collapsed ? "false" : "true"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><span class="day-overflow-control"><button class="day-overflow-button" type="button" title="Más acciones" aria-label="Más acciones para ${esc(day.title || "día")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></div></div>${renderDayTimeTools(day)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}`;
+        el.innerHTML = `<div class="day-head"><button class="day-handle" type="button" title="Reordenar día" aria-label="Reordenar ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg></button><div class="date-box editable" title="Cambiar fecha" data-weekday="${esc(weekdayShort(day.date))}"><span>${f.month}</span><strong>${f.day}</strong><input type="date" value="${day.date}" tabindex="-1" aria-label="Fecha del día"></div><div class="day-title"><div class="title-line"><span class="day-name" title="Pulsa para ver la ruta">${esc(day.title)}</span><button class="day-title-edit" type="button" title="Editar nombre del día" aria-label="Editar nombre de ${esc(day.title || "día")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button></div><small><span class="day-count">${activeSpotCount} ${activeSpotCount === 1 ? "parada" : "paradas"}<span class="day-count-long"> ${activeSpotCount === 1 ? "activa" : "activas"}</span></span><span class="day-cost"> · ${esc(formatCost(sumCosts(day.spots)))}</span><span class="day-load" data-day-load></span><span class="day-load-badge" hidden>día muy cargado</span><span class="day-route-hint"> · pulsa para ver ruta</span></small><button class="day-load-meter" type="button" hidden aria-expanded="false"><span class="day-load-track" aria-hidden="true"><span class="day-load-fill is-activity"></span><span class="day-load-fill is-travel"></span></span><span class="day-load-detail" aria-hidden="true"></span></button></div><div class="day-actions"><button class="day-collapse" type="button" title="${collapsed ? "Desplegar día" : "Plegar día"}" aria-label="${collapsed ? "Desplegar" : "Plegar"} ${esc(day.title || "día")}" aria-expanded="${collapsed ? "false" : "true"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><span class="day-overflow-control"><button class="day-overflow-button" type="button" title="Más acciones" aria-label="Más acciones para ${esc(day.title || "día")}" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></span></div></div>${renderDayTimeTools(day)}<div class="spots"></div>${quickAddMarkup(day.id, "＋ Añadir una parada")}<button class="day-insert" type="button" title="Insertar un día aquí" aria-label="Insertar un día después de ${esc(day.title || "este día")}"><span aria-hidden="true">+ Día</span></button>`;
         el.querySelector(".day-actions").insertAdjacentHTML("afterbegin", healthBadgeMarkup(day));
         renderList(el.querySelector(".spots"), day.spots);
         wireDayTimeTools(el, day.id);
@@ -1208,6 +1212,10 @@ export function render() {
             openDayActionMenu(e.currentTarget, day, {
                 remove: removeDay,
             });
+        };
+        el.querySelector(".day-insert").onclick = (e) => {
+            e.stopPropagation();
+            void insertDayAfter(day.id);
         };
         wireQuickAdd(el, day.id);
         daysEl.append(el);

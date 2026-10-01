@@ -7,6 +7,7 @@ import {
     moveEntityIntent,
 } from "../../core/plan-operation-commit.js";
 import { randomUUID } from "../../core/random-id.js";
+import { effectiveStage } from "../../core/day-stages.js";
 import { dayBy, store } from "../../core/store.js";
 import { travelLegKey } from "../../core/travel-legs.js";
 import { toast } from "../../shared/notify.js";
@@ -56,6 +57,32 @@ export function duplicateDay(dayId) {
         },
         payload: { entity: clone, travelLegs: duplicatedLegs },
     })).then(() => toast(`“${clone.title}” añadido.`, "info"));
+}
+
+// Inserts an empty day right after `dayId`, so a day lands where it belongs
+// instead of at the end of the trip. It takes the next calendar date and the
+// stage of the day it follows, so it joins that stage group in the date strip.
+export async function insertDayAfter(dayId) {
+    const index = store.state.findIndex((day) => day.id === dayId);
+    if (index === -1) return;
+    const previous = store.state[index];
+    const date = new Date(`${previous.date}T12:00:00`);
+    date.setDate(date.getDate() + 1);
+    const stage = effectiveStage(previous);
+    const day = {
+        id: randomUUID(),
+        date: Number.isNaN(date.getTime()) ? previous.date : date.toISOString().slice(0, 10),
+        title: "Nuevo día",
+        ...(stage ? { stage } : {}),
+        spots: [],
+    };
+    await derivedPlanOperation(() => insertEntityIntent(
+        { type: "day", id: day.id },
+        day,
+        { containerId: "days", beforeId: store.state[index + 1]?.id ?? null },
+    ));
+    store.active = day.id;
+    repaint({ persist: false });
 }
 
 export function duplicateSpot(spotId, listId) {
