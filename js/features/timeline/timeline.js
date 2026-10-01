@@ -134,9 +134,16 @@ export function buildTimelineProjection(
         ))
         .map((spot) => timeToMinutes(spot.openingTime))
         .filter(Number.isFinite);
+    // A planned stop earlier than every opening (a dawn train, an airport
+    // transfer) must anchor the simulation; otherwise the cursor starts after
+    // it and every following travel leg is pushed past its planned arrival.
+    const plannedStarts = spots
+        .map((spot) => timeToMinutes(spot.plannedStart))
+        .filter(Number.isFinite);
+    const anchors = [...openings, ...plannedStarts];
     const explicitStart = timeToMinutes(day?.startTime);
     const dayStart = explicitStart ??
-        (isToday ? localMinutes(now) : openings.length ? Math.min(...openings) : 540);
+        (isToday ? localMinutes(now) : anchors.length ? Math.min(...anchors) : 540);
     let cursor = dayStart + delayMinutes;
     let previous = null;
 

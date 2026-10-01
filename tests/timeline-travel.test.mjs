@@ -125,3 +125,19 @@ test("una salida fija espera o produce missed-departure", () => {
     const missed = buildTimelineProjection(late, { now: new Date("2026-07-19T12:00:00"), travelForLeg });
     assert.equal(missed.items[1].conflicts.find((item) => item.type === "missed-departure").minutes, 10);
 });
+
+test("una parada planificada antes de la primera apertura ancla el inicio del día", () => {
+    const day = { date: "2026-12-07", spots: [
+        { id: "kyoto", name: "Estación Kyoto", kind: "waypoint", plannedStart: "06:59" },
+        { id: "tsuruga", name: "Estación Tsuruga", kind: "waypoint", plannedStart: "07:54" },
+        { id: "castle", name: "Castillo", kind: "activity", openingTime: "08:00", closingTime: "17:00", visitMinutes: 60 },
+    ] };
+    const projection = buildTimelineProjection(day, {
+        now: new Date("2026-07-19T12:00:00"),
+        travelForLeg: (from) => ({ minutes: from.id === "kyoto" ? 55 : 30, profile: "walking" }),
+    });
+    assert.equal(projection.start, 419);
+    assert.equal(projection.items[1].travelStart, 419);
+    assert.equal(projection.items[1].travelEnd, 474);
+    assert.ok(!projection.items[1].conflicts.some((conflict) => conflict.type === "travel-overlap"));
+});
