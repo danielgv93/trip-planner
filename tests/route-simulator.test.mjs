@@ -7,7 +7,7 @@ globalThis.document = { querySelector: () => null };
 const { formatSimulationTime, optimizeRoute, simulateOrder } = await import("../js/features/route-simulator/optimizer.js");
 const { establishedBaseline } = await import("../js/features/route-simulator/baseline.js");
 const { brokenDepartureLegs, brokenVisitedStops, departureLockedLegs, directedLegKey, seedEstablishedLegs, visitedLockedStops } = await import("../js/features/route-simulator/legs.js");
-const { applySimulationToDay, simulationDayFingerprint } = await import("../js/features/route-simulator/application.js");
+const { applySimulationToDay, lateReservations, overnightAppointments, simulationDayFingerprint } = await import("../js/features/route-simulator/application.js");
 const { fetchTravelMatrix } = await import("../js/features/route-simulator/travel-matrix.js");
 const { downloadPlanExport } = await import("../js/features/planner/export-plan.js");
 
@@ -26,13 +26,13 @@ test("aplicar una simulación conserva los huecos no seleccionados y actualiza h
     const applied = applySimulationToDay(day, ["a", "b"], {
         start: 9 * 60,
         steps: [
-            { spot: day.spots[2], start: 9 * 60 },
-            { spot: day.spots[0], start: 10 * 60 + 15 },
+            { spot: day.spots[2], start: 9 * 60, planned: null },
+            { spot: day.spots[0], start: 10 * 60 + 15, planned: 8 * 60 },
         ],
     });
 
     assert.deepEqual(applied.spots.map((spot) => spot.id), ["b", "fuera", "a"]);
-    assert.equal(applied.spots[0].plannedStart, "09:00");
+    assert.equal("plannedStart" in applied.spots[0], false);
     assert.equal(applied.spots[1], day.spots[1]);
     assert.equal(applied.spots[2].plannedStart, "10:15");
     assert.equal(applied.startTime, "09:00");
@@ -44,14 +44,105 @@ test("aplicar una ruta circular no duplica la parada de regreso", () => {
     const applied = applySimulationToDay(day, ["hotel", "museo"], {
         start: 23 * 60 + 45,
         steps: [
-            { spot: day.spots[0], start: 23 * 60 + 45 },
-            { spot: day.spots[1], start: 24 * 60 + 30 },
-            { spot: day.spots[0], start: 25 * 60 },
+            { spot: day.spots[0], start: 23 * 60 + 45, planned: null },
+            { spot: day.spots[1], start: 24 * 60 + 30, planned: null },
+            { spot: day.spots[0], start: 25 * 60, planned: null, repeated: true },
         ],
     });
 
     assert.deepEqual(applied.spots.map((spot) => spot.id), ["hotel", "museo"]);
-    assert.deepEqual(applied.spots.map((spot) => spot.plannedStart), ["23:45", "00:30"]);
+    assert.equal(applied.startTime, "23:45");
+});
+
+test("aplicar solo guarda hora en las paradas que entraron con hora", () => {
+    const day = {
+        id: "dia",
+        spots: [
+            { id: "libre", name: "Libre" },
+            { id: "cita", name: "Cita", plannedStart: "11:00" },
+            { id: "borrada", name: "Borrada en el diálogo", plannedStart: "15:00" },
+        ],
+    };
+    const applied = applySimulationToDay(day, ["libre", "cita", "borrada"], {
+        start: 9 * 60,
+        steps: [
+            { spot: day.spots[0], start: 9 * 60, planned: null },
+            { spot: day.spots[1], start: 11 * 60 + 10, planned: 11 * 60 },
+            { spot: { ...day.spots[2], plannedStart: undefined }, start: 13 * 60, planned: null },
+        ],
+    });
+
+    assert.equal("plannedStart" in applied.spots[0], false);
+    assert.equal(applied.spots[1].plannedStart, "11:10");
+    assert.equal("plannedStart" in applied.spots[2], false);
+});
+
+test("aplicar dos veces no endurece el día con horas inventadas", () => {
+    const day = { id: "dia", spots: [{ id: "a", visitMinutes: 60 }, { id: "b", visitMinutes: 60 }] };
+    const spots = day.spots.map((spot) => ({ ...spot }));
+    const result = optimizeRoute(spots, matrix([[0, 10], [10, 0]]), { fixedStart: 9 * 60 });
+    const applied = applySimulationToDay(day, ["a", "b"], result);
+    assert.deepEqual(applied.spots.map((spot) => spot.plannedStart), [undefined, undefined]);
+});
+
+test("una reserva conserva su hora aunque la propuesta llegue tarde", () => {
+    const reserva = { id: "reserva", name: "Reserva", plannedStart: "10:00", fixedStart: true };
+    const day = { id: "dia", spots: [{ id: "a", name: "A" }, reserva] };
+    const result = {
+        start: 9 * 60,
+        steps: [
+            { spot: day.spots[0], start: 9 * 60, planned: null },
+            { spot: reserva, start: 10 * 60 + 25, planned: 10 * 60, late: 25 },
+        ],
+    };
+
+    const applied = applySimulationToDay(day, ["a", "reserva"], result);
+    assert.equal(applied.spots[1].plannedStart, "10:00");
+    assert.equal(applied.spots[1].fixedStart, true);
+    assert.deepEqual(lateReservations(result).map((step) => step.spot.id), ["reserva"]);
+});
+
+test("el optimizador prioriza una reserva sobre varias citas estimadas", () => {
+    // Reaching the reservation on time forces two soft appointments late; the
+    // other order keeps both estimates but loses the booking.
+    const spots = [
+        { id: "reserva", name: "Reserva", plannedStart: "10:00", fixedStart: true, visitMinutes: 60 },
+        { id: "a", name: "A", plannedStart: "10:00", visitMinutes: 30 },
+        { id: "b", name: "B", plannedStart: "10:30", visitMinutes: 30 },
+    ];
+    const result = optimizeRoute(spots, matrix([[0, 5, 5], [5, 0, 5], [5, 5, 0]]), { fixedStart: 10 * 60 });
+
+    assert.equal(result.steps[0].spot.id, "reserva");
+    assert.equal(result.metrics.reservationLateStops, 0);
+    assert.ok(result.metrics.lateStops >= 2);
+});
+
+test("una cita empujada más allá de medianoche bloquea la aplicación", () => {
+    const day = { id: "dia", spots: [{ id: "a" }, { id: "cena", plannedStart: "23:50" }] };
+    const result = {
+        start: 22 * 60,
+        steps: [
+            { spot: day.spots[0], start: 22 * 60, planned: null },
+            { spot: day.spots[1], start: 24 * 60 + 20, planned: 23 * 60 + 50 },
+        ],
+    };
+
+    assert.deepEqual(overnightAppointments(result, day).map((step) => step.spot.id), ["cena"]);
+    assert.throws(() => applySimulationToDay(day, ["a", "cena"], result), /SIMULATION_RESULT_OVERNIGHT/);
+});
+
+test("una parada sin hora que acaba tras medianoche no bloquea la aplicación", () => {
+    const day = { id: "dia", spots: [{ id: "a" }, { id: "b" }] };
+    const result = {
+        start: 23 * 60,
+        steps: [
+            { spot: day.spots[0], start: 23 * 60, planned: null },
+            { spot: day.spots[1], start: 24 * 60 + 10, planned: null },
+        ],
+    };
+
+    assert.deepEqual(overnightAppointments(result, day), []);
+    assert.equal(applySimulationToDay(day, ["a", "b"], result).startTime, "23:00");
 });
 
 test("la huella del día detecta cambios posteriores al cálculo", () => {
@@ -775,4 +866,72 @@ test("el mapa real delega la escala y la atribución en Leaflet", () => {
     );
     assert.match(markup, /data-route-simulator-map/);
     assert.doesNotMatch(markup, /route-simulator-map-scale/);
+});
+
+test("el «antes» cuenta aparte la reserva a la que no se puede llegar", () => {
+    const day = { date: "2026-07-20", startTime: "09:00", spots: [] };
+    const spots = [
+        { id: "larga", name: "Visita larga", visitMinutes: 180 },
+        { id: "reserva", name: "Reserva", plannedStart: "10:00", fixedStart: true, visitMinutes: 30 },
+        { id: "cita", name: "Cita", plannedStart: "10:30", visitMinutes: 30 },
+    ];
+    const baseline = establishedBaseline(day, spots, {
+        now: NOT_TODAY,
+        travelForLeg: () => ({ minutes: 10, profile: "walking" }),
+    });
+    assert.equal(baseline.steps[1].reserved, true);
+    assert.equal(baseline.steps[2].reserved, false);
+    assert.equal(baseline.metrics.reservationLateStops, 1);
+    assert.equal(baseline.metrics.totalReservationLate, baseline.steps[1].late);
+    assert.equal(baseline.metrics.lateStops, 2);
+});
+
+test("una marca de reserva sin hora válida no es una reserva", () => {
+    const sinHora = { id: "a", name: "A", fixedStart: true, visitMinutes: 30 };
+    const horaRota = { id: "b", name: "B", fixedStart: true, plannedStart: "9:5", visitMinutes: 30 };
+    const result = optimizeRoute([sinHora, horaRota], matrix([[0, 5], [5, 0]]), { fixedStart: 9 * 60 });
+    assert.equal(result.steps.some((step) => step.reserved), false);
+    assert.equal(result.metrics.reservationLateStops, 0);
+
+    const day = { id: "dia", spots: [sinHora, horaRota] };
+    const applied = applySimulationToDay(day, ["a", "b"], result);
+    assert.equal("plannedStart" in applied.spots.find((spot) => spot.id === "b"), false);
+});
+
+test("regresar a una reserva en una ruta circular no cuenta un segundo retraso", () => {
+    const spots = [
+        { id: "hotel", name: "Hotel", plannedStart: "09:00", fixedStart: true, visitMinutes: 30 },
+        { id: "museo", name: "Museo", visitMinutes: 60 },
+    ];
+    const result = optimizeRoute(spots, matrix([[0, 15], [15, 0]]), {
+        fixedStart: 9 * 60,
+        firstSpotIndex: 0,
+        lastSpotIndex: 0,
+    });
+    assert.equal(result.steps.at(-1).repeated, true);
+    assert.equal(result.steps.at(-1).reserved, false);
+    assert.equal(result.metrics.reservationLateStops, 0);
+});
+
+test("una reserva pasada de medianoche no bloquea la aplicación porque conserva su hora", () => {
+    const reserva = { id: "tren", name: "Tren", plannedStart: "23:30", fixedStart: true };
+    const day = { id: "dia", spots: [{ id: "a" }, reserva] };
+    const result = {
+        start: 22 * 60,
+        steps: [
+            { spot: day.spots[0], start: 22 * 60, planned: null },
+            { spot: reserva, start: 24 * 60 + 15, planned: 23 * 60 + 30, late: 45 },
+        ],
+    };
+    assert.deepEqual(overnightAppointments(result), []);
+    assert.equal(applySimulationToDay(day, ["a", "tren"], result).spots[1].plannedStart, "23:30");
+});
+
+test("un paso sin campo planned se trata como parada sin hora", () => {
+    const day = { id: "dia", spots: [{ id: "a", plannedStart: "10:00" }, { id: "b" }] };
+    const applied = applySimulationToDay(day, ["a", "b"], {
+        start: 9 * 60,
+        steps: [{ spot: day.spots[1], start: 9 * 60 }, { spot: day.spots[0], start: 9 * 60 + 30 }],
+    });
+    assert.deepEqual(applied.spots.map((spot) => [spot.id, spot.plannedStart]), [["b", undefined], ["a", undefined]]);
 });

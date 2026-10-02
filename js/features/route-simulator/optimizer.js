@@ -73,12 +73,25 @@ export function outsideSchedule(start, duration, schedule) {
 // ni entre candidatos de salida, pero se recalculaban dentro del bucle mas
 // caliente: con ocho paradas eso son millones de parseos de "HH:MM" repetidos.
 // Se resuelven una vez y viajan por referencia.
+// A booked slot (fixedStart) needs an hour that parses; a flag without a
+// usable time is not a booking. Shared by the optimizer, the dialog and the
+// application so all three agree on what a reservation is.
+export function isReservationSpot(spot) {
+    return spot?.fixedStart === true && timeToMinutes(spot?.plannedStart) !== null;
+}
+
 function timingFacts(spots) {
-    return spots.map((spot) => ({
-        planned: timeToMinutes(spot.plannedStart),
-        duration: normalizedDuration(spot),
-        schedule: scheduleForSpot(spot),
-    }));
+    return spots.map((spot) => {
+        const planned = timeToMinutes(spot.plannedStart);
+        return {
+            planned,
+            // A booking is not an estimate: arriving late loses it. It
+            // outranks every other conflict in the score.
+            reserved: isReservationSpot(spot),
+            duration: normalizedDuration(spot),
+            schedule: scheduleForSpot(spot),
+        };
+    });
 }
 
 function addStartCandidate(candidates, value) {
@@ -117,6 +130,8 @@ export function simulateOrder(spots, order, travelMinutes, { fixedStart = null, 
     for (const start of Array.isArray(starts) ? starts : [starts]) {
         let clock = start;
         let travel = 0;
+        let reservationLateStops = 0;
+        let totalReservationLate = 0;
         let waiting = 0;
         let totalLate = 0;
         let maxLate = 0;
@@ -141,6 +156,11 @@ export function simulateOrder(spots, order, travelMinutes, { fixedStart = null, 
             const serviceStart = scheduledServiceStart(requestedStart, duration, schedule, planned !== null);
             const wait = Math.max(0, serviceStart - arrival);
             const late = planned === null ? 0 : Math.max(0, serviceStart - planned);
+            const reserved = !repeated && timing[spotIndex].reserved;
+            if (reserved && late > 0) {
+                reservationLateStops += 1;
+                totalReservationLate += late;
+            }
             const outside = outsideSchedule(serviceStart, duration, schedule);
             const finish = serviceStart + duration;
             waiting += wait;
@@ -167,6 +187,7 @@ export function simulateOrder(spots, order, travelMinutes, { fixedStart = null, 
                 finish,
                 duration,
                 repeated,
+                reserved,
                 schedule,
                 outsideSchedule: outside.outside,
                 outsideMinutes: outside.minutes,
@@ -175,6 +196,8 @@ export function simulateOrder(spots, order, travelMinutes, { fixedStart = null, 
             clock = finish;
         });
         const score = [
+            reservationLateStops,
+            totalReservationLate,
             scheduleConflictStops,
             totalScheduleConflict,
             maxScheduleConflict,
@@ -208,6 +231,8 @@ export function simulateOrder(spots, order, travelMinutes, { fixedStart = null, 
                 travel,
                 waiting,
                 visit: steps.reduce((sum, step) => sum + step.duration, 0),
+                reservationLateStops,
+                totalReservationLate,
                 lateStops,
                 totalLate,
                 maxLate,

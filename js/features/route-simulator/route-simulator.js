@@ -22,9 +22,14 @@ import {
     simulatorLegKey,
     visitedLockedStops,
 } from "./legs.js";
-import { formatSimulationTime, optimizeRoute } from "./optimizer.js";
+import { formatSimulationTime, isReservationSpot, optimizeRoute } from "./optimizer.js";
 import { mountRouteMap, routeMapMarkup } from "./route-map.js";
-import { applySimulationToDay, simulationDayFingerprint } from "./application.js";
+import {
+    applySimulationToDay,
+    lateReservations,
+    overnightAppointments,
+    simulationDayFingerprint,
+} from "./application.js";
 
 const dialog = $("#routeSimulatorDialog");
 const form = $("#routeSimulatorForm");
@@ -170,10 +175,15 @@ function renderSpotEditor(spotId) {
             <div class="route-simulator-editor-heading"><span>No disponible</span><h4>${esc(spot.name || "Parada sin nombre")}</h4><p>${esc(issue)} y no puede participar en el cálculo.</p></div>`;
         return;
     }
+    // A booking is a fact of the itinerary, not a what-if: applying keeps its
+    // stored hour, so letting the dialog move it would simulate a day that
+    // can never be applied.
+    const reservation = isReservationSpot(spot);
     spotEditorEl.innerHTML = `<div class="route-simulator-section-title"><span>03</span><div><strong>Ajusta una parada</strong><small>Solo dentro de esta simulación.</small></div></div>
         <div class="route-simulator-editor-heading"><span>Parada seleccionada</span><h4>${esc(spot.name || "Parada sin nombre")}</h4><p>${esc(spotTimingLabel(spot))}</p></div>
         <div class="route-simulator-editor-fields${selected ? "" : " is-disabled"}">
-            <label class="route-simulator-editor-time"><span>Inicio planificado</span><input type="time" data-simulator-editor-time value="${esc(timeControl.value)}"${selected ? "" : " disabled"} /></label>
+            <label class="route-simulator-editor-time"><span>${reservation ? "Reserva con hora fija" : "Inicio planificado"}</span><input type="time" data-simulator-editor-time value="${esc(timeControl.value)}"${selected && !reservation ? "" : " disabled"} /></label>
+            ${reservation ? "<p>La hora de una reserva solo se cambia desde el itinerario. La simulación la respeta como prioridad máxima.</p>" : ""}
             <fieldset${selected ? "" : " disabled"}><legend>Posición en la ruta</legend><div class="route-simulator-position-options">${POSITION_OPTIONS.map(([value, label]) => `<label><input type="radio" name="routeSimulatorEditorPosition" value="${value}"${positionControl.value === value ? " checked" : ""} /><span>${label}</span></label>`).join("")}</div></fieldset>
             ${selected ? "" : "<p>Activa esta parada para poder ajustar sus condiciones.</p>"}
         </div>`;
@@ -333,11 +343,17 @@ function savingsMarkup(result, baseline) {
     const elapsedSaved = elapsedBefore - elapsedNow;
     const latenessSaved = baseline.metrics.totalLate - result.metrics.totalLate;
     const scheduleConflictsSaved = baseline.metrics.scheduleConflictStops - result.metrics.scheduleConflictStops;
+    // The optimizer ranks bookings above everything else, so the verdict must
+    // too: rescuing one is an improvement even if the day grows or an
+    // estimate slips.
+    const reservationsSaved = baseline.metrics.reservationLateStops - result.metrics.reservationLateStops;
     const state = elapsedSaved > 0 ? "saving" : elapsedSaved < 0 ? "cost" : "same";
     const headline = elapsedSaved > 0
         ? `${elapsedSaved} min ahorrados`
         : elapsedSaved < 0 ? `${Math.abs(elapsedSaved)} min más de jornada` : "Misma duración de jornada";
-    const detail = elapsedSaved < 0 && scheduleConflictsSaved > 0
+    const detail = reservationsSaved > 0
+        ? `Llega a tiempo a ${reservationsSaved} ${reservationsSaved === 1 ? "reserva" : "reservas"} que el itinerario actual no alcanza.`
+        : elapsedSaved < 0 && scheduleConflictsSaved > 0
         ? `La propuesta alarga la jornada para evitar ${scheduleConflictsSaved} ${scheduleConflictsSaved === 1 ? "conflicto horario" : "conflictos horarios"}.`
         : elapsedSaved < 0 && latenessSaved > 0
             ? `La propuesta alarga la jornada para reducir el retraso acumulado en ${latenessSaved} min.`
@@ -346,7 +362,7 @@ function savingsMarkup(result, baseline) {
             : travelSaved > 0 ? `Reduce el tiempo de trayecto en ${travelSaved} min.`
             : travelSaved < 0 ? `Emplea ${Math.abs(travelSaved)} min más de trayecto.`
                 : "El tiempo de trayecto no cambia.";
-    const conclusion = scheduleConflictsSaved > 0 || latenessSaved > 0
+    const conclusion = reservationsSaved > 0 || scheduleConflictsSaved > 0 || latenessSaved > 0
         ? "Mejora el encaje del día"
         : elapsedSaved > 0 ? "La propuesta sí mejora la ruta"
             : elapsedSaved < 0 ? "La ruta actual sigue siendo más corta"
@@ -373,14 +389,23 @@ function renderResult(result, {
     establishedLegs,
     departureLegs,
     visitedStops,
+    unsimulatedStops,
+    blockedOvernight,
     preserveScroll = false,
 }) {
     unmountRouteMap?.();
     unmountRouteMap = null;
     const previousScroll = resultEl.scrollTop;
-    const delayed = result.metrics.lateStops > 0;
+    // Late bookings get their own notice; this one counts only the estimates.
+    const softLateStops = result.metrics.lateStops - result.metrics.reservationLateStops;
+    const softLate = result.metrics.totalLate - result.metrics.totalReservationLate;
+    const delayed = softLateStops > 0;
     const outsideHours = result.metrics.outsideStops > 0;
     const notices = [];
+    const lateBookings = lateReservations(result);
+    if (lateBookings.length) notices.push(`<div class="route-simulator-notice is-late"><span aria-hidden="true">!</span><p><strong>${lateBookings.length} ${lateBookings.length === 1 ? "reserva no se alcanza" : "reservas no se alcanzan"} a tiempo</strong>${esc(lateBookings.map((step) => `${step.spot.name || "Parada sin nombre"} (+${step.late} min)`).join(", "))}. El mejor orden encontrado no llega a tiempo con las condiciones indicadas. Si aplicas la propuesta, la reserva conserva su hora y el itinerario mostrará el conflicto.</p></div>`);
+    if (blockedOvernight.length) notices.push(`<div class="route-simulator-notice is-late"><span aria-hidden="true">☾</span><p><strong>La propuesta pasa de medianoche</strong>${esc(blockedOvernight.map((step) => step.spot.name || "Parada sin nombre").join(", "))} ${blockedOvernight.length === 1 ? "empezaría" : "empezarían"} al día siguiente, y esa hora no se puede guardar en este día. Ajusta la selección o la hora de salida para poder aplicarla.</p></div>`);
+    if (unsimulatedStops.length) notices.push(`<div class="route-simulator-notice is-warning"><span aria-hidden="true">!</span><p><strong>${unsimulatedStops.length} ${unsimulatedStops.length === 1 ? "parada del día no entra" : "paradas del día no entran"} en el cálculo</strong>${esc(unsimulatedStops.join(", "))} ${unsimulatedStops.length === 1 ? "conserva" : "conservan"} su hueco en el itinerario, pero su visita y sus trayectos no se han contado. Al aplicar, el itinerario recalculará las horas con ${unsimulatedStops.length === 1 ? "ella" : "ellas"} y pueden quedar más tarde que en esta propuesta.</p></div>`);
     if (missingDurations.length) notices.push(`<div class="route-simulator-notice is-warning"><span aria-hidden="true">!</span><p><strong>Duración asumida: 0 minutos</strong>${esc(missingDurations.join(", "))} no ${missingDurations.length === 1 ? "tiene" : "tienen"} duración definida.</p></div>`);
     if (approximate) notices.push('<div class="route-simulator-notice"><span aria-hidden="true">≈</span><p><strong>Ruta aproximada</strong>No se pudo medir algún trayecto por calles; se estimó por distancia geográfica.</p></div>');
     if (outsideHours) notices.push(`<div class="route-simulator-notice is-late"><span aria-hidden="true">!</span><p><strong>${result.metrics.outsideStops} ${result.metrics.outsideStops === 1 ? "parada queda" : "paradas quedan"} fuera de horario</strong>${result.metrics.totalOutside ? `La visita acumula ${result.metrics.totalOutside} minutos fuera de su ventana de apertura.` : "No se ha encontrado un orden que encaje en todas las ventanas de apertura."}</p></div>`);
@@ -400,7 +425,7 @@ function renderResult(result, {
             ? `No se ha podido conservar ${esc(brokenVisited.map((stop) => stop.name).join(", "))} en su posición original, porque choca con una parada que has fijado a mano. Revisa ese orden: la simulación no puede deshacer una visita que ya has hecho.`
             : `${esc(names)} ${visitedStops.length === 1 ? "conserva su posición" : "conservan su posición"}: la simulación no reordena lo que ya has hecho y busca el ahorro en el resto del día.`}</p></div>`);
     }
-    if (delayed) notices.push(`<div class="route-simulator-notice is-late"><span aria-hidden="true">!</span><p><strong>${result.metrics.lateStops} ${result.metrics.lateStops === 1 ? "cita queda" : "citas quedan"} con retraso</strong>El mejor orden encontrado acumula ${result.metrics.totalLate} minutos de retraso.</p></div>`);
+    if (delayed) notices.push(`<div class="route-simulator-notice is-late"><span aria-hidden="true">!</span><p><strong>${softLateStops} ${softLateStops === 1 ? "cita queda" : "citas quedan"} con retraso</strong>El mejor orden encontrado acumula ${softLate} minutos de retraso.</p></div>`);
     const fixedPositions = new Set(fixedSpotIndexes);
     const fixedSummary = [
         firstSpotIndex !== null ? `Salida fijada en ${result.steps[0].spot.name || "la primera parada"}.` : "",
@@ -479,10 +504,10 @@ function renderResult(result, {
         <section class="route-simulator-result-actions" aria-labelledby="routeSimulatorDecisionTitle">
             <div class="route-simulator-decision-copy">
                 <div class="route-simulator-story-heading"><span>05</span><div><small>Decisión final</small><h4 id="routeSimulatorDecisionTitle">La propuesta aún no ha cambiado tu viaje</h4></div></div>
-                <p>Al aplicarla se actualizarán el orden, el inicio del día y los primeros horarios calculados. Las paradas no seleccionadas conservarán su posición relativa.</p>
+                <p>Al aplicarla se actualizarán el orden y el inicio del día. Solo las paradas con hora indicada guardan la hora calculada; las reservas conservan la suya y el itinerario recalculará las demás con sus propios trayectos, así que pueden variar algunos minutos respecto a esta propuesta. Las paradas no seleccionadas conservarán su posición relativa.</p>
                 <small>Los tiempos de trayecto editados aquí son hipótesis y no se guardarán. Podrás deshacer el cambio como una sola acción.</small>
             </div>
-            ${store.readOnly ? readOnlyDecision : '<button class="route-simulator-apply" type="button" data-simulator-apply><span aria-hidden="true">✓</span><span><strong>Aplicar simulación</strong><small>Revisar y confirmar cambios</small></span></button>'}
+            ${store.readOnly ? readOnlyDecision : `<button class="route-simulator-apply" type="button" data-simulator-apply${blockedOvernight.length ? " disabled" : ""}><span aria-hidden="true">✓</span><span><strong>Aplicar simulación</strong><small>${blockedOvernight.length ? "No aplicable: pasa de medianoche" : "Revisar y confirmar cambios"}</small></span></button>`}
         </section>
     </div>`;
     resultEl.scrollTop = preserveScroll ? previousScroll : 0;
@@ -507,6 +532,7 @@ function recalculateActiveSimulation({ preserveScroll = true } = {}) {
         establishedLegs,
         departureLegs,
         visitedStops,
+        unsimulatedStops,
         baseline,
     } = activeSimulation;
     // The optimizer sees one set of locked positions; the result summary keeps
@@ -533,6 +559,8 @@ function recalculateActiveSimulation({ preserveScroll = true } = {}) {
         establishedLegs,
         departureLegs,
         visitedStops,
+        unsimulatedStops,
+        blockedOvernight: overnightAppointments(result),
         preserveScroll,
     });
 }
@@ -632,6 +660,28 @@ form.addEventListener("submit", async (event) => {
     unmountRouteMap = null;
     resultEl.innerHTML = '<div class="route-simulator-loading"><span aria-hidden="true"></span><strong>Midiendo trayectos y comparando órdenes</strong><p>Las aperturas, cierres y citas tienen prioridad sobre el ahorro de tiempo.</p></div>';
     statusEl.textContent = "Calculando la mejor ruta…";
+    try {
+        await calculateSimulation({ token, day, dayFingerprint, spots, sourceSpots, firstSpotIndex, lastSpotIndex, fixedSpotIndexes, fixedStart });
+    } catch (error) {
+        if (token !== calculationToken) return;
+        console.warn("No se pudo calcular la simulación.", error);
+        activeSimulation = null;
+        unmountRouteMap?.();
+        unmountRouteMap = null;
+        resultEl.innerHTML = "";
+        statusEl.textContent = "";
+        setPhase("setup");
+        errorEl.textContent = "No se pudo calcular la ruta. Revisa las paradas seleccionadas e inténtalo de nuevo.";
+    } finally {
+        // A superseded run must not touch the button: the run that replaced it
+        // owns the loading state now.
+        if (token === calculationToken) resetRunButton();
+    }
+});
+
+// Measures the day and runs the first optimization. Throws on any failure so
+// the submit handler can restore the dialog instead of spinning forever.
+async function calculateSimulation({ token, day, dayFingerprint, spots, sourceSpots, firstSpotIndex, lastSpotIndex, fixedSpotIndexes, fixedStart }) {
     const profile = ["walking", "driving", "cycling"].includes(store.routeProfile) ? store.routeProfile : "walking";
     // Warm the same route cache the planner reads before projecting the
     // established day, so "Antes" shows the hours the itinerary already shows
@@ -639,6 +689,8 @@ form.addEventListener("submit", async (event) => {
     await Promise.all([...travelProfilesForSpots(sourceSpots)]
         .map((mode) => ensureRouteTravelTimes(sourceSpots, mode)));
     const matrix = await fetchTravelMatrix(spots, profile);
+    // Superseded: whoever bumped the token (a new run, a day change, closing
+    // the dialog) already owns the button and the result panel.
     if (token !== calculationToken) return;
     const travelMinutes = matrix.minutes.map((row) => [...row]);
     // Pinned once: the comparison reference must not drift when the traveller
@@ -648,6 +700,12 @@ form.addEventListener("submit", async (event) => {
     const departureLegs = departureLockedLegs(baseline);
     const visitedStops = visitedLockedStops(baseline);
     const missingDurations = spots.filter((spot) => !isWaypoint(spot) && !(Number.isInteger(spot.visitMinutes) && spot.visitMinutes > 0)).map((spot) => spot.name || "Parada sin nombre");
+    // The timeline still projects every enabled stop the dialog left out, so
+    // their visits and legs will move the applied hours. Say so up front.
+    const selectedIds = new Set(sourceSpots.map((spot) => String(spot.id)));
+    const unsimulatedStops = day.spots
+        .filter((spot) => spotIsEnabled(spot) && !selectedIds.has(String(spot.id)))
+        .map((spot) => spot.name || "Parada sin nombre");
     activeSimulation = {
         dayId: day.id,
         dayFingerprint,
@@ -665,11 +723,11 @@ form.addEventListener("submit", async (event) => {
         establishedLegs,
         departureLegs,
         visitedStops,
+        unsimulatedStops,
         baseline,
     };
     recalculateActiveSimulation({ preserveScroll: false });
-    resetRunButton();
-});
+}
 
 function applicationPreview(simulation) {
     const beforeIds = simulation.selectedSpotIds;
@@ -677,6 +735,19 @@ function applicationPreview(simulation) {
         steps.findIndex((candidate) => String(candidate.spot.id) === String(step.spot.id)) === index);
     const afterIds = uniqueSteps.map((step) => String(step.spot.id));
     const moved = afterIds.filter((id, index) => id !== beforeIds[index]).length;
+    const lateBookings = lateReservations(simulation.result);
+    const warnings = [
+        ...(lateBookings.length ? [{
+            tone: "remove",
+            title: lateBookings.length === 1 ? "Reserva no alcanzable" : "Reservas no alcanzables",
+            detail: `${lateBookings.map((step) => step.spot.name || "Parada sin nombre").join(", ")} ${lateBookings.length === 1 ? "conserva su hora" : "conservan su hora"}, pero el orden propuesto llega tarde.`,
+        }] : []),
+        ...(simulation.unsimulatedStops.length ? [{
+            tone: "modify",
+            title: "Horas sujetas a recálculo",
+            detail: `${simulation.unsimulatedStops.join(", ")} no ${simulation.unsimulatedStops.length === 1 ? "entra" : "entran"} en el cálculo y desplazará${simulation.unsimulatedStops.length === 1 ? "" : "n"} las horas del itinerario.`,
+        }] : []),
+    ];
     return {
         stats: [
             { value: afterIds.length, label: "paradas", tone: "modify" },
@@ -687,8 +758,9 @@ function applicationPreview(simulation) {
             {
                 tone: "modify",
                 title: "Orden y horarios del día",
-                detail: "Se aplicarán el orden propuesto, la hora de inicio del día y el primer inicio calculado de cada parada seleccionada.",
+                detail: "Se aplicarán el orden propuesto y la hora de inicio del día. Solo las paradas con hora indicada guardan la hora calculada; las reservas conservan la suya.",
             },
+            ...warnings,
             {
                 tone: "modify",
                 title: "Paradas no seleccionadas",
@@ -739,6 +811,10 @@ async function applyActiveSimulation() {
         dialog.close();
         toast("Simulación aplicada. Puedes deshacer el cambio desde el historial.", "success");
     } catch (error) {
+        if (error?.message === "SIMULATION_RESULT_OVERNIGHT") {
+            toast("La propuesta pasa de medianoche y no se puede guardar en este día.", "error");
+            return;
+        }
         const stale = error?.message === "SIMULATION_RESULT_STALE"
             || error?.code === "REVISION_CONFLICT"
             || error?.code === "TARGET_CONFLICT";
