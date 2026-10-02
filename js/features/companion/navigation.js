@@ -80,3 +80,38 @@ export function preferredHeading(position, deviceHeading) {
     return normalizeDegrees(deviceHeading);
 }
 
+
+// Google Maps understands only these four travel modes; public transport legs
+// map to "transit" and anything else lets Maps pick.
+const DIRECTIONS_TRAVEL_MODES = Object.freeze({
+    walking: "walking",
+    driving: "driving",
+    cycling: "bicycling",
+    bus: "transit",
+    train: "transit",
+    metro: "transit",
+    ferry: "transit",
+});
+
+export function directionsUrl(spot, mode = null) {
+    if (!validCoordinatePair(spot?.lat, spot?.lng)) return null;
+    const params = new URLSearchParams({
+        api: "1",
+        destination: `${spot.lat},${spot.lng}`,
+    });
+    const travelMode = DIRECTIONS_TRAVEL_MODES[mode];
+    if (travelMode) params.set("travelmode", travelMode);
+    return `https://www.google.com/maps/dir/?${params}`;
+}
+
+export const TRAVEL_MODE_ICONS = Object.freeze({
+    walking: "🚶",
+    driving: "🚗",
+    cycling: "🚲",
+    bus: "🚌",
+    train: "🚆",
+    metro: "🚇",
+    ferry: "⛴️",
+    flight: "✈️",
+    other: "➜",
+});

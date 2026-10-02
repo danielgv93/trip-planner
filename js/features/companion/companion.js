@@ -12,13 +12,17 @@ import { render } from "../planner/render.js";
 import {
     drawMap,
     invalidateMainMap,
-    mapsLinkFor,
 } from "../map/map.js";
-import { createTimelineView } from "../timeline/timeline.js";
 import { resolveTravelForLeg } from "../timeline/travel-resolver.js";
 import { registerBasemapMap } from "../map/basemap.js";
 import { derivedPlanOperation, setFieldIntent } from "../../core/plan-operation-commit.js";
-import { timeToMinutes } from "../../core/time.js";
+import { timeToMinutes, minutesToTime } from "../../core/time.js";
+import {
+    buildDayForecast,
+    formatDurationMinutes,
+    visitLegs,
+    departureCue,
+} from "./day-forecast.js";
 import {
     localDateKey,
     normalizeDegrees,
@@ -28,7 +32,10 @@ import {
     formatApproxDistance,
     orientationHeadingFromEvent,
     preferredHeading,
+    directionsUrl,
+    TRAVEL_MODE_ICONS,
 } from "./navigation.js";
+import { TRAVEL_MODE_LABELS } from "../../core/travel-leg-presentation.js";
 
 export {
     localDateKey,
@@ -52,14 +59,6 @@ let companionPosition = null;
 let locationIntent = false;
 let locationStatus = "idle";
 let watchId = null;
-let orientationHeading = null;
-let orientationListening = false;
-let orientationEventName = null;
-let orientationPermission = "unknown";
-let compassFrame = null;
-let pendingCompassAngle = null;
-let displayedCompassAngle = null;
-let compassTargetId = null;
 let mappedDayId = null;
 let mapNeedsStopFit = true;
 let didInitialCenter = false;
@@ -67,8 +66,17 @@ let wakeLock = null;
 let wakeLockIntent = false;
 let wakeLockStatus = "idle";
 let wakeLockRequestToken = 0;
-let simulatedDelayMinutes = 0;
-let timelineClock = null;
+let minuteClock = null;
+let lastRenderedMinute = null;
+let companionMarkers = new Map();
+let expandedNoteKey = null;
+let lastVisitChange = null;
+let undoTimer = null;
+let dockObserver = null;
+let heroVisible = true;
+let mapReturnFocus = null;
+
+const UNDO_WINDOW_MS = 12000;
 
 const LOCATION_OPTIONS = {
     enableHighAccuracy: true,
@@ -215,14 +223,12 @@ export async function releaseCompanionWakeLock({ preserveIntent = false } = {}) 
 function updateLocationControls() {
     const status = $("#companionLocationStatus");
     const button = $("#companionLocationBtn");
-    const container = button.closest(".companion-location");
     const available = Boolean(geolocationApi());
     status.textContent = LOCATION_COPY[locationStatus];
     status.dataset.state = locationStatus;
 
     const pending = locationStatus === "requesting";
     const active = locationStatus === "active";
-    container.classList.toggle("is-active", active);
     button.disabled = !available || pending;
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-pressed", String(active));
@@ -235,12 +241,11 @@ function updateLocationControls() {
             : "Reintentar ubicación";
     const icon = !available
         ? "×"
-        : active
-          ? "■"
-          : locationStatus === "idle"
+        : active || locationStatus === "idle"
             ? "⌖"
             : "↻";
     const iconNode = document.createElement("span");
+    iconNode.className = "companion-tool-icon";
     iconNode.setAttribute("aria-hidden", "true");
     iconNode.textContent = icon;
     button.replaceChildren(iconNode);
@@ -261,6 +266,31 @@ function stringValue(value, fallback = "") {
 
 export function validVisitedAt(value) {
     return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+function spotName(spot) {
+    return stringValue(spot?.name).trim() || "Parada sin nombre";
+}
+
+function clockLabel(minutes) {
+    return minutesToTime(minutes, { wrap: true });
+}
+
+function visitedClock(spot) {
+    if (!validVisitedAt(spot?.visitedAt)) return "";
+    const date = new Date(spot.visitedAt);
+    return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+// Travel mode of the leg that reaches a stop, so "Cómo llegar" opens Maps in
+// the mode the plan expects (walking, transit, driving...).
+function incomingMode(spot) {
+    const day = selectedDay();
+    const enabled = enabledStops(day);
+    const index = enabled.indexOf(spot);
+    if (index <= 0) return null;
+    const from = enabled[index - 1];
+    return travelLeg(from.id, spot.id)?.mode || resolveTravelForLeg(from, spot)?.profile || null;
 }
 
 export function enabledStops(day) {
@@ -339,6 +369,14 @@ function ensureCompanionMap() {
     registerBasemapMap(companionMap);
     companionStopLayer = L.layerGroup().addTo(companionMap);
     companionPositionLayer = L.layerGroup().addTo(companionMap);
+    // The map card changes size with the sticky desktop layout, rotations and
+    // the mobile dock; Leaflet only repaints missing tiles when told.
+    if (typeof ResizeObserver === "function") {
+        new ResizeObserver(() => {
+            if (companionActive && companionMap)
+                companionMap.invalidateSize({ pan: false, animate: false });
+        }).observe(mapElement);
+    }
     return true;
 }
 
@@ -353,18 +391,26 @@ function stopMarkerIcon(number, state) {
     });
 }
 
-function stopPopup(spot, state) {
-    const name = esc(
-        stringValue(spot.name, "Parada sin nombre") || "Parada sin nombre",
-    );
-    const detail = stringValue(spot.note || spot.address).trim();
+function stopPopup(spot, state, number) {
+    const name = esc(spotName(spot));
+    const detail = stringValue(spot.address || spot.note).trim();
     const label =
         state === "visited"
-            ? "Visitada"
+            ? `Visitada${visitedClock(spot) ? ` a las ${visitedClock(spot)}` : ""}`
             : state === "next"
               ? "Siguiente parada"
               : "Pendiente";
-    return `<b>${name}</b><br><small class="companion-map-popup-state">${label}</small>${detail ? `<br><small>${esc(detail)}</small>` : ""}`;
+    const link = directionsUrl(spot, incomingMode(spot));
+    const spotId = esc(String(spot.id));
+    const actions = [
+        link
+            ? `<a class="companion-popup-link" href="${esc(link)}" target="_blank" rel="noopener">Cómo llegar <span aria-hidden="true">↗</span></a>`
+            : "",
+        state !== "visited" && !store.readOnly
+            ? `<button class="companion-popup-visit" type="button" data-companion-action="toggle-visit" data-spot-id="${spotId}"><span aria-hidden="true">✓</span> Visitada</button>`
+            : "",
+    ].join("");
+    return `<div class="companion-popup"><small class="companion-map-popup-state">${number}. ${label}</small><b>${name}</b>${detail ? `<small>${esc(detail)}</small>` : ""}${actions ? `<div class="companion-popup-actions">${actions}</div>` : ""}</div>`;
 }
 
 function fitStopPoints(points) {
@@ -385,7 +431,7 @@ function nextLocatedStop() {
 }
 
 function centerOnPositionAndNext() {
-    if (!companionMap || !companionPosition || didInitialCenter) return;
+    if (!companionMap || !companionPosition || didInitialCenter || !mapContainerIsVisible()) return;
     const positionPoint = [companionPosition.lat, companionPosition.lng];
     const next = nextLocatedStop();
     if (next) {
@@ -444,188 +490,25 @@ function reducedMotionPreferred() {
     return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 }
 
-function shortestAngleDelta(from, to) {
-    return ((to - from + 540) % 360) - 180;
-}
-
-function scheduleCompassRotation(angle) {
-    const normalized = normalizeDegrees(angle);
-    if (normalized === null) return;
-    pendingCompassAngle = normalized;
-    if (compassFrame !== null) return;
-    compassFrame = requestAnimationFrame(() => {
-        compassFrame = null;
-        const arrow = $("#companionCompassArrow");
-        if (!arrow || pendingCompassAngle === null) return;
-        if (displayedCompassAngle === null || reducedMotionPreferred()) {
-            displayedCompassAngle = pendingCompassAngle;
-        } else {
-            displayedCompassAngle +=
-                shortestAngleDelta(displayedCompassAngle, pendingCompassAngle);
-        }
-        arrow.style.transform = `rotate(${displayedCompassAngle}deg)`;
-    });
-}
-
-function resetCompassAnimation(targetId = null) {
-    if (compassFrame !== null) cancelAnimationFrame(compassFrame);
-    compassFrame = null;
-    pendingCompassAngle = null;
-    displayedCompassAngle = null;
-    compassTargetId = targetId;
-}
-
+// Straight-line distance to the next stop, only while location is active.
+// Being close highlights the visit button as a gentle nudge.
 function updateNavigationUi() {
     const next = nextLocatedStop();
-    const panel = $("#companionCompassPanel");
-    if (!panel || !next) {
-        if (compassTargetId !== null) resetCompassAnimation();
-        return;
-    }
-
-    const targetId = String(next.id);
-    if (compassTargetId !== targetId) resetCompassAnimation(targetId);
-
-    const distanceNode = $("#companionDistanceText");
-    const directionNode = $("#companionDirectionText");
-    const proximityNode = $("#companionProximity");
-    const visitButton = panel
-        .closest("#companionNextStop")
-        ?.querySelector(".companion-visit-action");
-    const distance = companionPosition
-        ? haversineMeters(
-              companionPosition.lat,
-              companionPosition.lng,
-              next.lat,
-              next.lng,
-          )
+    const distanceNode = $("#companionDistance");
+    const visitButton = $("#companionNextStop .companion-visit-action");
+    const distance = next && companionPosition
+        ? haversineMeters(companionPosition.lat, companionPosition.lng, next.lat, next.lng)
         : null;
-    const bearing = companionPosition
-        ? initialBearingDegrees(
-              companionPosition.lat,
-              companionPosition.lng,
-              next.lat,
-              next.lng,
-          )
-        : null;
-
-    if (distance === null || bearing === null) {
-        resetCompassAnimation(targetId);
-        const arrow = $("#companionCompassArrow");
-        if (arrow) arrow.style.transform = "rotate(0deg)";
-        distanceNode.textContent =
-            "Activa tu ubicación para calcular la distancia aproximada.";
-        directionNode.textContent = "Dirección pendiente de ubicación.";
-        proximityNode.hidden = true;
-        visitButton?.classList.remove("is-near");
-        visitButton?.removeAttribute("aria-describedby");
-        return;
+    if (distanceNode) {
+        distanceNode.hidden = !Number.isFinite(distance);
+        distanceNode.textContent = Number.isFinite(distance)
+            ? `a ${formatApproxDistance(distance)}`
+            : "";
     }
-
-    const cardinal = cardinalLabel(bearing);
-    const deviceHeading = preferredHeading(
-        companionPosition,
-        orientationHeading,
-    );
-    const arrowAngle =
-        deviceHeading === null
-            ? bearing
-            : normalizeDegrees(bearing - deviceHeading);
-    distanceNode.textContent = `Distancia aproximada en línea recta: ${formatApproxDistance(distance)}.`;
-    directionNode.textContent =
-        deviceHeading === null
-            ? `Dirección ${cardinal} (referencia norte).`
-            : `Dirección ${cardinal}, brújula orientada al dispositivo.`;
-    scheduleCompassRotation(arrowAngle);
-
-    const isNear =
+    const isNear = Number.isFinite(distance) &&
         distance <= 100 &&
-        Number.isFinite(companionPosition.accuracy) &&
         companionPosition.accuracy <= 100;
-    proximityNode.hidden = !isNear;
     visitButton?.classList.toggle("is-near", isNear);
-    if (isNear) visitButton?.setAttribute("aria-describedby", "companionProximity");
-    else visitButton?.removeAttribute("aria-describedby");
-}
-
-function handleOrientation(event) {
-    if (!companionActive || !locationIntent || document.hidden) return;
-    const heading = orientationHeadingFromEvent(event);
-    if (heading === null) return;
-    orientationHeading = heading;
-    updateNavigationUi();
-}
-
-function orientationApi() {
-    try {
-        return window.DeviceOrientationEvent || null;
-    } catch {
-        return null;
-    }
-}
-
-function attachOrientationListener() {
-    if (orientationListening || document.hidden || !companionActive) return;
-    const api = orientationApi();
-    if (!api) return;
-    const needsPermission = typeof api.requestPermission === "function";
-    if (needsPermission && orientationPermission !== "granted") return;
-    orientationEventName =
-        !needsPermission && "ondeviceorientationabsolute" in window
-            ? "deviceorientationabsolute"
-            : "deviceorientation";
-    window.addEventListener(orientationEventName, handleOrientation);
-    orientationListening = true;
-}
-
-function startOrientation() {
-    const api = orientationApi();
-    if (!api) return;
-    if (typeof api.requestPermission !== "function") {
-        orientationPermission = "not-required";
-        attachOrientationListener();
-        return;
-    }
-    if (orientationPermission === "granted") {
-        attachOrientationListener();
-        return;
-    }
-    if (
-        orientationPermission === "denied" ||
-        orientationPermission === "requesting"
-    )
-        return;
-
-    orientationPermission = "requesting";
-    try {
-        Promise.resolve(api.requestPermission())
-            .then((result) => {
-                orientationPermission =
-                    result === "granted" ? "granted" : "denied";
-                if (
-                    orientationPermission === "granted" &&
-                    companionActive &&
-                    locationIntent &&
-                    !document.hidden
-                )
-                    attachOrientationListener();
-            })
-            .catch(() => {
-                orientationPermission = "denied";
-            });
-    } catch {
-        orientationPermission = "denied";
-    }
-}
-
-function stopOrientation() {
-    if (orientationListening && orientationEventName)
-        window.removeEventListener(orientationEventName, handleOrientation);
-    orientationListening = false;
-    orientationEventName = null;
-    orientationHeading = null;
-    resetCompassAnimation(compassTargetId);
-    updateNavigationUi();
 }
 
 function updateAccuracy() {
@@ -734,7 +617,7 @@ function handleLocationError(error) {
     }
     clearLocationWatch();
     clearCompanionPosition();
-    stopOrientation();
+    updateNavigationUi();
     const code = Number(error?.code);
     if (code === 1) {
         locationIntent = false;
@@ -757,7 +640,6 @@ export function startLocation() {
     }
     if (!companionActive || document.hidden) return false;
     locationIntent = true;
-    startOrientation();
     if (watchId !== null) return true;
 
     setLocationStatus("requesting");
@@ -781,7 +663,7 @@ export function startLocation() {
         return true;
     } catch {
         watchId = null;
-        stopOrientation();
+        updateNavigationUi();
         setLocationStatus("error");
         return false;
     }
@@ -791,7 +673,7 @@ export function stopLocation({ preserveIntent = false } = {}) {
     clearLocationWatch();
     if (!preserveIntent) locationIntent = false;
     clearCompanionPosition({ resetCenter: !preserveIntent });
-    stopOrientation();
+    updateNavigationUi();
     if (preserveIntent) {
         locationStatus = "idle";
         $("#companionLocationStatus").textContent =
@@ -813,8 +695,20 @@ function recenterCompanionMap() {
     didInitialCenter = true;
 }
 
+function fitCompanionStops() {
+    if (!ensureCompanionMap()) return;
+    const points = enabledStops(selectedDay())
+        .filter(locatedSpot)
+        .map((spot) => [spot.lat, spot.lng]);
+    if (companionPosition) points.push([companionPosition.lat, companionPosition.lng]);
+    fitStopPoints(points);
+    didInitialCenter = true;
+}
+
 export function drawCompanionMap() {
-    if (!ensureCompanionMap()) return false;
+    // Fitting a hidden (0×0) map zooms it out to the world; the sheet redraws
+    // and reframes the day when it opens.
+    if (!ensureCompanionMap() || !mapContainerIsVisible()) return false;
 
     const day = selectedDay();
     const dayChanged = mappedDayId !== day?.id;
@@ -827,33 +721,40 @@ export function drawCompanionMap() {
     }
 
     companionStopLayer.clearLayers();
+    companionMarkers = new Map();
     const enabled = enabledStops(day);
     const next = nextUnvisitedStop(day);
     const located = enabled.filter(locatedSpot);
     const points = located.map((spot) => [spot.lat, spot.lng]);
 
-    // A direct, synchronous line communicates itinerary order without sharing
-    // the main map's OSRM requests, cache, instance, or route layers.
-    if (points.length > 1) {
-        L.polyline(points, {
-            color: "#6c7479",
-            weight: 2,
-            opacity: 0.65,
-            dashArray: "5 7",
+    // Direct, synchronous segments communicate order and progress without
+    // sharing the main map's OSRM requests, cache, instance, or route layers:
+    // walked legs are solid, the leg towards the next stop is highlighted.
+    located.slice(1).forEach((spot, index) => {
+        const from = located[index];
+        const done = validVisitedAt(spot.visitedAt);
+        const active = spot === next;
+        L.polyline([[from.lat, from.lng], [spot.lat, spot.lng]], {
+            color: done ? "#386f66" : active ? "#b4352d" : "#6c7479",
+            weight: done || active ? 4 : 2.5,
+            opacity: done ? 0.75 : active ? 0.9 : 0.55,
+            dashArray: done ? null : active ? "8 8" : "4 8",
             interactive: false,
         }).addTo(companionStopLayer);
-    }
+    });
 
     located.forEach((spot) => {
         const visited = validVisitedAt(spot.visitedAt);
         const state = visited ? "visited" : spot === next ? "next" : "remaining";
         const number = enabled.indexOf(spot) + 1;
-        L.marker([spot.lat, spot.lng], {
+        const marker = L.marker([spot.lat, spot.lng], {
             icon: stopMarkerIcon(number, state),
-            title: stringValue(spot.name, "Parada sin nombre"),
+            title: spotName(spot),
+            zIndexOffset: state === "next" ? 1000 : visited ? -100 : 0,
         })
             .addTo(companionStopLayer)
-            .bindPopup(stopPopup(spot, state));
+            .bindPopup(stopPopup(spot, state, number));
+        companionMarkers.set(String(spot.id), marker);
     });
 
     drawCompanionPosition();
@@ -873,10 +774,21 @@ function revealCompanionMap() {
     });
 }
 
+function announce(message) {
+    $("#companionVisitStatus").textContent = message;
+}
+
+function clearUndo() {
+    clearTimeout(undoTimer);
+    undoTimer = null;
+    lastVisitChange = null;
+}
+
 export function toggleVisit(spotId, checked) {
     const day = selectedDay();
     const spot = day?.spots.find((candidate) => String(candidate.id) === spotId);
     if (!spot || !spotIsEnabled(spot)) return false;
+    const name = spotName(spot);
 
     const visitedAt = checked ? new Date().toISOString() : undefined;
     void derivedPlanOperation((document) => setFieldIntent(
@@ -885,30 +797,31 @@ export function toggleVisit(spotId, checked) {
         visitedAt,
         { remove: !checked },
     )).then(() => {
+        clearUndo();
+        if (checked) {
+            lastVisitChange = { spotId, name };
+            undoTimer = setTimeout(() => {
+                if (lastVisitChange?.spotId !== spotId) return;
+                lastVisitChange = null;
+                if (companionActive) renderCompanion();
+            }, UNDO_WINDOW_MS);
+        }
         renderCompanion();
+        // Completing a stop changes the navigation target. Frame the user and
+        // the new next stop together instead of leaving the map on the old one.
         didInitialCenter = false;
-        drawCompanionMap();
+        if (companionMap) drawCompanionMap();
         const updatedDay = selectedDay();
         const { completed, total } = visitProgress(updatedDay);
         const next = nextUnvisitedStop(updatedDay);
-        requestAnimationFrame(() => {
-            const checkbox = [...companionView.querySelectorAll(
-                'input[data-companion-action="toggle-visit"]',
-            )].find((candidate) => candidate.dataset.spotId === spotId);
-            checkbox?.focus();
-            const status = $("#companionVisitStatus");
-            const mutation = checked
-                ? `${name} marcada como visitada.`
-                : `${name} vuelve a estar pendiente.`;
-            const nextMessage = next
-                ? ` Siguiente parada: ${stringValue(next.name, "Parada sin nombre") || "Parada sin nombre"}.`
-                : total ? " Día completado." : "";
-            status.textContent = `${mutation} Progreso: ${completed} de ${total}.${nextMessage}`;
-        });
+        const mutation = checked
+            ? `${name} marcada como visitada.`
+            : `${name} vuelve a estar pendiente.`;
+        const nextMessage = next
+            ? ` Siguiente parada: ${spotName(next)}.`
+            : total ? " Día completado." : "";
+        announce(`${mutation} Progreso: ${completed} de ${total}.${nextMessage}`);
     });
-    // Completing a stop changes the navigation target. Frame the user and the
-    // new next stop together instead of leaving the map on the old target.
-    const name = stringValue(spot.name, "Parada sin nombre") || "Parada sin nombre";
     return true;
 }
 
@@ -949,9 +862,28 @@ export function formatCompanionDate(value) {
         .replace(/\.$/, "");
 }
 
+
+function dayContextNotice(day) {
+    if (!day || day.date === localDateKey()) return "";
+    const selectedDate = esc(formatCompanionDate(day.date) || "este día");
+    const today = store.state.find((candidate) => candidate.date === localDateKey());
+    if (!today)
+        return `<p class="companion-today-notice">No hay un día planificado para hoy. Estás viendo ${selectedDate}.</p>`;
+    const todayTitle = esc(
+        stringValue(today.title, "Día sin título").trim() || "Día sin título",
+    );
+    return `<p class="companion-today-notice">Estás viendo ${selectedDate}. El itinerario de hoy es «${todayTitle}».</p>`;
+}
+
 function renderDaySelector(day) {
     const select = $("#companionDaySelect");
     select.replaceChildren();
+    const index = store.state.indexOf(day);
+    $("#companionPrevDay").disabled = index <= 0;
+    $("#companionNextDay").disabled = index === -1 || index >= store.state.length - 1;
+    $("#companionDayPosition").textContent = index === -1
+        ? "Elegir día"
+        : `Día ${index + 1} de ${store.state.length}`;
 
     if (!store.state.length) {
         const option = document.createElement("option");
@@ -975,156 +907,263 @@ function localMinutes(now = new Date()) {
     return now.getHours() * 60 + now.getMinutes();
 }
 
-function renderTimeline(day, next) {
-    const canvas = $("#companionTimelineCanvas");
-    const summary = $("#companionTimelineSummary");
-    const insight = $("#companionTimelineInsight");
-    const delayOutput = $("#companionDelayValue");
-    delayOutput.value = simulatedDelayMinutes ? `+${simulatedDelayMinutes} min` : "0 min";
-    const view = createTimelineView(day, {
-        delayMinutes: simulatedDelayMinutes,
-        nextSpot: next,
+function dayForecast(day) {
+    const stops = new Set(visitStops(day));
+    return buildDayForecast(day, {
         travelForLeg: resolveTravelForLeg,
+        isVisitStop: (spot) => stops.has(spot),
     });
-    summary.textContent = view.summary;
-    canvas.innerHTML = view.html;
-    canvas.setAttribute("aria-label", view.aria);
-    insight.hidden = view.empty;
-    insight.classList.toggle("is-warning", view.warning);
-    insight.textContent = view.insight;
 }
 
-export function scheduleCue(spot, now = new Date(), useCurrentTime = true) {
-    const opening = stringValue(spot?.openingTime);
-    const closing = stringValue(spot?.closingTime);
-    const openingMinutes = timeToMinutes(opening);
-    const closingMinutes = timeToMinutes(closing);
+function legSummary(leg) {
+    if (!leg) return "";
+    const icon = TRAVEL_MODE_ICONS[leg.mode] || TRAVEL_MODE_ICONS.other;
+    const label = leg.line || TRAVEL_MODE_LABELS[leg.mode] || TRAVEL_MODE_LABELS.other;
+    const minutes = leg.minutes > 0 && !leg.missingDuration
+        ? ` ${leg.approximate ? "~" : ""}${formatDurationMinutes(leg.minutes)}`
+        : "";
+    const departure = leg.departureTime ? `, sale ${leg.departureTime}` : "";
+    return `<span class="companion-leg"><span aria-hidden="true">${icon}</span> ${esc(label)}${esc(minutes)}${esc(departure)}</span>`;
+}
 
-    if (openingMinutes !== null && closingMinutes !== null) {
-        if (openingMinutes === 0 && closingMinutes === 0)
-            return "Abierto todo el día";
-        if (!useCurrentTime || openingMinutes >= closingMinutes)
-            return `Horario guardado: ${opening}–${closing}`;
-        const current = localMinutes(now);
-        if (current < openingMinutes) return `Abre a las ${opening}`;
-        if (current >= closingMinutes)
-            return `El horario guardado termina a las ${closing}`;
-        return `Horario guardado: ${opening}–${closing}`;
-    }
-    if (openingMinutes !== null) return `Horario guardado: desde ${opening}`;
-    if (closingMinutes !== null) return `Horario guardado: hasta ${closing}`;
+// Notes the traveller wrote for this moment (platform, entrance, what to
+// order). Long ones collapse to a few lines; the open one survives the
+// once-per-minute repaint.
+function noteMarkup(value, label, key) {
+    const text = stringValue(value).trim();
+    if (!text) return "";
+    const expanded = expandedNoteKey === key;
+    return `<button class="companion-note${expanded ? " is-expanded" : ""}" type="button" data-companion-action="toggle-note" data-note-key="${esc(key)}" aria-expanded="${expanded}"><span class="companion-note-label">${esc(label)}</span><span class="companion-note-text">${esc(text)}</span></button>`;
+}
+
+function undoMarkup() {
+    if (!lastVisitChange) return "";
+    return `<div class="companion-undo" role="status"><span><span aria-hidden="true">✓</span> ${esc(lastVisitChange.name)} hecha</span><button type="button" data-companion-action="undo-visit" data-spot-id="${esc(lastVisitChange.spotId)}">Deshacer</button></div>`;
+}
+
+function nextDayAfter(day) {
+    const index = store.state.indexOf(day);
+    return index === -1 ? null : store.state[index + 1] || null;
+}
+
+// One line, only when something is really at risk: a stop-specific problem
+// first (closing, reservation, departure), otherwise a meaningful delay.
+function heroAlert(forecast, next) {
+    const warning = forecast.warnings.find(
+        (candidate) => candidate.spot === next && candidate.type !== "tight",
+    );
+    if (warning) return warning.message;
+    if (forecast.pace.status === "late")
+        return `Vas con ${formatDurationMinutes(forecast.pace.minutes)} de retraso.`;
     return "";
 }
 
-function dayContextNotice(day) {
-    if (!day || day.date === localDateKey()) return "";
-    const selectedDate = esc(formatCompanionDate(day.date) || "este día");
-    const today = store.state.find((candidate) => candidate.date === localDateKey());
-    if (!today)
-        return `<p class="companion-today-notice">No hay un día planificado para hoy. Estás viendo ${selectedDate}.</p>`;
-    const todayTitle = esc(
-        stringValue(today.title, "Día sin título").trim() || "Día sin título",
-    );
-    return `<p class="companion-today-notice">Estás viendo ${selectedDate}. El itinerario de hoy es «${todayTitle}».</p>`;
-}
-
-function renderNextStop(day, next, total, completed) {
+function renderNextStop(day, forecast, progress) {
     const card = $("#companionNextStop");
+    const next = forecast?.current?.spot || nextUnvisitedStop(day);
     const notice = dayContextNotice(day);
-    card.classList.toggle("is-complete", Boolean(day && total > 0 && !next));
+    const complete = Boolean(day && progress.total > 0 && !next);
+    card.classList.toggle("is-complete", complete);
+    card.classList.toggle("is-empty", !day || progress.total === 0);
 
     if (!day) {
-        card.innerHTML = `<span class="companion-kicker">Itinerario</span><h3 id="companionNextTitle">Todavía no hay días planificados</h3><p>Añade un día y sus paradas desde el planificador.</p><button class="companion-plan-action" type="button" data-companion-action="exit">Volver al plan</button>`;
+        card.innerHTML = `<h3 id="companionNextTitle">Todavía no hay días planificados</h3><p>Añade un día y sus paradas desde el planificador.</p><div class="companion-next-actions"><button class="companion-secondary-action" type="button" data-companion-action="exit">Volver al plan</button></div>`;
         return;
     }
 
-    if (total === 0) {
-        card.innerHTML = `${notice}<span class="companion-kicker">Siguiente parada</span><h3 id="companionNextTitle">No hay paradas activas para este día</h3><p>Puedes activar o añadir paradas desde el planificador.</p>`;
+    if (progress.total === 0) {
+        card.innerHTML = `${notice}<h3 id="companionNextTitle">No hay paradas para este día</h3><p>Puedes añadirlas o activarlas desde el planificador.</p>`;
         return;
     }
 
-    if (!next) {
-        card.innerHTML = `${notice}<span class="companion-kicker">Día completado</span><h3 id="companionNextTitle">¡Has visitado todas las paradas!</h3><p>${completed} de ${total} paradas completadas. Puedes desmarcar una visita desde la lista si necesitas recuperarla.</p>`;
+    if (complete) {
+        const tomorrow = nextDayAfter(day);
+        const action = tomorrow
+            ? `<div class="companion-next-actions"><button class="companion-secondary-action" type="button" data-companion-action="select-day" data-day-id="${esc(String(tomorrow.id))}">Ver ${esc(stringValue(tomorrow.title).trim() || "el día siguiente")} <span aria-hidden="true">→</span></button></div>`
+            : "";
+        card.innerHTML = `${undoMarkup()}${notice}<span class="companion-kicker">Día completado</span><h3 id="companionNextTitle">¡Todo visto por hoy!</h3><p>${progress.total} de ${progress.total} paradas hechas.</p>${action}`;
         return;
     }
 
-    const name = esc(stringValue(next.name, "Parada sin nombre") || "Parada sin nombre");
-    const address = stringValue(next.address).trim();
-    const note = stringValue(next.note).trim();
-    const schedule = scheduleCue(next, new Date(), day.date === localDateKey());
-    const mapsLink = mapsLinkFor(next);
-    const details = [
-        address
-            ? `<p class="companion-next-address"><strong>Dirección:</strong> ${esc(address)}</p>`
-            : "",
-        note ? `<p class="companion-next-note">${esc(note)}</p>` : "",
-        schedule
-            ? `<p class="companion-schedule"><span aria-hidden="true">◷</span> ${esc(schedule)}</p>`
-            : "",
-    ].join("");
-    const directions = mapsLink
-        ? `<a class="companion-directions" href="${mapsLink}" target="_blank" rel="noopener" aria-label="Cómo llegar a ${name} en Google Maps; se abre en una pestaña nueva">Cómo llegar <span aria-hidden="true">↗</span></a>`
-        : '<p class="companion-no-location">Esta parada no tiene ubicación guardada.</p>';
-    const compass = locatedSpot(next)
-        ? `<section id="companionCompassPanel" class="companion-navigation" aria-label="Orientación hacia la siguiente parada"><div class="companion-compass" aria-hidden="true"><span class="companion-compass-north">N</span><span id="companionCompassArrow" class="companion-compass-arrow">↑</span></div><div class="companion-navigation-copy"><p id="companionDirectionText">Dirección pendiente de ubicación.</p><p id="companionDistanceText">Activa tu ubicación para calcular la distancia aproximada.</p><p id="companionProximity" class="companion-proximity" role="status" hidden>Estás cerca</p></div></section>`
-        : "";
+    const item = forecast.liveItem(next);
+    const isToday = day.date === localDateKey();
+    const now = localMinutes();
+    const inProgress = isToday && item && !item.waypoint && now >= item.start && now < item.end;
+    const position = progress.enabled.indexOf(next) + 1;
+    const name = esc(spotName(next));
+    const leg = visitLegs(forecast.live.items, (spot) => progress.enabled.includes(spot)).get(next);
+    const alert = heroAlert(forecast, next);
+    const link = directionsUrl(next, incomingMode(next));
     const spotId = esc(String(next.id));
+    const cue = item
+        ? departureCue({
+            start: item.start,
+            end: item.end,
+            legMinutes: leg && !leg.missingDuration ? leg.minutes : 0,
+            departureTime: leg?.departureTime,
+            now,
+            isToday,
+            waypoint: item.waypoint,
+        })
+        : null;
+    const cueMarkup = cue
+        ? `<p class="companion-cue">${cue.lead ? `<span>${esc(cue.lead)}</span> ` : ""}${cue.time ? `<span class="companion-time">${esc(cue.time)}</span>` : ""}${cue.relative ? ` <span class="companion-cue-relative">· ${esc(cue.relative)}</span>` : ""}</p>`
+        : "";
+    const meta = [
+        legSummary(leg),
+        '<span id="companionDistance" class="companion-distance" hidden></span>',
+    ].filter(Boolean).join("");
+    const notes = [
+        leg?.note ? noteMarkup(leg.note, "Tramo", `leg-${next.id}`) : "",
+        noteMarkup(next.note, "Nota", `spot-${next.id}`),
+    ].join("");
+    const directions = link
+        ? `<a class="companion-directions" href="${esc(link)}" target="_blank" rel="noopener" aria-label="Cómo llegar a ${name} en Google Maps; se abre en una pestaña nueva"><span aria-hidden="true">➜</span> Cómo llegar</a>`
+        : "";
+    const done = store.readOnly
+        ? ""
+        : `<button class="companion-visit-action" type="button" data-companion-action="toggle-visit" data-spot-id="${spotId}"><span aria-hidden="true">✓</span> Hecho</button>`;
 
-    card.innerHTML = `${notice}<span class="companion-kicker">Siguiente parada</span><h3 id="companionNextTitle">${name}</h3>${details}${compass}<div class="companion-next-actions">${directions}<button class="companion-visit-action" type="button" data-companion-action="toggle-visit" data-spot-id="${spotId}"><span aria-hidden="true">✓</span> Marcar como visitada</button></div>`;
+    card.innerHTML = `${undoMarkup()}${notice}<span class="companion-kicker">${inProgress ? "Ahora" : "Siguiente"} · ${position} de ${progress.total}</span><h3 id="companionNextTitle">${name}</h3>${cueMarkup}<p class="companion-next-meta">${meta}</p>${notes}${alert ? `<p class="companion-alert" role="note"><span aria-hidden="true">!</span> ${esc(alert)}</p>` : ""}<div class="companion-next-actions">${directions}${done}</div>`;
 }
 
-function renderChecklist(day, enabled, next) {
+function renderChecklist(day, forecast, progress) {
     const list = $("#companionChecklist");
-    if (!day) {
-        list.innerHTML = "<li>No hay un itinerario que mostrar.</li>";
+    const stops = progress.enabled;
+    if (!day || !stops.length) {
+        list.innerHTML = "";
+        list.hidden = true;
         return;
     }
-    if (!enabled.length) {
-        list.innerHTML = "<li>No hay paradas activas en este día.</li>";
-        return;
-    }
+    list.hidden = false;
+    const next = forecast.current?.spot || null;
+    const readOnly = store.readOnly;
+    list.innerHTML = stops.map((spot) => {
+        const name = esc(spotName(spot));
+        const visited = validVisitedAt(spot.visitedAt);
+        const state = visited ? "is-visited" : spot === next ? "is-next" : "is-remaining";
+        const item = forecast.liveItem(spot);
+        const time = visited ? visitedClock(spot) : item ? clockLabel(item.start) : "";
+        const reservation = spot.fixedStart && spot.plannedStart && !visited
+            ? '<small>reserva</small>'
+            : "";
+        const spotId = esc(String(spot.id));
+        return `<li class="companion-stop ${state}"><label><input type="checkbox" data-companion-action="toggle-visit" data-spot-id="${spotId}" ${visited ? "checked" : ""} ${readOnly ? "disabled" : ""} aria-label="${visited ? "Desmarcar" : "Marcar"} ${name} como hecha"><span class="companion-stop-mark" aria-hidden="true">${visited ? "✓" : ""}</span><span class="companion-stop-time">${time}</span><span class="companion-stop-name">${name}${reservation}</span></label></li>`;
+    }).join("");
+}
 
-    list.innerHTML = enabled
-        .map((spot) => {
-            const name = esc(stringValue(spot.name, "Parada sin nombre") || "Parada sin nombre");
-            const address = stringValue(spot.address).trim();
-            const visited = validVisitedAt(spot.visitedAt);
-            const isNext = spot === next;
-            const state = visited ? "Visitada" : isNext ? "Siguiente" : "Pendiente";
-            const classes = visited
-                ? "is-visited"
-                : isNext
-                  ? "is-next"
-                  : "is-remaining";
-            const spotId = esc(String(spot.id));
-            return `<li class="companion-stop ${classes}"><label class="companion-stop-toggle"><input type="checkbox" data-companion-action="toggle-visit" data-spot-id="${spotId}" ${visited ? "checked" : ""} aria-label="${visited ? "Desmarcar" : "Marcar"} ${name} como visitada"><span class="companion-stop-state" aria-hidden="true">${visited ? "✓" : isNext ? "→" : "○"}</span></label><span class="companion-stop-copy"><strong>${name}</strong>${address ? `<small>${esc(address)}</small>` : ""}</span><span class="companion-stop-label">${state}</span></li>`;
-        })
-        .join("");
+function renderDock(day, forecast) {
+    const dock = $("#companionDock");
+    const next = forecast?.current?.spot || null;
+    if (!day || !next) {
+        dock.hidden = true;
+        dock.innerHTML = "";
+        updateDockVisibility();
+        return;
+    }
+    const link = directionsUrl(next, incomingMode(next));
+    const spotId = esc(String(next.id));
+    const name = esc(spotName(next));
+    dock.hidden = false;
+    dock.innerHTML = `<button class="companion-dock-copy" type="button" data-companion-action="scroll-hero"><small>Siguiente</small><strong>${name}</strong></button>${link ? `<a class="companion-dock-go" href="${esc(link)}" target="_blank" rel="noopener" aria-label="Cómo llegar a ${name}; se abre en una pestaña nueva"><span aria-hidden="true">➜</span></a>` : ""}${store.readOnly ? "" : `<button class="companion-dock-done" type="button" data-companion-action="toggle-visit" data-spot-id="${spotId}" aria-label="Marcar ${name} como hecha"><span aria-hidden="true">✓</span></button>`}`;
+    updateDockVisibility();
+}
+
+function updateDockVisibility() {
+    const dock = $("#companionDock");
+    const visible = companionActive && !dock.hidden && !heroVisible && $("#companionMapSheet").hidden;
+    dock.classList.toggle("is-visible", visible);
+    document.body.classList.toggle("companion-dock-visible", visible);
+}
+
+function observeHero() {
+    dockObserver?.disconnect();
+    if (typeof IntersectionObserver !== "function") return;
+    dockObserver = new IntersectionObserver(([entry]) => {
+        heroVisible = entry.isIntersecting;
+        updateDockVisibility();
+    }, { threshold: 0.05 });
+    dockObserver.observe($("#companionNextStop"));
+}
+
+// The sheet covers the whole view, so keyboard and screen reader users must
+// not wander into the hidden day behind it.
+function setBehindSheetInert(inert) {
+    const sheet = $("#companionMapSheet");
+    for (const child of companionView.children)
+        if (child !== sheet) child.inert = inert;
+}
+
+function openMapSheet(trigger = null) {
+    const sheet = $("#companionMapSheet");
+    if (!sheet.hidden) return;
+    mapReturnFocus = trigger;
+    sheet.hidden = false;
+    setBehindSheetInert(true);
+    document.body.classList.add("companion-map-open");
+    updateDockVisibility();
+    revealCompanionMap();
+    requestAnimationFrame(() => $("#companionMapClose").focus({ preventScroll: true }));
+}
+
+function closeMapSheet() {
+    const sheet = $("#companionMapSheet");
+    if (sheet.hidden) return;
+    sheet.hidden = true;
+    setBehindSheetInert(false);
+    document.body.classList.remove("companion-map-open");
+    updateDockVisibility();
+    (mapReturnFocus?.isConnected ? mapReturnFocus : $("#companionMapBtn")).focus({ preventScroll: true });
+    mapReturnFocus = null;
+}
+
+// Re-rendering replaces the hero and route markup; keep keyboard users on the
+// control they were using (or its successor for the same stop).
+function focusKey() {
+    const active = document.activeElement;
+    if (!active || !companionView.contains(active)) return null;
+    if (active.id) return { id: active.id };
+    if (active.dataset?.companionAction)
+        return { action: active.dataset.companionAction, spotId: active.dataset.spotId || "" };
+    return null;
+}
+
+function restoreFocus(key) {
+    if (!key) return;
+    const current = document.activeElement;
+    if (current && current !== document.body && companionView.contains(current)) return;
+    // An undone visit makes its stop current again: land on its visit button.
+    const action = key.action === "undo-visit" ? "toggle-visit" : key.action;
+    const target = key.id
+        ? document.getElementById(key.id)
+        : [...companionView.querySelectorAll(`[data-companion-action="${action}"]`)]
+            .find((candidate) => (candidate.dataset.spotId || "") === key.spotId);
+    target?.focus({ preventScroll: true });
 }
 
 export function renderCompanion() {
+    const focus = focusKey();
     const day = ensureSelectedDay();
-    const { enabled, completed, total } = visitProgress(day);
-    const next = nextUnvisitedStop(day);
+    const progress = visitProgress(day);
+    const forecast = day ? dayForecast(day) : null;
+    lastRenderedMinute = localMinutes();
 
     renderDaySelector(day);
+    const isToday = day?.date === localDateKey();
+    $("#companionEyebrow").textContent = day?.date
+        ? `${isToday ? "Hoy · " : ""}${formatCompanionDate(day.date)}`
+        : "Modo en ruta";
     heading.textContent = day
-        ? `Tu día en ruta: ${stringValue(day.title, "Día sin título") || "Día sin título"}`
+        ? stringValue(day.title, "Día sin título").trim() || "Día sin título"
         : "Tu día en ruta";
+    $("#companionProgressText").textContent = progress.total
+        ? `${progress.completed} de ${progress.total}`
+        : "";
+    $("#companionRouteHead").hidden = !progress.total;
 
-    const progressText = $("#companionProgressText");
-    progressText.textContent = `${completed} de ${total} ${total === 1 ? "parada" : "paradas"}`;
-    const progressBar = $("#companionProgressBar");
-    progressBar.max = Math.max(total, 1);
-    progressBar.value = completed;
-    progressBar.setAttribute(
-        "aria-label",
-        `Progreso de visitas: ${completed} de ${total}`,
-    );
-
-    renderNextStop(day, next, total, completed);
-    renderTimeline(day, next);
-    renderChecklist(day, enabled, next);
+    renderNextStop(day, forecast, progress);
+    renderChecklist(day, forecast, progress);
+    renderDock(day, forecast);
     updateNavigationUi();
     updateMapSummary();
 
@@ -1133,6 +1172,28 @@ export function renderCompanion() {
         $("#companionMap").textContent = day
             ? "El mapa del día se mostrará aquí."
             : "Añade un día para disponer del mapa en ruta.";
+    restoreFocus(focus);
+}
+
+function selectCompanionDay(dayId) {
+    const day = store.state.find((candidate) => String(candidate.id) === String(dayId));
+    if (!day) return;
+    selectedDayId = day.id;
+    clearUndo();
+    renderCompanion();
+    if (companionMap) drawCompanionMap();
+}
+
+function stepDay(offset) {
+    const index = store.state.findIndex((day) => day.id === selectedDayId);
+    const target = store.state[index + offset];
+    if (target) selectCompanionDay(target.id);
+}
+
+// Times and "ahora" depend on the clock, so repaint once per minute.
+function tickClock() {
+    if (!companionActive || document.hidden) return;
+    if (localMinutes() !== lastRenderedMinute) renderCompanion();
 }
 
 export function enterCompanion() {
@@ -1156,13 +1217,12 @@ export function enterCompanion() {
     wakeLockStatus = wakeLockApi() ? "idle" : "unavailable";
     updateLocationControls();
     updateWakeLockControls();
+    heroVisible = true;
     renderCompanion();
-    clearInterval(timelineClock);
-    timelineClock = setInterval(() => {
-        if (companionActive && !document.hidden) renderCompanion();
-    }, 60000);
+    observeHero();
+    clearInterval(minuteClock);
+    minuteClock = setInterval(tickClock, 15000);
     mapNeedsStopFit = true;
-    revealCompanionMap();
 
     requestAnimationFrame(() => {
         if (companionActive && !companionView.hidden) heading.focus();
@@ -1171,9 +1231,14 @@ export function enterCompanion() {
 
 export function exitCompanion() {
     if (!companionActive) return;
+    closeMapSheet();
     companionActive = false;
-    clearInterval(timelineClock);
-    timelineClock = null;
+    clearInterval(minuteClock);
+    minuteClock = null;
+    clearUndo();
+    dockObserver?.disconnect();
+    dockObserver = null;
+    updateDockVisibility();
     stopLocation();
     releaseCompanionWakeLock();
 
@@ -1201,27 +1266,70 @@ function handleCompanionClick(event) {
         else startLocation();
         return;
     }
+    if (event.target.closest("#companionMapBtn")) {
+        openMapSheet(event.target.closest("#companionMapBtn"));
+        return;
+    }
+    if (event.target.closest("#companionMapClose")) {
+        closeMapSheet();
+        return;
+    }
     if (event.target.closest("#companionRecenterBtn")) {
         recenterCompanionMap();
         return;
     }
-    const visitButton = event.target.closest(
-        'button[data-companion-action="toggle-visit"]',
-    );
-    if (visitButton) {
-        toggleVisit(visitButton.dataset.spotId, true);
+    if (event.target.closest("#companionFitBtn")) {
+        fitCompanionStops();
         return;
     }
-    if (event.target.closest('[data-companion-action="exit"], #companionExitBtn'))
-        exitCompanion();
+    if (event.target.closest("#companionPrevDay")) {
+        stepDay(-1);
+        return;
+    }
+    if (event.target.closest("#companionNextDay")) {
+        stepDay(1);
+        return;
+    }
+    const action = event.target.closest("[data-companion-action]");
+    if (!action) {
+        if (event.target.closest("#companionExitBtn")) exitCompanion();
+        return;
+    }
+    switch (action.dataset.companionAction) {
+        case "toggle-visit":
+            // Checkboxes report through "change"; buttons are explicit visits.
+            if (action.matches("button")) toggleVisit(action.dataset.spotId, true);
+            break;
+        case "toggle-note":
+            expandedNoteKey = expandedNoteKey === action.dataset.noteKey ? null : action.dataset.noteKey;
+            action.classList.toggle("is-expanded", expandedNoteKey === action.dataset.noteKey);
+            action.setAttribute("aria-expanded", String(expandedNoteKey === action.dataset.noteKey));
+            break;
+        case "undo-visit":
+            toggleVisit(action.dataset.spotId, false);
+            break;
+        case "select-day":
+            selectCompanionDay(action.dataset.dayId);
+            requestAnimationFrame(() => heading.focus({ preventScroll: true }));
+            window.scrollTo({ top: 0, behavior: reducedMotionPreferred() ? "auto" : "smooth" });
+            break;
+        case "scroll-hero":
+            $("#companionNextStop").scrollIntoView({ behavior: reducedMotionPreferred() ? "auto" : "smooth", block: "start" });
+            break;
+        case "exit":
+            exitCompanion();
+            break;
+    }
+}
+
+function handleCompanionKeydown(event) {
+    if (event.key === "Escape" && !$("#companionMapSheet").hidden) {
+        event.preventDefault();
+        closeMapSheet();
+    }
 }
 
 function handleCompanionChange(event) {
-    if (event.target.matches("#companionDelay")) {
-        simulatedDelayMinutes = Number(event.target.value) || 0;
-        renderTimeline(selectedDay(), nextUnvisitedStop(selectedDay()));
-        return;
-    }
     if (
         event.target.matches(
             'input[type="checkbox"][data-companion-action="toggle-visit"]',
@@ -1231,13 +1339,7 @@ function handleCompanionChange(event) {
         return;
     }
     if (!event.target.matches("#companionDaySelect")) return;
-    const day = store.state.find((candidate) => String(candidate.id) === event.target.value);
-    if (!day) return;
-    selectedDayId = day.id;
-    simulatedDelayMinutes = 0;
-    $("#companionDelay").value = "0";
-    renderCompanion();
-    drawCompanionMap();
+    selectCompanionDay(event.target.value);
 }
 
 export function initCompanion() {
@@ -1246,11 +1348,7 @@ export function initCompanion() {
     enterButton.addEventListener("click", enterCompanion);
     companionView.addEventListener("click", handleCompanionClick);
     companionView.addEventListener("change", handleCompanionChange);
-    companionView.addEventListener("input", (event) => {
-        if (!event.target.matches("#companionDelay")) return;
-        simulatedDelayMinutes = Number(event.target.value) || 0;
-        renderTimeline(selectedDay(), nextUnvisitedStop(selectedDay()));
-    });
+    companionView.addEventListener("keydown", handleCompanionKeydown);
     document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
             if (companionActive && locationIntent)
@@ -1259,6 +1357,7 @@ export function initCompanion() {
                 releaseCompanionWakeLock({ preserveIntent: true });
             return;
         }
+        if (companionActive) tickClock();
         if (companionActive && locationIntent) startLocation();
         if (companionActive && wakeLockIntent) requestCompanionWakeLock();
     });

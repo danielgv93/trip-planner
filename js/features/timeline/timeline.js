@@ -123,10 +123,17 @@ export function buildTimelineProjection(
         delayMinutes = 0,
         profile = "walking",
         travelForLeg = null,
+        // "now": today starts at the current time (planner default).
+        // "live": today follows the plan, real visit times and the fact that
+        // the first pending stop cannot finish before the current time.
+        // "plan": ignores the clock and visits entirely; the reference plan.
+        mode = "now",
     } = {},
 ) {
     const spots = Array.isArray(day?.spots) ? day.spots.filter(spotIsEnabled) : [];
-    const isToday = day?.date === localDateKey(now);
+    const isToday = mode !== "plan" && day?.date === localDateKey(now);
+    const currentMinutes = localMinutes(now);
+    let liveFloorApplied = false;
     const openings = spots
         .filter((spot) => !isAllDaySchedule(
             timeToMinutes(spot.openingTime),
@@ -143,7 +150,7 @@ export function buildTimelineProjection(
     const anchors = [...openings, ...plannedStarts];
     const explicitStart = timeToMinutes(day?.startTime);
     const dayStart = explicitStart ??
-        (isToday ? localMinutes(now) : anchors.length ? Math.min(...anchors) : 540);
+        (isToday && mode !== "live" ? currentMinutes : anchors.length ? Math.min(...anchors) : 540);
     let cursor = dayStart + delayMinutes;
     let previous = null;
 
@@ -210,6 +217,12 @@ export function buildTimelineProjection(
         }
 
         const end = start + duration;
+        // A pending stop that is not checked off yet is still in progress (or
+        // still ahead), so nothing after it can start before the current time.
+        if (mode === "live" && isToday && !visited && !liveFloorApplied) {
+            liveFloorApplied = true;
+            cursor = Math.max(cursor, currentMinutes);
+        }
         const outsideRanges = invalidScheduleRanges(start, end, opening, closing);
         const outside = outsideRanges.length > 0 ||
             (!duration && ((opening !== null && start < opening) || (closing !== null && start >= closing)));
@@ -233,6 +246,7 @@ export function buildTimelineProjection(
             travelMode: resolvedTravel?.mode || resolvedTravel?.profile || profile,
             travelMissingDuration: previous !== null && resolvedTravel?.mode && !AUTOMATIC_TRAVEL_MODES.includes(resolvedTravel.mode) && !Number.isFinite(resolvedTravel?.minutes),
             travelLine: resolvedTravel?.line || "",
+            travelNote: resolvedTravel?.note || "",
             travelCost: resolvedTravel?.cost || 0,
             travelEmbeddedEndpoints: resolvedTravel?.embeddedEndpoints || [],
             travelDepartureTime: resolvedTravel?.departureTime || null,
@@ -279,7 +293,7 @@ export function buildTimelineProjection(
         lanes,
         waypointLanes,
         isToday,
-        current: localMinutes(now),
+        current: currentMinutes,
         delayMinutes,
         start: dayStart,
     };
@@ -306,12 +320,14 @@ export function createTimelineView(
         nextSpot = null,
         interactive = false,
         travelForLeg = null,
+        mode = "now",
     } = {},
 ) {
     const projection = buildTimelineProjection(day, {
         now,
         delayMinutes,
         travelForLeg,
+        mode,
     });
     if (!projection.items.length) {
         return {
@@ -420,7 +436,9 @@ export function createTimelineView(
     const travelCopy = approximateTravel
         ? `con trayectos aproximados ${modeCopy}`
         : `con tiempos de trayecto ${modeCopy}`;
-    const summary = projection.isToday
+    const summary = projection.isToday && mode === "live"
+        ? `Previsión según tu avance real, ${travelCopy}.`
+        : projection.isToday
         ? `Proyección desde ahora, ${travelCopy}.`
         : `Simulación del día desde la primera apertura, ${travelCopy}.`;
     let insight;

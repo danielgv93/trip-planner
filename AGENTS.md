@@ -63,7 +63,7 @@ Module map (paths are relative to `js/`):
 - **`features/map/`** — Leaflet maps, shared basemaps, persistent OSRM route cache, routes, and place images.
 - **`features/finance/`** — budget and exchange-rate behavior.
 - **`features/notes/`** — autosaved multi-page trip notes and Markdown preview.
-- **`features/companion/`** — focused on-trip experience, pure navigation calculations, and timeline projection.
+- **`features/companion/`** — deliberately minimal on-trip view: one next-stop card (a "when to leave" cue — "Sal a las", "Sale a las" for fixed departures, "Hasta las" during a visit — from `departureCue()`, incoming leg, the leg and stop notes collapsed to two lines, distance when location is on, at most one risk alert, "Cómo llegar" + "Hecho" with undo), a checklist of the day, a day picker that only shows "Día n de N" because the header already names the day, a full-screen map sheet and a mobile dock. Pure navigation calculations live in `navigation.js` (including Google Maps directions links) and the plan-vs-reality forecast in `day-forecast.js`, which projects with the shared timeline's `mode: "live"` (real visit times; the first pending stop never ends before now) against `mode: "plan"`; the planner keeps the default `mode: "now"`.
 - **`features/health/`** — itinerary feasibility diagnostics, session-only results, and constraint-aware suggestions.
 - **`features/reminders/`** — fixed and relative trip reminders, calendar/dashboard, and spot associations.
 - **`features/github/`** — optional explicit GitHub JSON synchronization, with transport isolated in `github-api.js`.
