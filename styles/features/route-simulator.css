@@ -80,6 +80,13 @@
 .route-simulator-start-toggle small { color: var(--rs-quiet); font-size: 10.5px; font-weight: 400; line-height: 1.4; }
 .route-simulator-start-toggle > input[type="time"] { grid-column: 2; height: 38px; text-align: center; }
 .route-simulator-start-toggle > input[type="time"]:disabled { background: #f7f8f5; color: #9aa5a1; opacity: .65; cursor: not-allowed; }
+.route-simulator-start-toggle[hidden] { display: none; }
+.route-simulator-route-col li.is-dropped { opacity: .62; }
+.route-simulator-route-col li.is-dropped strong { text-decoration: line-through; }
+.route-simulator-optional-tag { margin-left: 6px; border-radius: 999px; padding: 1px 6px; background: #eef1ee; color: var(--rs-quiet); font: 700 9px "DM Mono"; letter-spacing: .05em; text-transform: uppercase; }
+.route-simulator-notice button { justify-self: start; margin-top: 8px; border: 0; border-radius: 999px; padding: 6px 10px; background: #f0f4f1; color: var(--rs-accent-ink); font: 700 10.5px "DM Sans", sans-serif; cursor: pointer; }
+.route-simulator-notice button:hover { background: #ddeae5; }
+.route-simulator-notice button:focus-visible { box-shadow: var(--rs-ring); outline: none; }
 
 .route-simulator-selection-bar { display: grid; flex: 0 0 auto; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid #e5e7e2; }
 .route-simulator-selection-actions { display: flex; align-items: center; gap: 5px; padding-left: 39px; }

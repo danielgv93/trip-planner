@@ -23,9 +23,11 @@ import {
     visitedLockedStops,
 } from "./legs.js";
 import { formatSimulationTime, isReservationSpot, optimizeRoute } from "./optimizer.js";
+import { optimizeWithOptionalStops } from "./optional-stops.js";
 import { mountRouteMap, routeMapMarkup } from "./route-map.js";
 import {
     applySimulationToDay,
+    backlogCopiesOfDropped,
     lateReservations,
     overnightAppointments,
     simulationDayFingerprint,
@@ -41,6 +43,7 @@ const statusEl = $("#routeSimulatorStatus");
 const backToResultButton = $("#routeSimulatorBackToResult");
 const spotEditorEl = $("#routeSimulatorSpotEditor");
 const RUN_HINT = "Respeta aperturas, cierres y citas; después reduce trayectos";
+const fromNowRow = $("#routeSimulatorFromNowRow");
 let calculationToken = 0;
 let activeSimulation = null;
 let activeSimulatorSpotId = null;
@@ -76,6 +79,27 @@ function dayLabel(day, index) {
         ? new Intl.DateTimeFormat("es-ES", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${day.date}T12:00:00`))
         : `Día ${index + 1}`;
     return `${date} · ${day.title || `Día ${index + 1}`}`;
+}
+
+function localDateKey(now = new Date()) {
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function currentMinutes(now = new Date()) {
+    return now.getHours() * 60 + now.getMinutes();
+}
+
+// Only a day that is happening today can be planned "from now". On any other
+// day the option would mean nothing, so it is not offered.
+function syncFromNow(day) {
+    const today = day?.date === localDateKey();
+    fromNowRow.hidden = !today;
+    // Opt-in: re-checking today's plan at 18:00 must not silently become a
+    // plan for the evening.
+    $("#routeSimulatorFromNow").checked = false;
+    $("#routeSimulatorFromNowHint").textContent = today
+        ? `Ahora son las ${formatSimulationTime(currentMinutes())}. Nada pendiente empezará antes.`
+        : "";
 }
 
 function currentDay() {
@@ -232,7 +256,7 @@ function renderSpots() {
         const detail = available
             ? `<button class="route-simulator-spot-detail" type="button" data-simulator-edit="${esc(String(spot.id))}" aria-pressed="false">
                 <span class="route-simulator-spot-index">${String(index + 1).padStart(2, "0")}</span>
-                <span class="route-simulator-spot-copy"><strong>${esc(name)}</strong><small class="${warning ? "is-warning" : ""}">${esc(spotTimingLabel(spot))}</small></span>
+                <span class="route-simulator-spot-copy"><strong>${esc(name)}${spot.optional === true ? '<span class="route-simulator-optional-tag">Opcional</span>' : ""}</strong><small class="${warning ? "is-warning" : ""}">${esc(spotTimingLabel(spot))}</small></span>
                 <span class="route-simulator-spot-open" aria-hidden="true">›</span>
             </button>`
             : `<div class="route-simulator-spot-detail"><span class="route-simulator-spot-index">${String(index + 1).padStart(2, "0")}</span><span class="route-simulator-spot-copy"><strong>${esc(name)}</strong><small>${esc(issue)}</small></span></div>`;
@@ -259,6 +283,13 @@ function initializeDialog() {
     $("#routeSimulatorFixedStart").checked = hasStart;
     $("#routeSimulatorStart").disabled = !hasStart;
     $("#routeSimulatorStart").value = hasStart ? day.startTime : "09:00";
+    // The limit and the optional-stop rule are what-ifs for one sitting, not
+    // preferences: a limit typed for yesterday's day must not judge today's.
+    $("#routeSimulatorLimitEnd").checked = false;
+    $("#routeSimulatorEnd").disabled = true;
+    $("#routeSimulatorEnd").value = "21:00";
+    $("#routeSimulatorAllowDrop").checked = true;
+    syncFromNow(day);
     renderSpots();
 }
 
@@ -320,10 +351,21 @@ function stepStatus(step) {
 // The established order as a plain reference column. It used to sit beside a
 // second list of the proposed order that repeated the step list below it line
 // for line; the proposal now lives only in the editable timeline.
-function beforeColumnMarkup(baseline, result) {
-    const moved = movedFlags(baseline, result);
-    const rows = baseline.steps.map((step, index) =>
-        `<li class="${moved[index] ? "is-moved" : ""}"><b>${index + 1}</b><span><strong>${esc(step.spot.name || "Parada sin nombre")}</strong><small>${esc(stepStatus(step))}</small></span>${moved[index] ? '<i aria-label="Cambia de posición">↕</i>' : ""}</li>`).join("");
+// The stops a proposal leaves out are not moves: comparing positions with
+// them still in place flagged every stop after a dropped one as moved.
+function withoutDropped(baseline, droppedIndexes) {
+    const dropped = new Set(droppedIndexes);
+    return { ...baseline, steps: baseline.steps.filter((step) => !dropped.has(step.spotIndex)) };
+}
+
+function beforeColumnMarkup(baseline, result, droppedIndexes = []) {
+    const dropped = new Set(droppedIndexes);
+    const keptMoved = movedFlags(withoutDropped(baseline, droppedIndexes), result);
+    let keptCursor = 0;
+    const moved = baseline.steps.map((step) => dropped.has(step.spotIndex) ? false : keptMoved[keptCursor++]);
+    const rows = baseline.steps.map((step, index) => dropped.has(step.spotIndex)
+        ? `<li class="is-dropped"><b>${index + 1}</b><span><strong>${esc(step.spot.name || "Parada sin nombre")}</strong><small>Se queda fuera · opcional</small></span></li>`
+        : `<li class="${moved[index] ? "is-moved" : ""}"><b>${index + 1}</b><span><strong>${esc(step.spot.name || "Parada sin nombre")}</strong><small>${esc(stepStatus(step))}</small></span>${moved[index] ? '<i aria-label="Cambia de posición">↕</i>' : ""}</li>`).join("");
     return `<section class="route-simulator-route-col is-before">
         <header><span>Antes</span><strong>${baseline.metrics.travel} min de trayecto</strong></header>
         <p class="route-simulator-route-note">Tu itinerario tal y como está guardado: su orden, sus horas y las duraciones de trayecto que ya tienes.</p>
@@ -336,23 +378,38 @@ function beforeColumnMarkup(baseline, result) {
 // the whole day, from the first departure to the last stop. Travel minutes are
 // only one ingredient of it — announcing a saving from them alone contradicts a
 // day that ends later.
-function savingsMarkup(result, baseline) {
+function savingsMarkup(result, baseline, { droppedNames = [], latestFinish = null, notBefore = null } = {}) {
     const travelSaved = baseline.metrics.travel - result.metrics.travel;
     const elapsedBefore = baseline.finish - baseline.start;
     const elapsedNow = result.finish - result.start;
-    const elapsedSaved = elapsedBefore - elapsedNow;
+    // Planned from now, the proposal starts hours after the stored day did,
+    // so their lengths are not comparable: a 14:00 restart always looks
+    // "shorter" than a day that began at 09:00. What still compares is when
+    // each one ends.
+    const fromNow = Number.isInteger(notBefore);
+    const elapsedSaved = fromNow ? baseline.finish - result.finish : elapsedBefore - elapsedNow;
     const latenessSaved = baseline.metrics.totalLate - result.metrics.totalLate;
     const scheduleConflictsSaved = baseline.metrics.scheduleConflictStops - result.metrics.scheduleConflictStops;
     // The optimizer ranks bookings above everything else, so the verdict must
     // too: rescuing one is an improvement even if the day grows or an
     // estimate slips.
     const reservationsSaved = baseline.metrics.reservationLateStops - result.metrics.reservationLateStops;
+    // "Antes" is the stored day and knows nothing of the limit the dialog
+    // set, so its overtime is measured here against the same hour.
+    const overtimeBefore = Number.isInteger(latestFinish) ? Math.max(0, baseline.finish - latestFinish) : 0;
+    const overtimeSaved = overtimeBefore - result.metrics.overtime;
     const state = elapsedSaved > 0 ? "saving" : elapsedSaved < 0 ? "cost" : "same";
-    const headline = elapsedSaved > 0
-        ? `${elapsedSaved} min ahorrados`
-        : elapsedSaved < 0 ? `${Math.abs(elapsedSaved)} min más de jornada` : "Misma duración de jornada";
-    const detail = reservationsSaved > 0
+    const headline = fromNow
+        ? elapsedSaved > 0 ? `Termina ${elapsedSaved} min antes`
+            : elapsedSaved < 0 ? `Termina ${Math.abs(elapsedSaved)} min más tarde` : "Termina a la misma hora"
+        : elapsedSaved > 0 ? `${elapsedSaved} min ahorrados`
+            : elapsedSaved < 0 ? `${Math.abs(elapsedSaved)} min más de jornada` : "Misma duración de jornada";
+    const reason = reservationsSaved > 0
         ? `Llega a tiempo a ${reservationsSaved} ${reservationsSaved === 1 ? "reserva" : "reservas"} que el itinerario actual no alcanza.`
+        : overtimeSaved > 0
+            ? result.metrics.overtime === 0
+                ? `Termina dentro del límite de las ${formatSimulationTime(latestFinish)}.`
+                : `Se pasa ${overtimeSaved} min menos del límite de las ${formatSimulationTime(latestFinish)}.`
         : elapsedSaved < 0 && scheduleConflictsSaved > 0
         ? `La propuesta alarga la jornada para evitar ${scheduleConflictsSaved} ${scheduleConflictsSaved === 1 ? "conflicto horario" : "conflictos horarios"}.`
         : elapsedSaved < 0 && latenessSaved > 0
@@ -362,7 +419,12 @@ function savingsMarkup(result, baseline) {
             : travelSaved > 0 ? `Reduce el tiempo de trayecto en ${travelSaved} min.`
             : travelSaved < 0 ? `Emplea ${Math.abs(travelSaved)} min más de trayecto.`
                 : "El tiempo de trayecto no cambia.";
-    const conclusion = reservationsSaved > 0 || scheduleConflictsSaved > 0 || latenessSaved > 0
+    // Part of any saving comes from not visiting something; say so instead of
+    // presenting it as a better route.
+    const detail = droppedNames.length
+        ? `${reason} Deja fuera ${droppedNames.length === 1 ? "la parada opcional" : "las paradas opcionales"} ${droppedNames.join(", ")}.`
+        : reason;
+    const conclusion = reservationsSaved > 0 || overtimeSaved > 0 || scheduleConflictsSaved > 0 || latenessSaved > 0
         ? "Mejora el encaje del día"
         : elapsedSaved > 0 ? "La propuesta sí mejora la ruta"
             : elapsedSaved < 0 ? "La ruta actual sigue siendo más corta"
@@ -370,7 +432,9 @@ function savingsMarkup(result, baseline) {
     return `<div class="route-simulator-savings is-${state}">
         <span class="route-simulator-verdict-mark" aria-hidden="true">${elapsedSaved > 0 ? "↓" : elapsedSaved < 0 ? "↑" : "="}</span>
         <div class="route-simulator-verdict-copy"><span>Conclusión</span><h4>${esc(conclusion)}</h4><strong>${esc(headline)}</strong><p>${esc(detail)}</p></div>
-        <div class="route-simulator-duration-shift" aria-label="Comparación de la duración de la jornada"><span>Itinerario actual <b>${elapsedBefore} min</b></span><i aria-hidden="true">→</i><span>Propuesta <b>${elapsedNow} min</b></span></div>
+        ${fromNow
+            ? `<div class="route-simulator-duration-shift" aria-label="Comparación de la hora de fin"><span>Itinerario actual termina <b>${esc(formatSimulationTime(baseline.finish))}</b></span><i aria-hidden="true">→</i><span>Propuesta termina <b>${esc(formatSimulationTime(result.finish))}</b></span></div>`
+            : `<div class="route-simulator-duration-shift" aria-label="Comparación de la duración de la jornada"><span>Itinerario actual <b>${elapsedBefore} min</b></span><i aria-hidden="true">→</i><span>Propuesta <b>${elapsedNow} min</b></span></div>`}
     </div>`;
 }
 
@@ -391,6 +455,10 @@ function renderResult(result, {
     visitedStops,
     unsimulatedStops,
     blockedOvernight,
+    droppedIndexes = [],
+    droppableAlternative = [],
+    latestFinish = null,
+    notBefore = null,
     preserveScroll = false,
 }) {
     unmountRouteMap?.();
@@ -402,6 +470,15 @@ function renderResult(result, {
     const delayed = softLateStops > 0;
     const outsideHours = result.metrics.outsideStops > 0;
     const notices = [];
+    const nameOf = (spotIndex) => baseline.steps.find((step) => step.spotIndex === spotIndex)?.spot.name || "Parada sin nombre";
+    const droppedNames = droppedIndexes.map(nameOf);
+    if (droppedNames.length) notices.push(`<div class="route-simulator-notice is-warning"><span aria-hidden="true">−</span><p><strong>${droppedNames.length === 1 ? "Se queda fuera 1 parada opcional" : `Se quedan fuera ${droppedNames.length} paradas opcionales`}</strong>${esc(droppedNames.join(", "))}. Con todas, el día no encaja. Al aplicar, ${droppedNames.length === 1 ? "pasará" : "pasarán"} al backlog: no se borra nada.<button type="button" data-simulator-keep-all>Mantener todas las paradas</button></p></div>`);
+    if (droppableAlternative.length) {
+        const names = droppableAlternative.map(nameOf);
+        notices.push(`<div class="route-simulator-notice"><span aria-hidden="true">−</span><p><strong>El día encajaría mejor sin ${names.length === 1 ? "una parada opcional" : `${names.length} paradas opcionales`}</strong>Sin ${esc(names.join(", "))}, la propuesta resuelve conflictos que este orden no puede evitar.<button type="button" data-simulator-drop-optional>Dejar fuera ${esc(names.join(", "))}</button></p></div>`);
+    }
+    if (result.metrics.overtime > 0) notices.push(`<div class="route-simulator-notice is-late"><span aria-hidden="true">◷</span><p><strong>Termina ${result.metrics.overtime} min después del límite</strong>La propuesta acaba a las ${esc(formatSimulationTime(result.finish))} y el límite es a las ${esc(formatSimulationTime(latestFinish))}.${droppedNames.length || droppableAlternative.length ? "" : " Marca como opcionales las paradas prescindibles para que el simulador pueda dejarlas fuera."}</p></div>`);
+    if (Number.isInteger(notBefore)) notices.push(`<div class="route-simulator-notice"><span aria-hidden="true">◴</span><p><strong>Planificada desde las ${esc(formatSimulationTime(notBefore))}</strong>Es hoy: ninguna parada pendiente empieza antes de la hora actual.</p></div>`);
     const lateBookings = lateReservations(result);
     if (lateBookings.length) notices.push(`<div class="route-simulator-notice is-late"><span aria-hidden="true">!</span><p><strong>${lateBookings.length} ${lateBookings.length === 1 ? "reserva no se alcanza" : "reservas no se alcanzan"} a tiempo</strong>${esc(lateBookings.map((step) => `${step.spot.name || "Parada sin nombre"} (+${step.late} min)`).join(", "))}. El mejor orden encontrado no llega a tiempo con las condiciones indicadas. Si aplicas la propuesta, la reserva conserva su hora y el itinerario mostrará el conflicto.</p></div>`);
     if (blockedOvernight.length) notices.push(`<div class="route-simulator-notice is-late"><span aria-hidden="true">☾</span><p><strong>La propuesta pasa de medianoche</strong>${esc(blockedOvernight.map((step) => step.spot.name || "Parada sin nombre").join(", "))} ${blockedOvernight.length === 1 ? "empezaría" : "empezarían"} al día siguiente, y esa hora no se puede guardar en este día. Ajusta la selección o la hora de salida para poder aplicarla.</p></div>`);
@@ -418,7 +495,12 @@ function renderResult(result, {
             ? `No se ha podido conservar ${esc(brokenDepartures.map((leg) => `${leg.fromName} → ${leg.toName}`).join("; "))} en su posición original, porque choca con una parada que has fijado a mano. La simulación no reprograma un transporte con horario: revisa ese orden antes de fiarte de él.`
             : `${esc(list)}. La simulación no reprograma un transporte con horario, así que esas paradas conservan su posición y el ahorro se busca en el resto del día.`}</p></div>`);
     }
-    const brokenVisited = brokenVisitedStops(result, visitedStops);
+    // A stop left out before a visited one moves it up one slot in the
+    // proposal without breaking anything.
+    const brokenVisited = brokenVisitedStops(result, visitedStops.map((stop) => ({
+        ...stop,
+        position: stop.position - droppedIndexes.filter((index) => index < stop.spotIndex).length,
+    })));
     if (visitedStops.length) {
         const names = visitedStops.map((stop) => stop.name).join(", ");
         notices.push(`<div class="route-simulator-notice${brokenVisited.length ? " is-warning" : ""}"><span aria-hidden="true">✓</span><p><strong>${visitedStops.length} ${visitedStops.length === 1 ? "parada ya visitada" : "paradas ya visitadas"}</strong>${brokenVisited.length
@@ -430,15 +512,15 @@ function renderResult(result, {
     const fixedSummary = [
         firstSpotIndex !== null ? `Salida fijada en ${result.steps[0].spot.name || "la primera parada"}.` : "",
         lastSpotIndex !== null ? `Llegada fijada en ${result.steps.at(-1).spot.name || "la última parada"}.` : "",
-        ...fixedSpotIndexes.map((spotIndex) => `${resultSpotName(result, spotIndex)} se mantiene en la posición ${spotIndex + 1}.`),
+        ...fixedSpotIndexes.map((spotIndex) => `${resultSpotName(result, spotIndex)} se mantiene en la posición ${result.steps.findIndex((step) => step.spotIndex === spotIndex) + 1}.`),
     ].filter(Boolean).join(" ");
-    const moved = movedFlags(result, baseline);
+    const moved = movedFlags(result, withoutDropped(baseline, droppedIndexes));
     const steps = result.steps.map((step, index) => {
         const appointment = step.repeated
             ? '<span class="route-simulator-time-pill is-fixed">Regreso</span>'
             : step.planned === null ? "" : `<span class="route-simulator-time-pill${step.late ? " is-late" : ""}">${step.late ? `+${step.late} min` : `Cita ${formatSimulationTime(step.planned)}`}</span>`;
-        const fixedPosition = fixedPositions.has(step.spotIndex)
-            ? `<span class="route-simulator-time-pill is-fixed">Posición ${step.spotIndex + 1} fijada</span>`
+        const fixedPosition = fixedPositions.has(step.spotIndex) && !step.repeated
+            ? `<span class="route-simulator-time-pill is-fixed">Posición ${index + 1} fijada</span>`
             : "";
         // The proposal is no longer listed twice, so the badge that used to live
         // on the duplicate "Ahora" card rides on the step itself.
@@ -478,14 +560,14 @@ function renderResult(result, {
     resultEl.innerHTML = `<div class="route-simulator-result-story">
         <section class="route-simulator-conclusion" aria-labelledby="routeSimulatorConclusionTitle">
             <div class="route-simulator-story-heading"><span>01</span><div><small>Resultado</small><h4 id="routeSimulatorConclusionTitle">¿Merece la pena cambiar?</h4></div></div>
-            ${savingsMarkup(result, baseline)}
+            ${savingsMarkup(result, baseline, { droppedNames, latestFinish, notBefore })}
             ${metricsMarkup(result)}
         </section>
         <section class="route-simulator-evidence" aria-labelledby="routeSimulatorEvidenceTitle">
             <div class="route-simulator-story-heading"><span>02</span><div><small>Evidencia visual</small><h4 id="routeSimulatorEvidenceTitle">Qué cambia respecto a tu plan</h4></div></div>
             <div class="route-simulator-evidence-layout">
                 ${routeMapMarkup(baseline, result)}
-                ${beforeColumnMarkup(baseline, result)}
+                ${beforeColumnMarkup(baseline, result, droppedIndexes)}
             </div>
         </section>
         <div class="route-simulator-proposal-layout">
@@ -517,6 +599,24 @@ function renderResult(result, {
     statusEl.textContent = `Ruta recalculada: ${result.steps.length} paradas, de ${formatSimulationTime(result.start)} a ${formatSimulationTime(result.finish)}, ${result.metrics.travel} minutos de trayecto.`;
 }
 
+// Indexes the optimizer may leave out: optional stops the traveller has not
+// pinned, already visited or tied to a timetable.
+// A stop that sits, in the stored day, before a stop locked to its position
+// can never leave: the locked stop would slide one slot earlier.
+function droppableOptionalIndexes(spots, day, { firstSpotIndex, lastSpotIndex, lockedIndexes }) {
+    const locked = new Set(lockedIndexes);
+    const dayIndex = new Map((day?.spots || []).map((spot, index) => [String(spot.id), index]));
+    const lastLocked = (day?.spots || []).reduce((latest, spot, index) =>
+        spotPositionConstraint(spot) === "locked" ? index : latest, -1);
+    return spots.flatMap((spot, index) => spot.optional === true
+        && index !== firstSpotIndex
+        && index !== lastSpotIndex
+        && !locked.has(index)
+        && (dayIndex.get(String(spot.id)) ?? -1) > lastLocked
+        ? [index]
+        : []);
+}
+
 function recalculateActiveSimulation({ preserveScroll = true } = {}) {
     if (!activeSimulation) return;
     const {
@@ -526,14 +626,11 @@ function recalculateActiveSimulation({ preserveScroll = true } = {}) {
         firstSpotIndex,
         lastSpotIndex,
         fixedSpotIndexes,
-        approximate,
-        missingDurations,
-        manualLegs,
-        establishedLegs,
         departureLegs,
         visitedStops,
-        unsimulatedStops,
-        baseline,
+        latestFinish,
+        notBefore,
+        allowDrop,
     } = activeSimulation;
     // The optimizer sees one set of locked positions; the result summary keeps
     // listing only the ones the traveller asked for, because the rest are the
@@ -541,26 +638,59 @@ function recalculateActiveSimulation({ preserveScroll = true } = {}) {
     // undo.
     const lockedByDeparture = departureLegs.flatMap((leg) => [leg.fromIndex, leg.toIndex]);
     const lockedByVisit = visitedStops.map((stop) => stop.spotIndex);
-    const result = optimizeRoute(spots, travelMinutes, {
+    const options = {
         fixedStart,
         firstSpotIndex,
         lastSpotIndex,
         fixedSpotIndexes: [...new Set([...fixedSpotIndexes, ...lockedByDeparture, ...lockedByVisit])],
-    });
-    activeSimulation.result = result;
+        latestFinish,
+        notBefore,
+        pastSpotIndexes: lockedByVisit,
+    };
+    const droppable = allowDrop
+        ? droppableOptionalIndexes(spots, store.state.find((day) => String(day.id) === String(activeSimulation.dayId)), {
+            firstSpotIndex,
+            lastSpotIndex,
+            lockedIndexes: [...fixedSpotIndexes, ...lockedByDeparture, ...lockedByVisit],
+        })
+        : [];
+    if (droppable.length) {
+        activeSimulation.outcome = optimizeWithOptionalStops(spots, travelMinutes, options, droppable);
+    } else {
+        const result = optimizeRoute(spots, travelMinutes, options);
+        activeSimulation.outcome = { result, full: result, dropped: [] };
+    }
+    renderActiveSimulation({ preserveScroll });
+}
+
+// Switching between "leave the optional stops out" and "keep them all" only
+// changes which of the two computed answers is shown and applied.
+function renderActiveSimulation({ preserveScroll = true } = {}) {
+    const simulation = activeSimulation;
+    if (!simulation?.outcome) return;
+    const { outcome, spots } = simulation;
+    const showingFull = simulation.keepAll || !outcome.dropped.length;
+    const result = showingFull ? outcome.full : outcome.result;
+    const droppedIndexes = showingFull ? [] : outcome.dropped;
+    simulation.result = result;
+    simulation.droppedSpotIds = droppedIndexes.map((index) => String(spots[index].id));
     renderResult(result, {
-        approximate,
-        missingDurations,
-        firstSpotIndex,
-        lastSpotIndex,
-        fixedSpotIndexes,
-        baseline,
-        manualLegs,
-        establishedLegs,
-        departureLegs,
-        visitedStops,
-        unsimulatedStops,
+        approximate: simulation.approximate,
+        missingDurations: simulation.missingDurations,
+        firstSpotIndex: simulation.firstSpotIndex,
+        lastSpotIndex: simulation.lastSpotIndex,
+        fixedSpotIndexes: simulation.fixedSpotIndexes,
+        baseline: simulation.baseline,
+        manualLegs: simulation.manualLegs,
+        establishedLegs: simulation.establishedLegs,
+        departureLegs: simulation.departureLegs,
+        visitedStops: simulation.visitedStops,
+        unsimulatedStops: simulation.unsimulatedStops,
         blockedOvernight: overnightAppointments(result),
+        droppedIndexes,
+        droppableAlternative: showingFull ? outcome.dropped : [],
+        latestFinish: simulation.latestFinish,
+        notBefore: simulation.notBefore,
         preserveScroll,
     });
 }
@@ -578,10 +708,14 @@ daySelect.addEventListener("change", () => {
     $("#routeSimulatorFixedStart").checked = hasStart;
     $("#routeSimulatorStart").disabled = !hasStart;
     $("#routeSimulatorStart").value = hasStart ? day.startTime : "09:00";
+    syncFromNow(day);
     renderSpots();
 });
 $("#routeSimulatorFixedStart").addEventListener("change", (event) => {
     $("#routeSimulatorStart").disabled = !event.target.checked;
+});
+$("#routeSimulatorLimitEnd").addEventListener("change", (event) => {
+    $("#routeSimulatorEnd").disabled = !event.target.checked;
 });
 spotsEl.addEventListener("change", (event) => {
     if (event.target.matches("[data-simulator-spot]")) activeSimulatorSpotId = event.target.value;
@@ -647,6 +781,26 @@ form.addEventListener("submit", async (event) => {
         errorEl.textContent = "Indica una hora de inicio válida o desactiva la hora fija.";
         return;
     }
+    const limited = $("#routeSimulatorLimitEnd").checked;
+    const latestFinish = limited ? timeToMinutes($("#routeSimulatorEnd").value) : null;
+    if (limited && latestFinish === null) {
+        errorEl.textContent = "Indica una hora límite válida o desactiva el límite.";
+        return;
+    }
+    if (latestFinish !== null && fixedStart !== null && latestFinish <= fixedStart) {
+        errorEl.textContent = "La hora límite debe ser posterior a la hora de salida.";
+        return;
+    }
+    const notBefore = !fromNowRow.hidden && $("#routeSimulatorFromNow").checked ? currentMinutes() : null;
+    if (notBefore !== null && fixedStart !== null && fixedStart < notBefore) {
+        errorEl.textContent = "La hora de salida fija ya ha pasado. Desactívala o desactiva «Planificar desde ahora».";
+        return;
+    }
+    if (notBefore !== null && latestFinish !== null && latestFinish <= notBefore) {
+        errorEl.textContent = "La hora límite ya ha pasado. Indica una posterior a la hora actual.";
+        return;
+    }
+    const allowDrop = $("#routeSimulatorAllowDrop").checked;
     const token = ++calculationToken;
     const dayFingerprint = simulationDayFingerprint(day);
     runButton.disabled = true;
@@ -661,7 +815,7 @@ form.addEventListener("submit", async (event) => {
     resultEl.innerHTML = '<div class="route-simulator-loading"><span aria-hidden="true"></span><strong>Midiendo trayectos y comparando órdenes</strong><p>Las aperturas, cierres y citas tienen prioridad sobre el ahorro de tiempo.</p></div>';
     statusEl.textContent = "Calculando la mejor ruta…";
     try {
-        await calculateSimulation({ token, day, dayFingerprint, spots, sourceSpots, firstSpotIndex, lastSpotIndex, fixedSpotIndexes, fixedStart });
+        await calculateSimulation({ token, day, dayFingerprint, spots, sourceSpots, firstSpotIndex, lastSpotIndex, fixedSpotIndexes, fixedStart, latestFinish, notBefore, allowDrop });
     } catch (error) {
         if (token !== calculationToken) return;
         console.warn("No se pudo calcular la simulación.", error);
@@ -681,7 +835,7 @@ form.addEventListener("submit", async (event) => {
 
 // Measures the day and runs the first optimization. Throws on any failure so
 // the submit handler can restore the dialog instead of spinning forever.
-async function calculateSimulation({ token, day, dayFingerprint, spots, sourceSpots, firstSpotIndex, lastSpotIndex, fixedSpotIndexes, fixedStart }) {
+async function calculateSimulation({ token, day, dayFingerprint, spots, sourceSpots, firstSpotIndex, lastSpotIndex, fixedSpotIndexes, fixedStart, latestFinish, notBefore, allowDrop }) {
     const profile = ["walking", "driving", "cycling"].includes(store.routeProfile) ? store.routeProfile : "walking";
     // Warm the same route cache the planner reads before projecting the
     // established day, so "Antes" shows the hours the itinerary already shows
@@ -724,6 +878,12 @@ async function calculateSimulation({ token, day, dayFingerprint, spots, sourceSp
         departureLegs,
         visitedStops,
         unsimulatedStops,
+        latestFinish,
+        notBefore,
+        allowDrop,
+        keepAll: false,
+        outcome: null,
+        droppedSpotIds: [],
         baseline,
     };
     recalculateActiveSimulation({ preserveScroll: false });
@@ -741,6 +901,11 @@ function applicationPreview(simulation) {
             tone: "remove",
             title: lateBookings.length === 1 ? "Reserva no alcanzable" : "Reservas no alcanzables",
             detail: `${lateBookings.map((step) => step.spot.name || "Parada sin nombre").join(", ")} ${lateBookings.length === 1 ? "conserva su hora" : "conservan su hora"}, pero el orden propuesto llega tarde.`,
+        }] : []),
+        ...(simulation.droppedSpotIds.length ? [{
+            tone: "remove",
+            title: simulation.droppedSpotIds.length === 1 ? "Parada opcional al backlog" : "Paradas opcionales al backlog",
+            detail: `${simulation.baseline.steps.filter((step) => simulation.droppedSpotIds.includes(String(step.spot.id))).map((step) => step.spot.name || "Parada sin nombre").join(", ")} ${simulation.droppedSpotIds.length === 1 ? "sale" : "salen"} del día y ${simulation.droppedSpotIds.length === 1 ? "queda" : "quedan"} en el backlog, sin borrarse.`,
         }] : []),
         ...(simulation.unsimulatedStops.length ? [{
             tone: "modify",
@@ -798,10 +963,12 @@ async function applyActiveSimulation() {
             if (simulationDayFingerprint(day) !== simulation.dayFingerprint) {
                 throw new Error("SIMULATION_RESULT_STALE");
             }
-            const appliedDay = applySimulationToDay(day, simulation.selectedSpotIds, simulation.result);
+            const droppedSpotIds = simulation.droppedSpotIds;
+            const appliedDay = applySimulationToDay(day, simulation.selectedSpotIds, simulation.result, { droppedSpotIds });
             return replacePlanIntent(document, {
                 ...document,
                 days: document.days.map((candidate) => candidate === day ? appliedDay : candidate),
+                backlog: [...(document.backlog || []), ...backlogCopiesOfDropped(day, droppedSpotIds)],
             });
         });
         if (committed?.skipped) {
@@ -809,7 +976,10 @@ async function applyActiveSimulation() {
             return;
         }
         dialog.close();
-        toast("Simulación aplicada. Puedes deshacer el cambio desde el historial.", "success");
+        const droppedCount = simulation.droppedSpotIds.length;
+        toast(droppedCount
+            ? `Simulación aplicada. ${droppedCount === 1 ? "Una parada opcional pasó" : `${droppedCount} paradas opcionales pasaron`} al backlog. Puedes deshacerlo desde el historial.`
+            : "Simulación aplicada. Puedes deshacer el cambio desde el historial.", "success");
     } catch (error) {
         if (error?.message === "SIMULATION_RESULT_OVERNIGHT") {
             toast("La propuesta pasa de medianoche y no se puede guardar en este día.", "error");
@@ -862,6 +1032,13 @@ resultEl.addEventListener("keydown", (event) => {
 resultEl.addEventListener("click", (event) => {
     if (event.target.closest?.("[data-simulator-apply]")) {
         void applyActiveSimulation();
+        return;
+    }
+    const keepAll = event.target.closest?.("[data-simulator-keep-all]");
+    const dropOptional = event.target.closest?.("[data-simulator-drop-optional]");
+    if ((keepAll || dropOptional) && activeSimulation) {
+        activeSimulation.keepAll = Boolean(keepAll);
+        renderActiveSimulation();
         return;
     }
     if (!event.target.closest?.("[data-simulator-reset-legs]") || !activeSimulation) return;

@@ -715,6 +715,9 @@
                         <div class="route-simulator-setup-bar">
                             <label class="route-simulator-field"><span>D&iacute;a</span><select id="routeSimulatorDay"></select></label>
                             <label class="route-simulator-start-toggle"><input id="routeSimulatorFixedStart" type="checkbox" /><span><strong>Hora de salida fija</strong><small>Si la dejas libre, se ajustar&aacute; a las citas.</small></span><input id="routeSimulatorStart" type="time" value="09:00" disabled aria-label="Hora fija de inicio" /></label>
+                            <label class="route-simulator-start-toggle"><input id="routeSimulatorLimitEnd" type="checkbox" /><span><strong>Terminar antes de</strong><small>La propuesta no deber&iacute;a acabar m&aacute;s tarde.</small></span><input id="routeSimulatorEnd" type="time" value="21:00" disabled aria-label="Hora l&iacute;mite de fin" /></label>
+                            <label id="routeSimulatorFromNowRow" class="route-simulator-start-toggle" hidden><input id="routeSimulatorFromNow" type="checkbox" /><span><strong>Planificar desde ahora</strong><small id="routeSimulatorFromNowHint">Nada pendiente empezar&aacute; antes de la hora actual.</small></span></label>
+                            <label class="route-simulator-start-toggle"><input id="routeSimulatorAllowDrop" type="checkbox" checked /><span><strong>Dejar fuera opcionales si no cabe</strong><small>Solo cuando el d&iacute;a no encaja. Al aplicar, ir&aacute;n al backlog.</small></span></label>
                         </div>
                         <div class="route-simulator-setup-foot">
                             <p id="routeSimulatorError" class="route-simulator-error" role="alert"></p>

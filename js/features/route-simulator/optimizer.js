@@ -123,12 +123,31 @@ function simulationStart(order, travelMinutes, fixedStart, facts) {
     return [...candidates];
 }
 
-export function simulateOrder(spots, order, travelMinutes, { fixedStart = null, facts = null } = {}) {
+// notBefore is the current hour on a day that is already happening. Stops
+// already checked off (pastSpotIndexes) keep the clock they had; the first
+// pending stop cannot leave before now. With nothing checked off, the whole
+// day simply cannot start earlier than now.
+function startCandidates(order, travelMinutes, fixedStart, timing, notBefore, hasPast) {
+    const raw = simulationStart(order, travelMinutes, fixedStart, timing);
+    const list = Array.isArray(raw) ? raw : [raw];
+    if (!Number.isInteger(notBefore) || hasPast) return list;
+    return [...new Set(list.map((value) => Math.max(value, notBefore)))];
+}
+
+export function simulateOrder(spots, order, travelMinutes, {
+    fixedStart = null,
+    facts = null,
+    latestFinish = null,
+    notBefore = null,
+    pastSpotIndexes = [],
+} = {}) {
     const timing = facts || timingFacts(spots);
-    const starts = simulationStart(order, travelMinutes, fixedStart, timing);
+    const past = new Set(pastSpotIndexes);
+    const starts = startCandidates(order, travelMinutes, fixedStart, timing, notBefore, past.size > 0);
     let best = null;
-    for (const start of Array.isArray(starts) ? starts : [starts]) {
+    for (const start of starts) {
         let clock = start;
+        let floorApplied = !Number.isInteger(notBefore) || past.size === 0;
         let travel = 0;
         let reservationLateStops = 0;
         let totalReservationLate = 0;
@@ -146,6 +165,10 @@ export function simulateOrder(spots, order, travelMinutes, { fixedStart = null, 
         const visited = new Set();
         order.forEach((spotIndex, position) => {
             const leg = position === 0 ? 0 : travelMinutes[order[position - 1]][spotIndex];
+            if (!floorApplied && !past.has(spotIndex)) {
+                floorApplied = true;
+                clock = Math.max(clock, notBefore);
+            }
             travel += leg;
             const arrival = clock + leg;
             const repeated = visited.has(spotIndex);
@@ -195,9 +218,13 @@ export function simulateOrder(spots, order, travelMinutes, { fixedStart = null, 
             visited.add(spotIndex);
             clock = finish;
         });
+        // Finishing after the limit the traveller set is a hard constraint,
+        // second only to a lost booking.
+        const overtime = Number.isInteger(latestFinish) ? Math.max(0, clock - latestFinish) : 0;
         const score = [
             reservationLateStops,
             totalReservationLate,
+            overtime,
             scheduleConflictStops,
             totalScheduleConflict,
             maxScheduleConflict,
@@ -233,6 +260,7 @@ export function simulateOrder(spots, order, travelMinutes, { fixedStart = null, 
                 visit: steps.reduce((sum, step) => sum + step.duration, 0),
                 reservationLateStops,
                 totalReservationLate,
+                overtime,
                 lateStops,
                 totalLate,
                 maxLate,
@@ -348,6 +376,9 @@ export function optimizeRoute(spots, travelMinutes, {
     firstSpotIndex = null,
     lastSpotIndex = null,
     fixedSpotIndexes = [],
+    latestFinish = null,
+    notBefore = null,
+    pastSpotIndexes = [],
 } = {}) {
     if (!Array.isArray(spots) || spots.length === 0) return null;
     if (!Array.isArray(travelMinutes) || travelMinutes.length !== spots.length)
@@ -358,9 +389,10 @@ export function optimizeRoute(spots, travelMinutes, {
         fixedSpotIndexes,
     });
     const facts = timingFacts(spots);
+    const simulation = { fixedStart, facts, latestFinish, notBefore, pastSpotIndexes };
     let best = null;
     const consider = (middle) => {
-        const result = simulateOrder(spots, completeOrder(middle), travelMinutes, { fixedStart, facts });
+        const result = simulateOrder(spots, completeOrder(middle), travelMinutes, simulation);
         if (!best || compareScore(result.score, best.score) < 0) best = result;
     };
     if (movable.length <= EXACT_LIMIT) {
@@ -382,7 +414,7 @@ export function optimizeRoute(spots, travelMinutes, {
     const seeds = [movable, [...timed, ...untimed], [...movable].reverse()];
     movable.forEach((seedStart) => seeds.push(nearestNeighborSeed(movable, travelMinutes, seedStart)));
     for (const seed of seeds) {
-        const result = improveSeed(spots, seed, travelMinutes, { fixedStart, facts }, completeOrder);
+        const result = improveSeed(spots, seed, travelMinutes, simulation, completeOrder);
         if (!best || compareScore(result.score, best.score) < 0) best = result;
     }
     return { ...best, exact: false };

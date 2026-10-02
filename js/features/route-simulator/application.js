@@ -1,4 +1,5 @@
 import { minutesToTime } from "../../core/time.js";
+import { dayPositionConstraintViolation } from "../../core/itinerary.js";
 import { isReservationSpot } from "./optimizer.js";
 
 export function simulationDayFingerprint(day) {
@@ -44,14 +45,46 @@ export function lateReservations(result) {
     return firstVisits(result).filter((step) => isReservationSpot(step.spot) && step.late > 0);
 }
 
-export function applySimulationToDay(day, selectedSpotIds, result) {
+// An optional stop the proposal leaves out is not deleted: it goes to the
+// backlog, exactly like the health check's "remove optional" suggestion, and
+// with the same cleanup as any spot that changes container: no day-only
+// position constraint, no group, and no hour or booking that belonged to the
+// day it left.
+export function backlogCopiesOfDropped(day, droppedSpotIds = []) {
+    const dropped = new Set([...droppedSpotIds].map(String));
+    return (day?.spots || [])
+        .filter((spot) => dropped.has(String(spot.id)))
+        .map(({
+            positionConstraint: _constraint,
+            backlogGroupId: _group,
+            plannedStart: _plannedStart,
+            fixedStart: _fixedStart,
+            ...spot
+        }) => spot);
+}
+
+// Removing a stop that sits before a locked one shifts the locked one. The
+// dialog never offers such a drop; this is the last line of defence.
+export function droppingBreaksLockedStops(day, droppedSpotIds = []) {
+    const dropped = new Set([...droppedSpotIds].map(String));
+    if (!dropped.size) return false;
+    const after = (day?.spots || []).filter((spot) => !dropped.has(String(spot.id)));
+    return dayPositionConstraintViolation(day?.spots || [], after) !== null;
+}
+
+export function applySimulationToDay(day, selectedSpotIds, result, { droppedSpotIds = [] } = {}) {
     if (!day || !Array.isArray(day.spots) || !result || !Array.isArray(result.steps)) {
         throw new TypeError("La simulación no contiene un día aplicable.");
     }
     if (overnightAppointments(result).length) {
         throw new Error("SIMULATION_RESULT_OVERNIGHT");
     }
-    const selected = new Set([...selectedSpotIds].map(String));
+    const dropped = new Set([...droppedSpotIds].map(String));
+    if ([...dropped].some((id) => !day.spots.some((spot) => String(spot.id) === id))
+        || droppingBreaksLockedStops(day, dropped)) {
+        throw new Error("SIMULATION_RESULT_STALE");
+    }
+    const selected = new Set([...selectedSpotIds].map(String).filter((id) => !dropped.has(id)));
     const originals = new Map(day.spots.map((spot) => [String(spot.id), spot]));
     const ordered = [];
 
@@ -69,9 +102,11 @@ export function applySimulationToDay(day, selectedSpotIds, result) {
     }
 
     let cursor = 0;
-    const spots = day.spots.map((spot) => selected.has(String(spot.id))
-        ? ordered[cursor++]
-        : spot);
+    const spots = day.spots
+        .filter((spot) => !dropped.has(String(spot.id)))
+        .map((spot) => selected.has(String(spot.id))
+            ? ordered[cursor++]
+            : spot);
     const startTime = minutesToTime(result.start, { wrap: true });
     if (!startTime) throw new Error("SIMULATION_RESULT_STALE");
     return { ...day, startTime, spots };

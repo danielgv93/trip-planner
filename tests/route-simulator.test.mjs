@@ -7,7 +7,8 @@ globalThis.document = { querySelector: () => null };
 const { formatSimulationTime, optimizeRoute, simulateOrder } = await import("../js/features/route-simulator/optimizer.js");
 const { establishedBaseline } = await import("../js/features/route-simulator/baseline.js");
 const { brokenDepartureLegs, brokenVisitedStops, departureLockedLegs, directedLegKey, seedEstablishedLegs, visitedLockedStops } = await import("../js/features/route-simulator/legs.js");
-const { applySimulationToDay, lateReservations, overnightAppointments, simulationDayFingerprint } = await import("../js/features/route-simulator/application.js");
+const { applySimulationToDay, backlogCopiesOfDropped, droppingBreaksLockedStops, lateReservations, overnightAppointments, simulationDayFingerprint } = await import("../js/features/route-simulator/application.js");
+const { optimizeWithOptionalStops } = await import("../js/features/route-simulator/optional-stops.js");
 const { fetchTravelMatrix } = await import("../js/features/route-simulator/travel-matrix.js");
 const { downloadPlanExport } = await import("../js/features/planner/export-plan.js");
 
@@ -934,4 +935,225 @@ test("un paso sin campo planned se trata como parada sin hora", () => {
         steps: [{ spot: day.spots[1], start: 9 * 60 }, { spot: day.spots[0], start: 9 * 60 + 30 }],
     });
     assert.deepEqual(applied.spots.map((spot) => [spot.id, spot.plannedStart]), [["b", undefined], ["a", undefined]]);
+});
+
+function uniformMatrix(size, minutes) {
+    return Array.from({ length: size }, (_, from) => Array.from({ length: size }, (_, to) => from === to ? 0 : minutes));
+}
+
+test("la hora límite manda sobre la duración de la jornada", () => {
+    // Visiting the museum first wastes a wait, but leaving it for last breaks
+    // the limit; the limit wins.
+    const spots = [
+        { id: "a", name: "A", visitMinutes: 60 },
+        { id: "museo", name: "Museo", visitMinutes: 60, openingTime: "10:00", closingTime: "20:00" },
+    ];
+    const free = optimizeRoute(spots, uniformMatrix(2, 10), { fixedStart: 9 * 60 });
+    assert.equal(free.metrics.overtime, 0);
+    const limited = optimizeRoute(spots, uniformMatrix(2, 10), { fixedStart: 9 * 60, latestFinish: 10 * 60 + 30 });
+    assert.ok(limited.metrics.overtime > 0);
+    assert.equal(limited.finish - (10 * 60 + 30), limited.metrics.overtime);
+});
+
+test("planificar desde ahora no empieza antes de la hora actual", () => {
+    const spots = [
+        { id: "a", name: "A", visitMinutes: 30 },
+        { id: "b", name: "B", visitMinutes: 30 },
+    ];
+    const result = optimizeRoute(spots, uniformMatrix(2, 10), { fixedStart: 9 * 60, notBefore: 15 * 60 });
+    assert.equal(result.steps[0].start, 15 * 60);
+    assert.equal(result.start, 15 * 60);
+});
+
+test("desde ahora, lo ya visitado conserva su hora y lo pendiente espera a ahora", () => {
+    const spots = [
+        { id: "hecha", name: "Hecha", visitMinutes: 60 },
+        { id: "pendiente", name: "Pendiente", visitMinutes: 30 },
+    ];
+    const result = optimizeRoute(spots, uniformMatrix(2, 10), {
+        fixedStart: 9 * 60,
+        fixedSpotIndexes: [0],
+        pastSpotIndexes: [0],
+        notBefore: 13 * 60,
+    });
+    assert.equal(result.steps[0].start, 9 * 60);
+    assert.equal(result.steps[1].start, 13 * 60 + 10);
+});
+
+test("un día que encaja no deja fuera ninguna parada opcional", () => {
+    const spots = [
+        { id: "a", name: "A", visitMinutes: 60 },
+        { id: "op", name: "Opcional lejana", visitMinutes: 60, optional: true },
+        { id: "b", name: "B", visitMinutes: 60 },
+    ];
+    const outcome = optimizeWithOptionalStops(spots, uniformMatrix(3, 45), { fixedStart: 9 * 60 }, [1]);
+    assert.deepEqual(outcome.dropped, []);
+    assert.equal(outcome.result, outcome.full);
+});
+
+test("deja fuera la opcional justa para respetar la hora límite", () => {
+    const spots = [
+        { id: "a", name: "A", visitMinutes: 60 },
+        { id: "corta", name: "Opcional corta", visitMinutes: 15, optional: true },
+        { id: "larga", name: "Opcional larga", visitMinutes: 120, optional: true },
+        { id: "b", name: "B", visitMinutes: 60 },
+    ];
+    const outcome = optimizeWithOptionalStops(spots, uniformMatrix(4, 10), {
+        fixedStart: 9 * 60,
+        latestFinish: 11 * 60 + 45,
+    }, [1, 2]);
+    assert.deepEqual(outcome.dropped, [2]);
+    assert.equal(outcome.result.metrics.overtime, 0);
+    assert.ok(outcome.full.metrics.overtime > 0);
+    assert.deepEqual(outcome.result.steps.map((step) => step.spot.id).sort(), ["a", "b", "corta"]);
+    // Indexes come back in the full selection's numbering.
+    assert.ok(outcome.result.steps.every((step) => spots[step.spotIndex] === step.spot));
+});
+
+test("deja fuera una opcional para salvar una reserva", () => {
+    const spots = [
+        { id: "op", name: "Opcional", visitMinutes: 90, optional: true, openingTime: "09:00", closingTime: "10:30" },
+        { id: "reserva", name: "Reserva", plannedStart: "09:30", fixedStart: true, visitMinutes: 60 },
+    ];
+    const outcome = optimizeWithOptionalStops(
+        [...spots, { id: "c", name: "C", visitMinutes: 30 }],
+        uniformMatrix(3, 10),
+        { fixedStart: 9 * 60 },
+        [0],
+    );
+    assert.deepEqual(outcome.dropped, [0]);
+    assert.equal(outcome.result.metrics.reservationLateStops, 0);
+    assert.equal(outcome.result.metrics.scheduleConflictStops, 0);
+});
+
+test("sin opcionales que ayuden, se conserva el día completo", () => {
+    const spots = [
+        { id: "a", name: "A", visitMinutes: 60 },
+        { id: "op", name: "Opcional", visitMinutes: 10, optional: true },
+        { id: "b", name: "B", visitMinutes: 600 },
+    ];
+    const outcome = optimizeWithOptionalStops(spots, uniformMatrix(3, 10), { fixedStart: 9 * 60, latestFinish: 10 * 60 }, [1]);
+    // Dropping the short optional shaves minutes but the day still breaks the
+    // limit by hours, so the stop stays.
+    assert.deepEqual(outcome.dropped, []);
+    assert.equal(outcome.result, outcome.full);
+});
+
+test("la búsqueda voraz con muchas opcionales también encuentra un día que encaja", () => {
+    const spots = Array.from({ length: 9 }, (_, index) => ({
+        id: `s${index}`,
+        name: `Parada ${index}`,
+        visitMinutes: 30,
+        optional: index >= 3,
+    }));
+    const outcome = optimizeWithOptionalStops(spots, uniformMatrix(9, 10), {
+        fixedStart: 9 * 60,
+        latestFinish: 9 * 60 + 4 * 40,
+    }, [3, 4, 5, 6, 7, 8]);
+    assert.equal(outcome.result.metrics.overtime, 0);
+    // Four stops fit in 160 minutes (30 visit + 10 travel each, minus the
+    // first leg): the three required ones plus one optional at most.
+    assert.ok(outcome.result.steps.length >= 4);
+    assert.ok(outcome.result.steps.filter((step) => !step.spot.optional).length === 3);
+});
+
+test("las opcionales que se quedan fuera salen del día y van al backlog sin anclaje", () => {
+    const day = {
+        id: "dia",
+        spots: [
+            { id: "a", name: "A" },
+            { id: "op", name: "Opcional", optional: true, backlogGroupId: "g", note: "Conservar" },
+            { id: "b", name: "B" },
+        ],
+    };
+    const result = { start: 9 * 60, steps: [
+        { spot: day.spots[2], start: 9 * 60, planned: null },
+        { spot: day.spots[0], start: 10 * 60, planned: null },
+    ] };
+    const applied = applySimulationToDay(day, ["a", "op", "b"], result, { droppedSpotIds: ["op"] });
+    assert.deepEqual(applied.spots.map((spot) => spot.id), ["b", "a"]);
+    const backlog = backlogCopiesOfDropped(day, ["op"]);
+    assert.deepEqual(backlog, [{ id: "op", name: "Opcional", optional: true, note: "Conservar" }]);
+});
+
+test("una opcional que pasa al backlog pierde la hora y la reserva de su día", () => {
+    const day = { id: "dia", spots: [
+        { id: "cena", name: "Cena", optional: true, plannedStart: "21:00", fixedStart: true, visitMinutes: 60 },
+    ] };
+    assert.deepEqual(backlogCopiesOfDropped(day, ["cena"]), [{ id: "cena", name: "Cena", optional: true, visitMinutes: 60 }]);
+});
+
+test("dejar fuera una parada anterior a otra anclada en su posición se rechaza", () => {
+    const day = { id: "dia", spots: [
+        { id: "op", name: "Opcional", optional: true },
+        { id: "fija", name: "Fija", positionConstraint: "locked" },
+        { id: "tras", name: "Después", optional: true },
+    ] };
+    assert.equal(droppingBreaksLockedStops(day, ["op"]), true);
+    assert.equal(droppingBreaksLockedStops(day, ["tras"]), false);
+    const result = { start: 9 * 60, steps: [
+        { spot: day.spots[1], start: 9 * 60, planned: null },
+        { spot: day.spots[2], start: 10 * 60, planned: null },
+    ] };
+    assert.throws(() => applySimulationToDay(day, ["op", "fija", "tras"], result, { droppedSpotIds: ["op"] }), /SIMULATION_RESULT_STALE/);
+});
+
+test("una opcional dejada fuera que ya no existe invalida la aplicación", () => {
+    const day = { id: "dia", spots: [{ id: "a" }, { id: "b" }] };
+    const result = { start: 9 * 60, steps: [{ spot: day.spots[0], start: 9 * 60, planned: null }, { spot: day.spots[1], start: 10 * 60, planned: null }] };
+    assert.throws(() => applySimulationToDay(day, ["a", "b"], result, { droppedSpotIds: ["fantasma"] }), /SIMULATION_RESULT_STALE/);
+});
+
+test("una ruta circular conserva el regreso aunque se deje fuera una opcional", () => {
+    const spots = [
+        { id: "hotel", name: "Hotel", visitMinutes: 0 },
+        { id: "op", name: "Opcional", visitMinutes: 120, optional: true },
+        { id: "a", name: "A", visitMinutes: 60 },
+    ];
+    const outcome = optimizeWithOptionalStops(spots, uniformMatrix(3, 10), {
+        fixedStart: 9 * 60,
+        firstSpotIndex: 0,
+        lastSpotIndex: 0,
+        latestFinish: 10 * 60 + 30,
+    }, [1]);
+    assert.deepEqual(outcome.dropped, [1]);
+    assert.deepEqual(outcome.result.steps.map((step) => step.spot.id), ["hotel", "a", "hotel"]);
+    assert.equal(outcome.result.steps.at(-1).repeated, true);
+});
+
+test("una parada fijada conserva su sitio entre las que quedan al dejar fuera una opcional", () => {
+    const spots = [
+        { id: "op", name: "Opcional", visitMinutes: 120, optional: true },
+        { id: "a", name: "A", visitMinutes: 30 },
+        { id: "fija", name: "Fija", visitMinutes: 30 },
+        { id: "b", name: "B", visitMinutes: 30 },
+    ];
+    const outcome = optimizeWithOptionalStops(spots, uniformMatrix(4, 10), {
+        fixedStart: 9 * 60,
+        fixedSpotIndexes: [2],
+        latestFinish: 11 * 60,
+    }, [0]);
+    assert.deepEqual(outcome.dropped, [0]);
+    // Third in the selection, second once the optional stop before it leaves.
+    assert.equal(outcome.result.steps[1].spot.id, "fija");
+    assert.equal(outcome.result.steps[1].spotIndex, 2);
+});
+
+test("ante igualdad de conflictos enteros gana dejar fuera menos paradas", () => {
+    // Either optional alone rescues the reservation; dropping both would
+    // shave more minutes but gives up a stop for nothing whole.
+    const spots = [
+        { id: "op1", name: "Opcional 1", visitMinutes: 60, optional: true },
+        { id: "op2", name: "Opcional 2", visitMinutes: 60, optional: true },
+        { id: "reserva", name: "Reserva", plannedStart: "10:15", fixedStart: true, visitMinutes: 30 },
+    ];
+    const outcome = optimizeWithOptionalStops(spots, uniformMatrix(3, 5), { fixedStart: 9 * 60, lastSpotIndex: 2 }, [0, 1]);
+    assert.equal(outcome.dropped.length, 1);
+    assert.equal(outcome.result.metrics.reservationLateStops, 0);
+});
+
+test("desde ahora una salida fija ya pasada se desplaza a la hora actual", () => {
+    const spots = [{ id: "a", name: "A", visitMinutes: 30 }, { id: "b", name: "B", visitMinutes: 30 }];
+    const result = optimizeRoute(spots, uniformMatrix(2, 10), { fixedStart: 9 * 60, notBefore: 12 * 60 });
+    assert.equal(result.start, 12 * 60);
 });
