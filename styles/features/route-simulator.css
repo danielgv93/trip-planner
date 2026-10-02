@@ -81,8 +81,6 @@
 .route-simulator-start-toggle > input[type="time"] { grid-column: 2; height: 38px; text-align: center; }
 .route-simulator-start-toggle > input[type="time"]:disabled { background: #f7f8f5; color: #9aa5a1; opacity: .65; cursor: not-allowed; }
 .route-simulator-start-toggle[hidden] { display: none; }
-.route-simulator-route-col li.is-dropped { opacity: .62; }
-.route-simulator-route-col li.is-dropped strong { text-decoration: line-through; }
 .route-simulator-optional-tag { margin-left: 6px; border-radius: 999px; padding: 1px 6px; background: #eef1ee; color: var(--rs-quiet); font: 700 9px "DM Mono"; letter-spacing: .05em; text-transform: uppercase; }
 .route-simulator-notice button { justify-self: start; margin-top: 8px; border: 0; border-radius: 999px; padding: 6px 10px; background: #f0f4f1; color: var(--rs-accent-ink); font: 700 10.5px "DM Sans", sans-serif; cursor: pointer; }
 .route-simulator-notice button:hover { background: #ddeae5; }
@@ -258,8 +256,6 @@ button.route-simulator-spot-detail:hover { background: #f4f7f4; }
 .route-simulator-route-col > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; }
 .route-simulator-route-col > header > span { border-radius: 999px; padding: 4px 9px; font: 700 10px "DM Mono"; letter-spacing: .09em; text-transform: uppercase; }
 .route-simulator-route-col > header strong { font: 600 11.5px "DM Mono"; }
-.route-simulator-route-col.is-before > header { background: var(--rs-late-soft); color: var(--rs-late-ink); }
-.route-simulator-route-col.is-before > header > span { background: #f4d7d3; }
 .route-simulator-route-col.is-after > header { background: var(--rs-accent-soft); color: var(--rs-accent-ink); }
 .route-simulator-route-col.is-after > header > span { background: #cce5dd; }
 .route-simulator-route-note { margin: 0; padding: 10px 12px 0; color: var(--rs-quiet); font-size: 11.5px; line-height: 1.5; }
@@ -269,8 +265,6 @@ button.route-simulator-spot-detail:hover { background: #f4f7f4; }
 .route-simulator-route-col li > span { display: grid; min-width: 0; gap: 2px; }
 .route-simulator-route-col li strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .route-simulator-route-col li small { color: var(--rs-quiet); font: 500 10.5px "DM Mono"; }
-.route-simulator-route-col li.is-moved { border-color: #e6cbc7; background: #fdf5f4; }
-.route-simulator-route-col li > i { color: var(--rs-late-ink); font-size: 12px; font-style: normal; font-weight: 800; }
 .route-simulator-route-col > footer { display: flex; justify-content: space-between; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--rs-line-soft); color: var(--rs-quiet); font-size: 11px; }
 .route-simulator-route-col > footer b { color: var(--ink); font: 600 11.5px "DM Mono"; }
 
@@ -380,21 +374,68 @@ button.route-simulator-spot-detail:hover { background: #f4f7f4; }
 .route-simulator-metrics dd { margin: 0; color: #263a35; font: 600 24px "DM Mono"; }
 .route-simulator-metrics dd small { margin-left: 4px; color: var(--rs-quiet); font: 600 11px "DM Mono"; }
 
-.route-simulator-evidence-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(270px, .75fr); gap: 24px; align-items: stretch; }
+.route-simulator-evidence-layout { display: grid; grid-template-columns: minmax(440px, 1.1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
 .route-simulator-map { min-width: 0; gap: 9px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
 .route-simulator-map-canvas { min-height: 285px; border-radius: 13px; box-shadow: inset 0 0 0 1px #cad2cc; }
 .route-simulator-map figcaption { padding: 0; }
 .route-simulator-route-col { border: 0; border-radius: 0; background: transparent; }
-.route-simulator-route-col.is-before { display: flex; flex-direction: column; min-width: 0; padding-left: 22px; border-left: 1px solid var(--rs-line); }
-.route-simulator-route-col.is-before > header { padding: 0 0 10px; background: transparent; color: var(--rs-late-ink); }
-.route-simulator-route-col.is-before > header > span { padding: 4px 8px; background: var(--rs-late-soft); }
-.route-simulator-route-col.is-before .route-simulator-route-note { padding: 0 0 10px; }
-.route-simulator-route-col.is-before ol { gap: 0; padding: 2px 0 8px; }
-.route-simulator-route-col.is-before li { min-height: 40px; padding: 6px 3px; border: 0; border-bottom: 1px solid var(--rs-line-soft); border-radius: 0; background: transparent; }
-.route-simulator-route-col.is-before li strong,
-.route-simulator-route-col.is-before > header strong { white-space: normal; overflow-wrap: anywhere; }
-.route-simulator-route-col.is-before li.is-moved { background: linear-gradient(90deg, var(--rs-late-soft), transparent); }
-.route-simulator-route-col.is-before > footer { margin-top: auto; padding: 10px 0 0; }
+
+/* Reorder board: before and after joined by one thread per stop. Quiet grey
+   threads keep their relative order; bold amber ones are the actual moves. */
+.route-simulator-reorder { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.route-simulator-reorder-counts { display: flex; flex-wrap: wrap; gap: 6px; }
+.route-simulator-reorder-counts span { display: inline-flex; align-items: baseline; gap: 5px; border-radius: 999px; padding: 5px 11px; background: #eef0ec; color: var(--rs-quiet); font-size: 11.5px; font-weight: 600; }
+.route-simulator-reorder-counts b { color: var(--ink); font: 700 13px "DM Mono"; }
+.route-simulator-reorder-counts .is-moved { background: var(--rs-moved-soft); color: var(--rs-moved-ink); }
+.route-simulator-reorder-counts .is-moved b { color: var(--rs-moved-ink); }
+.route-simulator-reorder-counts .is-dropped { background: var(--rs-late-soft); color: var(--rs-late-ink); }
+.route-simulator-reorder-counts .is-dropped b { color: var(--rs-late-ink); }
+.route-simulator-reorder-board { display: grid; grid-template-columns: minmax(0, 1fr) var(--rs-reorder-link) minmax(0, 1fr); align-items: start; padding: 12px 14px 14px; border: 1px solid var(--rs-line); border-radius: 13px; background: var(--rs-card); }
+.route-simulator-reorder-board > header { display: grid; grid-column: 1 / -1; grid-template-columns: inherit; padding: 0 0 8px; border-bottom: 1px solid var(--rs-line-soft); }
+.route-simulator-reorder-board > header > span { display: grid; gap: 1px; color: var(--rs-quiet); font: 700 9.5px "DM Mono"; letter-spacing: .1em; text-transform: uppercase; }
+.route-simulator-reorder-board > header > span:last-child { color: var(--rs-accent-ink); }
+.route-simulator-reorder-board > header small { font: 500 10.5px "DM Mono"; letter-spacing: 0; text-transform: none; opacity: .8; }
+.route-simulator-reorder-board ol { display: grid; margin: 0; padding: 0; list-style: none; }
+.route-simulator-reorder-board li { box-sizing: border-box; display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; gap: 8px; height: var(--rs-reorder-row); padding: 0 8px; border-radius: 8px; transition: opacity .15s, background-color .15s; }
+.route-simulator-reorder-board li > b { display: grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; background: #e6e8e4; color: #5f6a6c; font: 700 10px "DM Mono"; }
+.route-simulator-reorder-board li > span { display: grid; min-width: 0; gap: 1px; }
+.route-simulator-reorder-board li strong { overflow: hidden; font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+.route-simulator-reorder-board li small { overflow: hidden; color: var(--rs-quiet); font: 500 10.5px "DM Mono"; text-overflow: ellipsis; white-space: nowrap; }
+.route-simulator-reorder-board ol.is-after li.is-stay > b { background: var(--rs-node); color: #fff; }
+.route-simulator-reorder-board li.is-moved { background: var(--rs-moved-soft); }
+.route-simulator-reorder-board li.is-moved > b { background: #c58a1f; color: #fff; }
+.route-simulator-reorder-board li.is-moved small { color: var(--rs-moved-ink); font-weight: 700; }
+.route-simulator-reorder-board ol.is-before li.is-moved { background: linear-gradient(90deg, transparent, var(--rs-moved-soft)); }
+.route-simulator-reorder-board ol.is-before li.is-moved > b { background: transparent; box-shadow: inset 0 0 0 1.5px #c58a1f; color: var(--rs-moved-ink); }
+.route-simulator-reorder-board li.is-dropped { opacity: .7; }
+.route-simulator-reorder-board li.is-dropped strong { color: var(--rs-late-ink); text-decoration: line-through; }
+.route-simulator-reorder-board li.is-dropped small { color: var(--rs-late-ink); }
+.route-simulator-reorder-board li.is-added > b { background: transparent; box-shadow: inset 0 0 0 1.5px var(--rs-line); }
+.route-simulator-reorder-board li.is-added strong { color: var(--rs-quiet); font-weight: 500; }
+.route-simulator-reorder-links { display: block; overflow: visible; }
+.route-simulator-reorder-link path { fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; transition: opacity .15s, stroke-width .15s; }
+.route-simulator-reorder-link circle { transition: opacity .15s; }
+.route-simulator-reorder-link.is-stay path { stroke: #c3cbc6; stroke-width: 1.6; }
+.route-simulator-reorder-link.is-stay circle { fill: #b2bdb7; }
+.route-simulator-reorder-link.is-moved path { stroke: #c58a1f; stroke-width: 3.2; }
+.route-simulator-reorder-link.is-moved circle { fill: #c58a1f; stroke: var(--rs-card); stroke-width: 1.5; }
+.route-simulator-reorder-link.is-dropped path { stroke: var(--rs-late-line); stroke-width: 2; stroke-dasharray: 3 4; }
+.route-simulator-reorder-link.is-dropped path.route-simulator-reorder-cross { stroke: var(--rs-late-ink); stroke-dasharray: none; }
+.route-simulator-reorder-link.is-dropped circle { fill: var(--rs-late-line); }
+.route-simulator-reorder.has-focus .route-simulator-reorder-board li:not(.is-focus),
+.route-simulator-reorder.has-focus .route-simulator-reorder-link:not(.is-focus),
+.route-simulator-reorder.has-focus .route-simulator-reorder-moves li:not(.is-focus) { opacity: .28; }
+.route-simulator-reorder-link.is-focus path { stroke-width: 4; }
+.route-simulator-reorder-link.is-stay.is-focus path { stroke: var(--rs-node); stroke-width: 2.4; }
+.route-simulator-reorder-moves { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.route-simulator-reorder-moves li { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: start; gap: 10px; padding: 9px 12px; border-radius: 10px; background: #fbf7ee; outline: none; transition: opacity .15s; }
+.route-simulator-reorder-moves li:focus-visible { box-shadow: var(--rs-ring); }
+.route-simulator-reorder-moves li > i { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: #c58a1f; color: #fff; font: 800 12px "DM Mono"; font-style: normal; }
+.route-simulator-reorder-moves li.is-dropped { background: var(--rs-late-soft); }
+.route-simulator-reorder-moves li.is-dropped > i { background: var(--rs-late-ink); }
+.route-simulator-reorder-moves p { margin: 0; color: #3b4744; font-size: 12.5px; line-height: 1.4; }
+.route-simulator-reorder-moves small { display: block; margin-top: 2px; color: var(--rs-quiet); font: 500 10.5px "DM Mono"; }
+.route-simulator-reorder-empty { margin: 0; padding: 10px 12px; border-radius: 10px; background: #eef0ec; color: var(--rs-quiet); font-size: 12px; }
 
 .route-simulator-proposal-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(275px, .72fr); gap: 30px; align-items: start; }
 .route-simulator-route-col.is-after { min-width: 0; padding-right: 30px; border-right: 1px solid var(--rs-line); }
@@ -458,7 +499,7 @@ button.route-simulator-spot-detail:hover { background: #f4f7f4; }
 @media (max-width: 1000px) {
     .route-simulator-overview:has(.route-simulator-map) { grid-template-columns: minmax(0, 1fr); }
     .route-simulator-conclusion { grid-template-columns: minmax(0, 1.3fr) minmax(330px, .8fr); }
-    .route-simulator-evidence-layout { grid-template-columns: minmax(0, 1.3fr) minmax(250px, .8fr); }
+    .route-simulator-evidence-layout { grid-template-columns: minmax(400px, 1fr) minmax(0, .85fr); gap: 22px; }
     .route-simulator-proposal-layout { grid-template-columns: minmax(0, 1.45fr) minmax(250px, .75fr); gap: 24px; }
     .route-simulator-setup { grid-template-columns: 240px minmax(0, 1fr); overflow-y: auto; }
     .route-simulator-config { grid-row: 1 / span 2; }
@@ -475,14 +516,18 @@ button.route-simulator-spot-detail:hover { background: #f4f7f4; }
     .route-simulator-metrics > div:last-child { border-right: 0; }
     .route-simulator-route-compare { grid-template-columns: minmax(0, 1fr); }
     .route-simulator-evidence-layout { grid-template-columns: minmax(0, 1fr); }
-    .route-simulator-route-col.is-before { padding: 18px 0 0; border-top: 1px solid var(--rs-line); border-left: 0; }
-    .route-simulator-route-col.is-before ol { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
     .route-simulator-proposal-layout { grid-template-columns: minmax(0, 1fr); }
     .route-simulator-route-col.is-after { padding-right: 0; border-right: 0; }
     .route-simulator-review { position: static; padding-top: 24px; border-top: 1px solid var(--rs-line); }
     .route-simulator-review-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
 }
 @media (max-width: 760px) {
+    /* Narrow screens give the names the room: the threads squeeze, keep
+       their stroke, and drop the end dots that would stretch into ellipses. */
+    .route-simulator-reorder-board { grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr); padding: 10px 8px 12px; }
+    .route-simulator-reorder-links { width: 44px; }
+    .route-simulator-reorder-link circle { display: none; }
+    .route-simulator-reorder-board li { gap: 6px; padding: 0 4px; }
     .route-simulator-dialog { width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; }
     .route-simulator-head { padding: 14px 17px; }
     .route-simulator-head h3 { font-size: 20px; }
@@ -526,7 +571,7 @@ button.route-simulator-spot-detail:hover { background: #f4f7f4; }
     .route-simulator-metrics dd { font-size: 21px; }
     .route-simulator-map-canvas { min-height: 230px; }
     .route-simulator-map figcaption small { flex-basis: 100%; }
-    .route-simulator-route-col.is-before ol, .route-simulator-review-list { grid-template-columns: minmax(0, 1fr); }
+    .route-simulator-review-list { grid-template-columns: minmax(0, 1fr); }
     .route-simulator-route-col.is-after .route-simulator-route-note { padding-left: 0; }
     .route-simulator-manual-summary { margin-left: 0; }
     .route-simulator-step { grid-template-columns: 28px 1fr; gap: 9px; }

@@ -25,6 +25,8 @@ import {
 import { formatSimulationTime, isReservationSpot, optimizeRoute } from "./optimizer.js";
 import { optimizeWithOptionalStops } from "./optional-stops.js";
 import { mountRouteMap, routeMapMarkup } from "./route-map.js";
+import { reorderDiff } from "./reorder.js";
+import { mountReorderDiagram, reorderDiagramMarkup } from "./reorder-diagram.js";
 import {
     applySimulationToDay,
     backlogCopiesOfDropped,
@@ -325,55 +327,6 @@ function metricsMarkup(result) {
     </dl>`;
 }
 
-function comparisonOccurrences(result) {
-    const seen = new Map();
-    return result.steps.map((step) => {
-        const count = (seen.get(step.spotIndex) || 0) + 1;
-        seen.set(step.spotIndex, count);
-        return `${step.spotIndex}:${count}`;
-    });
-}
-
-// True at every position holding a different stop than the other order holds
-// there. Drives the ↕ badge on the reference column and on the step list.
-function movedFlags(result, other) {
-    const otherPositions = new Map(comparisonOccurrences(other).map((key, index) => [key, index]));
-    return comparisonOccurrences(result).map((key, index) => otherPositions.get(key) !== index);
-}
-
-function stepStatus(step) {
-    if (step.repeated) return "Regreso";
-    if (step.outsideSchedule) return `Fuera de horario${step.outsideMinutes ? ` · ${step.outsideMinutes} min` : ""}`;
-    if (step.late) return `+${step.late} min tarde`;
-    return formatSimulationTime(step.start);
-}
-
-// The established order as a plain reference column. It used to sit beside a
-// second list of the proposed order that repeated the step list below it line
-// for line; the proposal now lives only in the editable timeline.
-// The stops a proposal leaves out are not moves: comparing positions with
-// them still in place flagged every stop after a dropped one as moved.
-function withoutDropped(baseline, droppedIndexes) {
-    const dropped = new Set(droppedIndexes);
-    return { ...baseline, steps: baseline.steps.filter((step) => !dropped.has(step.spotIndex)) };
-}
-
-function beforeColumnMarkup(baseline, result, droppedIndexes = []) {
-    const dropped = new Set(droppedIndexes);
-    const keptMoved = movedFlags(withoutDropped(baseline, droppedIndexes), result);
-    let keptCursor = 0;
-    const moved = baseline.steps.map((step) => dropped.has(step.spotIndex) ? false : keptMoved[keptCursor++]);
-    const rows = baseline.steps.map((step, index) => dropped.has(step.spotIndex)
-        ? `<li class="is-dropped"><b>${index + 1}</b><span><strong>${esc(step.spot.name || "Parada sin nombre")}</strong><small>Se queda fuera · opcional</small></span></li>`
-        : `<li class="${moved[index] ? "is-moved" : ""}"><b>${index + 1}</b><span><strong>${esc(step.spot.name || "Parada sin nombre")}</strong><small>${esc(stepStatus(step))}</small></span>${moved[index] ? '<i aria-label="Cambia de posición">↕</i>' : ""}</li>`).join("");
-    return `<section class="route-simulator-route-col is-before">
-        <header><span>Antes</span><strong>${baseline.metrics.travel} min de trayecto</strong></header>
-        <p class="route-simulator-route-note">Tu itinerario tal y como está guardado: su orden, sus horas y las duraciones de trayecto que ya tienes.</p>
-        <ol>${rows}</ol>
-        <footer><span>Jornada <b>${baseline.finish - baseline.start} min</b></span><span>Conflictos <b>${baseline.metrics.scheduleConflictStops}</b></span></footer>
-    </section>`;
-}
-
 // The headline claims time, so it must measure the time the traveller spends:
 // the whole day, from the first departure to the last stop. Travel minutes are
 // only one ingredient of it — announcing a saving from them alone contradicts a
@@ -514,7 +467,13 @@ function renderResult(result, {
         lastSpotIndex !== null ? `Llegada fijada en ${result.steps.at(-1).spot.name || "la última parada"}.` : "",
         ...fixedSpotIndexes.map((spotIndex) => `${resultSpotName(result, spotIndex)} se mantiene en la posición ${result.steps.findIndex((step) => step.spotIndex === spotIndex) + 1}.`),
     ].filter(Boolean).join(" ");
-    const moved = movedFlags(result, withoutDropped(baseline, droppedIndexes));
+    // Appointments and pinned positions win ties: when two stops swap, the
+    // one that could not have moved reads as the one that stayed.
+    const anchoredIndexes = new Set([firstSpotIndex, lastSpotIndex, ...fixedSpotIndexes]
+        .filter((index) => index !== null));
+    const isAnchored = (step) => anchoredIndexes.has(step.spotIndex) || (step.planned !== null && step.planned !== undefined);
+    const anchoredSpots = new Set(result.steps.filter(isAnchored).map((step) => step.spotIndex));
+    const diff = reorderDiff(baseline.steps, result.steps, { anchored: (spotIndex) => anchoredSpots.has(spotIndex) });
     const steps = result.steps.map((step, index) => {
         const appointment = step.repeated
             ? '<span class="route-simulator-time-pill is-fixed">Regreso</span>'
@@ -522,9 +481,12 @@ function renderResult(result, {
         const fixedPosition = fixedPositions.has(step.spotIndex) && !step.repeated
             ? `<span class="route-simulator-time-pill is-fixed">Posición ${index + 1} fijada</span>`
             : "";
-        // The proposal is no longer listed twice, so the badge that used to live
-        // on the duplicate "Ahora" card rides on the step itself.
-        const movedPill = moved[index] ? '<span class="route-simulator-time-pill is-moved">↕ Cambia</span>' : "";
+        // Only stops that really moved carry the badge, with where they came
+        // from; the ones merely shifted by a move keep their order and stay quiet.
+        const shift = diff.after[index];
+        const movedPill = shift.status === "moved"
+            ? `<span class="route-simulator-time-pill is-moved">${shift.from > shift.to ? "↑" : "↓"} era ${shift.from + 1}.ª</span>`
+            : "";
         const hours = step.repeated || !step.schedule
             ? ""
             : `<span class="route-simulator-time-pill is-hours${step.outsideSchedule ? " is-late" : ""}">${esc(scheduleLabel(step.spot))}</span>`;
@@ -547,7 +509,7 @@ function renderResult(result, {
             step.outsideSchedule ? `${step.outsideMinutes ? `${step.outsideMinutes} ${step.outsideMinutes === 1 ? "minuto" : "minutos"}` : "Visita"} fuera de horario` : "",
             step.repeated ? "Fin de la ruta" : `${step.duration} min en la parada`,
         ].filter(Boolean).join(" · ");
-        return `${travel}<article class="route-simulator-step${moved[index] ? " is-moved" : ""}"><span class="route-simulator-step-number">${index + 1}</span><div><div class="route-simulator-step-heading"><strong>${esc(step.spot.name || "Parada sin nombre")}</strong><span class="route-simulator-time-pills">${hours}${movedPill}${fixedPosition}${appointment}</span></div><p><b>${esc(formatSimulationTime(step.start))}</b>–${esc(formatSimulationTime(step.finish))}<span>${esc(secondary)}</span></p></div></article>`;
+        return `${travel}<article class="route-simulator-step${shift.status === "moved" ? " is-moved" : ""}"><span class="route-simulator-step-number">${index + 1}</span><div><div class="route-simulator-step-heading"><strong>${esc(step.spot.name || "Parada sin nombre")}</strong><span class="route-simulator-time-pills">${hours}${movedPill}${fixedPosition}${appointment}</span></div><p><b>${esc(formatSimulationTime(step.start))}</b>–${esc(formatSimulationTime(step.finish))}<span>${esc(secondary)}</span></p></div></article>`;
     }).join("");
     const manualSummary = manualLegs.size
         ? `<div class="route-simulator-manual-summary"><span aria-hidden="true">✎</span><p><strong>${manualLegs.size} ${manualLegs.size === 1 ? "trayecto personalizado" : "trayectos personalizados"}</strong>Se aplican en ambos sentidos y solo durante esta simulación.</p><button type="button" data-simulator-reset-legs>Restaurar tiempos</button></div>`
@@ -566,8 +528,8 @@ function renderResult(result, {
         <section class="route-simulator-evidence" aria-labelledby="routeSimulatorEvidenceTitle">
             <div class="route-simulator-story-heading"><span>02</span><div><small>Evidencia visual</small><h4 id="routeSimulatorEvidenceTitle">Qué cambia respecto a tu plan</h4></div></div>
             <div class="route-simulator-evidence-layout">
+                ${reorderDiagramMarkup(baseline, result, diff, { isAnchored })}
                 ${routeMapMarkup(baseline, result)}
-                ${beforeColumnMarkup(baseline, result, droppedIndexes)}
             </div>
         </section>
         <div class="route-simulator-proposal-layout">
@@ -594,6 +556,7 @@ function renderResult(result, {
     </div>`;
     resultEl.scrollTop = preserveScroll ? previousScroll : 0;
     unmountRouteMap = mountRouteMap(resultEl, baseline, result);
+    mountReorderDiagram(resultEl);
     // renderResult runs again on every edited leg. Announcing the whole panel
     // each time buried the change, so only this one-line summary is live.
     statusEl.textContent = `Ruta recalculada: ${result.steps.length} paradas, de ${formatSimulationTime(result.start)} a ${formatSimulationTime(result.finish)}, ${result.metrics.travel} minutos de trayecto.`;
@@ -890,11 +853,12 @@ async function calculateSimulation({ token, day, dayFingerprint, spots, sourceSp
 }
 
 function applicationPreview(simulation) {
-    const beforeIds = simulation.selectedSpotIds;
     const uniqueSteps = simulation.result.steps.filter((step, index, steps) =>
         steps.findIndex((candidate) => String(candidate.spot.id) === String(step.spot.id)) === index);
     const afterIds = uniqueSteps.map((step) => String(step.spot.id));
-    const moved = afterIds.filter((id, index) => id !== beforeIds[index]).length;
+    // Same measure as the result panel: stops shifted by another one's move
+    // keep their order and are not counted.
+    const moved = reorderDiff(simulation.baseline.steps, simulation.result.steps).movedCount;
     const lateBookings = lateReservations(simulation.result);
     const warnings = [
         ...(lateBookings.length ? [{
