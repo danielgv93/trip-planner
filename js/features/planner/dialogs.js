@@ -722,7 +722,13 @@ async function commitPlaceEditor({ stayOpen = false } = {}) {
     }
     const target =
         editing.dayId === "backlog" ? store.backlog : dayBy(editing.dayId).spots;
-    let spot = editing.spot;
+    // Resolve by id: remote/derived plan updates replace spot objects, so the
+    // reference captured when the dialog opened can be stale.
+    let spot = editing.spot ? target.find((candidate) => candidate.id === editing.spot.id) : undefined;
+    if (editing.spot && !spot) {
+        toast("Esta parada ya no existe en el plan; no se pudieron guardar los cambios.", "error");
+        return { status: "invalid", reason: "missing-spot" };
+    }
     if (
         ["first", "last"].includes(positionConstraint) &&
         target.some((candidate) => candidate !== spot && spotPositionConstraint(candidate) === positionConstraint)
