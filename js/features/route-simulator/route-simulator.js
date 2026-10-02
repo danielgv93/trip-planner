@@ -22,10 +22,11 @@ import {
     simulatorLegKey,
     visitedLockedStops,
 } from "./legs.js";
-import { formatSimulationTime, isReservationSpot, optimizeRoute } from "./optimizer.js";
+import { formatSimulationTime, isReservationSpot, optimizeRoute, simulateOrder } from "./optimizer.js";
 import { optimizeWithOptionalStops } from "./optional-stops.js";
 import { mountRouteMap, routeMapMarkup } from "./route-map.js";
 import { reorderDiff } from "./reorder.js";
+import { moveImpacts } from "./move-impact.js";
 import { mountReorderDiagram, reorderDiagramMarkup } from "./reorder-diagram.js";
 import {
     applySimulationToDay,
@@ -412,6 +413,8 @@ function renderResult(result, {
     droppableAlternative = [],
     latestFinish = null,
     notBefore = null,
+    evaluateOrder = null,
+    lockedIndexes = [],
     preserveScroll = false,
 }) {
     unmountRouteMap?.();
@@ -474,6 +477,9 @@ function renderResult(result, {
     const isAnchored = (step) => anchoredIndexes.has(step.spotIndex) || (step.planned !== null && step.planned !== undefined);
     const anchoredSpots = new Set(result.steps.filter(isAnchored).map((step) => step.spotIndex));
     const diff = reorderDiff(baseline.steps, result.steps, { anchored: (spotIndex) => anchoredSpots.has(spotIndex) });
+    const impacts = evaluateOrder
+        ? moveImpacts(diff, { evaluate: evaluateOrder, lockedIndexes, fromNow: Number.isInteger(notBefore) })
+        : undefined;
     const steps = result.steps.map((step, index) => {
         const appointment = step.repeated
             ? '<span class="route-simulator-time-pill is-fixed">Regreso</span>'
@@ -528,7 +534,7 @@ function renderResult(result, {
         <section class="route-simulator-evidence" aria-labelledby="routeSimulatorEvidenceTitle">
             <div class="route-simulator-story-heading"><span>02</span><div><small>Evidencia visual</small><h4 id="routeSimulatorEvidenceTitle">Qué cambia respecto a tu plan</h4></div></div>
             <div class="route-simulator-evidence-layout">
-                ${reorderDiagramMarkup(baseline, result, diff, { isAnchored })}
+                ${reorderDiagramMarkup(baseline, result, diff, { isAnchored, impacts, fromNow: Number.isInteger(notBefore) })}
                 ${routeMapMarkup(baseline, result)}
             </div>
         </section>
@@ -610,6 +616,7 @@ function recalculateActiveSimulation({ preserveScroll = true } = {}) {
         notBefore,
         pastSpotIndexes: lockedByVisit,
     };
+    activeSimulation.optimizerOptions = options;
     const droppable = allowDrop
         ? droppableOptionalIndexes(spots, store.state.find((day) => String(day.id) === String(activeSimulation.dayId)), {
             firstSpotIndex,
@@ -654,6 +661,14 @@ function renderActiveSimulation({ preserveScroll = true } = {}) {
         droppableAlternative: showingFull ? outcome.dropped : [],
         latestFinish: simulation.latestFinish,
         notBefore: simulation.notBefore,
+        // Each move is priced by undoing it under the very legs and conditions
+        // the optimizer just used, edited legs included.
+        evaluateOrder: (order) => simulateOrder(simulation.spots, order, simulation.travelMinutes, simulation.optimizerOptions),
+        lockedIndexes: [
+            simulation.optimizerOptions.firstSpotIndex,
+            simulation.optimizerOptions.lastSpotIndex,
+            ...simulation.optimizerOptions.fixedSpotIndexes,
+        ].filter(Number.isInteger),
         preserveScroll,
     });
 }
