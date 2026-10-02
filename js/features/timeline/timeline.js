@@ -144,9 +144,36 @@ export function buildTimelineProjection(
     // A planned stop earlier than every opening (a dawn train, an airport
     // transfer) must anchor the simulation; otherwise the cursor starts after
     // it and every following travel leg is pushed past its planned arrival.
-    const plannedStarts = spots
-        .map((spot) => timeToMinutes(spot.plannedStart))
-        .filter(Number.isFinite);
+    // The stops before a planned one (the hotel before a fixed bus) still have
+    // to be visited and travelled from, so the anchor is moved back by that
+    // lead time until another time constraint already covers the chain.
+    const legs = spots.map((spot, index) => {
+        if (!index) return { travel: 0, fixedDeparture: false };
+        const previousSpot = spots[index - 1];
+        const resolved = travelForLeg?.(previousSpot, spot, profile) || null;
+        return {
+            travel: resolved?.minutes ??
+                estimatedTravelMinutes(previousSpot, spot, resolved?.profile || profile),
+            fixedDeparture: resolved?.fixedDeparture === true && timeToMinutes(resolved?.departureTime) !== null,
+        };
+    });
+    const constrainsStart = (spot) => {
+        if (timeToMinutes(spot.plannedStart) !== null) return true;
+        if (isWaypoint(spot)) return false;
+        const opening = timeToMinutes(spot.openingTime);
+        return opening !== null && !isAllDaySchedule(opening, timeToMinutes(spot.closingTime));
+    };
+    const plannedStarts = spots.flatMap((spot, index) => {
+        const plannedStart = timeToMinutes(spot.plannedStart);
+        if (plannedStart === null) return [];
+        let anchor = plannedStart;
+        for (let cursorIndex = index; cursorIndex > 0; cursorIndex -= 1) {
+            const previousSpot = spots[cursorIndex - 1];
+            if (legs[cursorIndex].fixedDeparture || constrainsStart(previousSpot)) break;
+            anchor -= legs[cursorIndex].travel + activityDuration(previousSpot);
+        }
+        return [Math.max(0, anchor)];
+    });
     const anchors = [...openings, ...plannedStarts];
     const explicitStart = timeToMinutes(day?.startTime);
     const dayStart = explicitStart ??

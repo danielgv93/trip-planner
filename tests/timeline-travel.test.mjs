@@ -141,3 +141,19 @@ test("una parada planificada antes de la primera apertura ancla el inicio del dÃ
     assert.equal(projection.items[1].travelEnd, 474);
     assert.ok(!projection.items[1].conflicts.some((conflict) => conflict.type === "travel-overlap"));
 });
+
+test("una hora planificada adelanta el inicio del dÃ­a lo necesario para llegar desde las paradas previas", () => {
+    const day = { date: "2026-07-20", spots: [
+        { id: "hotel", name: "Hotel", kind: "waypoint" },
+        { id: "bus", name: "Parada bus", kind: "waypoint", plannedStart: "07:20" },
+        { id: "temple", name: "Templo", kind: "activity", visitMinutes: 30, openingTime: "08:30", closingTime: "17:00" },
+        { id: "return", name: "Bus de vuelta", kind: "waypoint", plannedStart: "14:00" },
+    ] };
+    const projection = buildTimelineProjection(day, { mode: "plan", travelForLeg: () => ({ minutes: 24, profile: "walking" }) });
+    const [hotel, bus] = projection.items;
+    assert.equal(hotel.start, 416);
+    assert.equal(bus.travelStart, 416);
+    assert.equal(bus.travelEnd, 440);
+    assert.equal(bus.start, 440);
+    assert.equal(bus.conflicts.some((conflict) => conflict.type === "travel-overlap"), false);
+});
