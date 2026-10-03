@@ -290,11 +290,11 @@ function permutations(values, visit, prefix = []) {
     ));
 }
 
-function nearestNeighborSeed(values, travelMinutes, first) {
+function nearestNeighborSeed(values, travelMinutes, first, tail = (index) => index) {
     const order = [first];
     const remaining = new Set(values.filter((index) => index !== first));
     while (remaining.size) {
-        const previous = order.at(-1);
+        const previous = tail(order.at(-1));
         const next = [...remaining].sort((a, b) => travelMinutes[previous][a] - travelMinutes[previous][b] || a - b)[0];
         order.push(next);
         remaining.delete(next);
@@ -302,9 +302,11 @@ function nearestNeighborSeed(values, travelMinutes, first) {
     return order;
 }
 
-function improveSeed(spots, seed, travelMinutes, options, completeOrder) {
+// `evaluate` returns null for an order that breaks a chain; such orders never
+// win, and a seed that breaks one is replaced by the first valid neighbour.
+function improveSeed(seed, evaluate) {
     let bestSeed = [...seed];
-    let best = simulateOrder(spots, completeOrder(bestSeed), travelMinutes, options);
+    let best = evaluate(bestSeed);
     let improved = true;
     let passes = 0;
     while (improved && passes < 6) {
@@ -316,8 +318,8 @@ function improveSeed(spots, seed, travelMinutes, options, completeOrder) {
                 const candidate = [...bestSeed];
                 const [moved] = candidate.splice(from, 1);
                 candidate.splice(to, 0, moved);
-                const result = simulateOrder(spots, completeOrder(candidate), travelMinutes, options);
-                if (compareScore(result.score, best.score) < 0) {
+                const result = evaluate(candidate);
+                if (result && (!best || compareScore(result.score, best.score) < 0)) {
                     best = result;
                     bestSeed = candidate;
                     improved = true;
@@ -328,10 +330,15 @@ function improveSeed(spots, seed, travelMinutes, options, completeOrder) {
     return best;
 }
 
+// Chains are stops that must stay together and in order (a travel card that
+// folds its two ends). A chain that touches a locked slot is locked whole at
+// its stored positions; every other chain moves as a single unit, so the
+// search permutes units and never even builds an order that splits one.
 function routeConstraint(size, {
     firstSpotIndex = null,
     lastSpotIndex = null,
     fixedSpotIndexes = [],
+    chains = [],
 } = {}) {
     const indexes = Array.from({ length: size }, (_, index) => index);
     const valid = (value) => Number.isInteger(value) && value >= 0 && value < size;
@@ -340,6 +347,13 @@ function routeConstraint(size, {
     const circular = first !== null && first === last;
     const template = Array.from({ length: size + (circular ? 1 : 0) }, () => null);
     const exact = new Set(Array.isArray(fixedSpotIndexes) ? fixedSpotIndexes.filter(valid) : []);
+    const usableChains = (Array.isArray(chains) ? chains : [])
+        .map((chain) => (Array.isArray(chain) ? chain : []).filter(valid))
+        .filter((chain) => chain.length >= 2);
+    const endpoints = new Set([first, last].filter((value) => value !== null));
+    const lockedChains = usableChains.filter((chain) =>
+        chain.some((spotIndex) => exact.has(spotIndex) || endpoints.has(spotIndex)));
+    lockedChains.flat().forEach((spotIndex) => exact.add(spotIndex));
     if (first !== null) exact.delete(first);
     if (last !== null) exact.delete(last);
     exact.forEach((spotIndex) => { template[spotIndex] = spotIndex; });
@@ -363,12 +377,30 @@ function routeConstraint(size, {
     }
 
     const locked = new Set(template.filter((value) => value !== null));
-    const movable = indexes.filter((index) => !locked.has(index));
+    const free = indexes.filter((index) => !locked.has(index));
+    // Units are named by their head stop; a free stop is a unit of one.
+    const members = new Map(free.map((index) => [index, [index]]));
+    usableChains
+        .filter((chain) => chain.every((spotIndex) => members.get(spotIndex)?.length === 1))
+        .forEach((chain) => {
+            chain.slice(1).forEach((spotIndex) => members.delete(spotIndex));
+            members.set(chain[0], chain);
+        });
+    const movable = free.filter((index) => members.has(index));
+    const expand = (orderedMovable) => orderedMovable.flatMap((head) => members.get(head));
     const completeOrder = (orderedMovable) => {
+        const queue = expand(orderedMovable);
         let cursor = 0;
-        return template.map((spotIndex) => spotIndex ?? orderedMovable[cursor++]);
+        return template.map((spotIndex) => spotIndex ?? queue[cursor++]);
     };
-    return { movable, completeOrder };
+    // A locked slot between free slots can still land inside a moved chain.
+    const unitChains = [...members.values()].filter((chain) => chain.length >= 2);
+    const keepsChains = (order) => unitChains.every((chain) => {
+        const at = order.indexOf(chain[0]);
+        return chain.every((spotIndex, offset) => order[at + offset] === spotIndex);
+    });
+    const tail = (head) => members.get(head).at(-1);
+    return { movable, completeOrder, keepsChains, tail };
 }
 
 export function optimizeRoute(spots, travelMinutes, {
@@ -376,6 +408,7 @@ export function optimizeRoute(spots, travelMinutes, {
     firstSpotIndex = null,
     lastSpotIndex = null,
     fixedSpotIndexes = [],
+    chains = [],
     latestFinish = null,
     notBefore = null,
     pastSpotIndexes = [],
@@ -383,41 +416,58 @@ export function optimizeRoute(spots, travelMinutes, {
     if (!Array.isArray(spots) || spots.length === 0) return null;
     if (!Array.isArray(travelMinutes) || travelMinutes.length !== spots.length)
         throw new TypeError("La matriz de trayectos no coincide con las paradas.");
-    const { movable, completeOrder } = routeConstraint(spots.length, {
+    const { movable, completeOrder, keepsChains, tail } = routeConstraint(spots.length, {
         firstSpotIndex,
         lastSpotIndex,
         fixedSpotIndexes,
+        chains,
     });
     const facts = timingFacts(spots);
     const simulation = { fixedStart, facts, latestFinish, notBefore, pastSpotIndexes };
+    const evaluate = (middle) => {
+        const order = completeOrder(middle);
+        return keepsChains(order) ? simulateOrder(spots, order, travelMinutes, simulation) : null;
+    };
     let best = null;
-    const consider = (middle) => {
-        const result = simulateOrder(spots, completeOrder(middle), travelMinutes, simulation);
-        if (!best || compareScore(result.score, best.score) < 0) best = result;
-    };
-    if (movable.length <= EXACT_LIMIT) {
-        permutations(movable, consider);
-        return { ...best, exact: true };
+    let exact = movable.length <= EXACT_LIMIT;
+    if (exact) {
+        permutations(movable, (middle) => {
+            const result = evaluate(middle);
+            if (result && (!best || compareScore(result.score, best.score) < 0)) best = result;
+        });
+    } else {
+        const schedulePriority = (spot) => {
+            const planned = timeToMinutes(spot.plannedStart);
+            if (planned !== null) return planned;
+            const schedule = scheduleForSpot(spot);
+            if (!schedule) return null;
+            return schedule.closing ?? schedule.opening;
+        };
+        const timed = movable.filter((index) => schedulePriority(spots[index]) !== null)
+            .sort((a, b) => schedulePriority(spots[a]) - schedulePriority(spots[b]) || a - b);
+        const timedIndexes = new Set(timed);
+        const untimed = movable.filter((index) => !timedIndexes.has(index));
+        const seeds = [movable, [...timed, ...untimed], [...movable].reverse()];
+        movable.forEach((seedStart) => seeds.push(nearestNeighborSeed(movable, travelMinutes, seedStart, tail)));
+        for (const seed of seeds) {
+            const result = improveSeed(seed, evaluate);
+            if (result && (!best || compareScore(result.score, best.score) < 0)) best = result;
+        }
     }
-
-    const schedulePriority = (spot) => {
-        const planned = timeToMinutes(spot.plannedStart);
-        if (planned !== null) return planned;
-        const schedule = scheduleForSpot(spot);
-        if (!schedule) return null;
-        return schedule.closing ?? schedule.opening;
-    };
-    const timed = movable.filter((index) => schedulePriority(spots[index]) !== null)
-        .sort((a, b) => schedulePriority(spots[a]) - schedulePriority(spots[b]) || a - b);
-    const timedIndexes = new Set(timed);
-    const untimed = movable.filter((index) => !timedIndexes.has(index));
-    const seeds = [movable, [...timed, ...untimed], [...movable].reverse()];
-    movable.forEach((seedStart) => seeds.push(nearestNeighborSeed(movable, travelMinutes, seedStart)));
-    for (const seed of seeds) {
-        const result = improveSeed(spots, seed, travelMinutes, simulation, completeOrder);
-        if (!best || compareScore(result.score, best.score) < 0) best = result;
+    // Locked slots left no room for a chain to travel whole: keep every chain
+    // where the day already has it instead of answering with a split one.
+    if (!best && chains.length) {
+        return optimizeRoute(spots, travelMinutes, {
+            fixedStart,
+            firstSpotIndex,
+            lastSpotIndex,
+            fixedSpotIndexes: [...fixedSpotIndexes, ...chains.flat()],
+            latestFinish,
+            notBefore,
+            pastSpotIndexes,
+        });
     }
-    return { ...best, exact: false };
+    return { ...best, exact };
 }
 
 export function formatSimulationTime(minutes) {

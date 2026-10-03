@@ -67,6 +67,46 @@ export function departureLockedLegs(baseline) {
     return legs;
 }
 
+// A leg folded into a single travel card (a ferry with its two piers, a train
+// with its two stations) turns its stops into one piece of the day: the card is
+// the journey, so splitting it would leave half a ferry ride behind. Unlike a
+// timetabled leg, nothing ties the piece to an hour, so the optimizer may still
+// move it — but only whole. Consecutive folded legs merge into one chain.
+// Returns { indexes, names } per chain, in travel order.
+export function linkedStopChains(baseline) {
+    const chains = [];
+    if (!baseline) return chains;
+    let current = null;
+    baseline.steps.forEach((step, position) => {
+        const previous = baseline.steps[position - 1];
+        const linked = position > 0
+            && !step.repeated
+            && previous.spotIndex !== step.spotIndex
+            && (step.embeddedEndpoints || []).length > 0;
+        if (!linked) {
+            current = null;
+            return;
+        }
+        if (!current) {
+            current = { indexes: [previous.spotIndex], names: [previous.spot.name || "Parada sin nombre"] };
+            chains.push(current);
+        }
+        current.indexes.push(step.spotIndex);
+        current.names.push(step.spot.name || "Parada sin nombre");
+    });
+    return chains;
+}
+
+// Keeping a chain whole is the same best effort as pinning a timetabled leg:
+// a stop forced first or last by hand can still pull it apart.
+export function brokenStopChains(result, chains) {
+    const positions = result.steps.filter((step) => !step.repeated).map((step) => step.spotIndex);
+    return chains.filter((chain) => {
+        const at = positions.indexOf(chain.indexes[0]);
+        return at === -1 || chain.indexes.some((spotIndex, offset) => positions[at + offset] !== spotIndex);
+    });
+}
+
 // Directed: identifies one heading of one leg. Seeded plan durations and
 // timetabled departures are both facts about travelling A to B, never B to A.
 export function directedLegKey(fromIndex, toIndex) {

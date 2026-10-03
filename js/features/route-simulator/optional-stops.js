@@ -84,6 +84,7 @@ function optimizeKept(spots, travelMinutes, options, keep) {
         lastSpotIndex: remapIndex(toSubset, options.lastSpotIndex),
         fixedSpotIndexes: remapList(options.fixedSpotIndexes),
         pastSpotIndexes: remapList(options.pastSpotIndexes),
+        chains: (options.chains || []).map(remapList),
     });
     return {
         ...result,

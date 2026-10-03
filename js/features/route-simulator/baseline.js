@@ -95,6 +95,9 @@ export function establishedBaseline(day, spots, {
             // cannot model it, so the simulator needs to know it is there.
             fixedDeparture: item.travelFixedDeparture === true,
             departureTime: item.travelDepartureTime || null,
+            // A leg folded into one travel card makes its two stops a single
+            // piece of the day: the optimizer may move them, never apart.
+            embeddedEndpoints: item.travelEmbeddedEndpoints || [],
         };
     });
     const start = projection.start;

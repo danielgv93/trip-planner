@@ -15,9 +15,11 @@ import { fetchTravelMatrix } from "./travel-matrix.js";
 import { establishedBaseline } from "./baseline.js";
 import {
     brokenDepartureLegs,
+    brokenStopChains,
     brokenVisitedStops,
     directedLegKey,
     departureLockedLegs,
+    linkedStopChains,
     seedEstablishedLegs,
     simulatorLegKey,
     visitedLockedStops,
@@ -406,6 +408,7 @@ function renderResult(result, {
     manualLegs,
     establishedLegs,
     departureLegs,
+    linkedChains = [],
     visitedStops,
     unsimulatedStops,
     blockedOvernight,
@@ -451,6 +454,13 @@ function renderResult(result, {
             ? `No se ha podido conservar ${esc(brokenDepartures.map((leg) => `${leg.fromName} → ${leg.toName}`).join("; "))} en su posición original, porque choca con una parada que has fijado a mano. La simulación no reprograma un transporte con horario: revisa ese orden antes de fiarte de él.`
             : `${esc(list)}. La simulación no reprograma un transporte con horario, así que esas paradas conservan su posición y el ahorro se busca en el resto del día.`}</p></div>`);
     }
+    const brokenChains = brokenStopChains(result, linkedChains);
+    if (linkedChains.length) {
+        const list = linkedChains.map((chain) => chain.names.join(" → ")).join("; ");
+        notices.push(`<div class="route-simulator-notice${brokenChains.length ? " is-warning" : ""}"><span aria-hidden="true">⇄</span><p><strong>${linkedChains.length} ${linkedChains.length === 1 ? "trayecto agrupado en una tarjeta" : "trayectos agrupados en una tarjeta"}</strong>${brokenChains.length
+            ? `No se ha podido mantener juntas ${esc(brokenChains.map((chain) => chain.names.join(" → ")).join("; "))}, porque choca con una parada que has fijado a mano. Revisa ese orden antes de aplicarlo.`
+            : `${esc(list)}. Esas paradas forman un solo trayecto: la simulación puede moverlas, pero siempre juntas y en el mismo orden.`}</p></div>`);
+    }
     // A stop left out before a visited one moves it up one slot in the
     // proposal without breaking anything.
     const brokenVisited = brokenVisitedStops(result, visitedStops.map((stop) => ({
@@ -478,7 +488,7 @@ function renderResult(result, {
     const anchoredSpots = new Set(result.steps.filter(isAnchored).map((step) => step.spotIndex));
     const diff = reorderDiff(baseline.steps, result.steps, { anchored: (spotIndex) => anchoredSpots.has(spotIndex) });
     const impacts = evaluateOrder
-        ? moveImpacts(diff, { evaluate: evaluateOrder, lockedIndexes, fromNow: Number.isInteger(notBefore) })
+        ? moveImpacts(diff, { evaluate: evaluateOrder, lockedIndexes, chains: linkedChains.map((chain) => chain.indexes), fromNow: Number.isInteger(notBefore) })
         : undefined;
     const steps = result.steps.map((step, index) => {
         const appointment = step.repeated
@@ -596,6 +606,7 @@ function recalculateActiveSimulation({ preserveScroll = true } = {}) {
         lastSpotIndex,
         fixedSpotIndexes,
         departureLegs,
+        linkedChains,
         visitedStops,
         latestFinish,
         notBefore,
@@ -612,6 +623,7 @@ function recalculateActiveSimulation({ preserveScroll = true } = {}) {
         firstSpotIndex,
         lastSpotIndex,
         fixedSpotIndexes: [...new Set([...fixedSpotIndexes, ...lockedByDeparture, ...lockedByVisit])],
+        chains: linkedChains.map((chain) => chain.indexes),
         latestFinish,
         notBefore,
         pastSpotIndexes: lockedByVisit,
@@ -621,7 +633,8 @@ function recalculateActiveSimulation({ preserveScroll = true } = {}) {
         ? droppableOptionalIndexes(spots, store.state.find((day) => String(day.id) === String(activeSimulation.dayId)), {
             firstSpotIndex,
             lastSpotIndex,
-            lockedIndexes: [...fixedSpotIndexes, ...lockedByDeparture, ...lockedByVisit],
+            // Leaving out one end of a travel card would split it.
+            lockedIndexes: [...fixedSpotIndexes, ...lockedByDeparture, ...lockedByVisit, ...linkedChains.flatMap((chain) => chain.indexes)],
         })
         : [];
     if (droppable.length) {
@@ -654,6 +667,7 @@ function renderActiveSimulation({ preserveScroll = true } = {}) {
         manualLegs: simulation.manualLegs,
         establishedLegs: simulation.establishedLegs,
         departureLegs: simulation.departureLegs,
+        linkedChains: simulation.linkedChains,
         visitedStops: simulation.visitedStops,
         unsimulatedStops: simulation.unsimulatedStops,
         blockedOvernight: overnightAppointments(result),
@@ -830,6 +844,7 @@ async function calculateSimulation({ token, day, dayFingerprint, spots, sourceSp
     const baseline = establishedBaseline(day, sourceSpots, { profile, travelForLeg: resolveTravelForLeg });
     const establishedLegs = seedEstablishedLegs(travelMinutes, baseline);
     const departureLegs = departureLockedLegs(baseline);
+    const linkedChains = linkedStopChains(baseline);
     const visitedStops = visitedLockedStops(baseline);
     const missingDurations = spots.filter((spot) => !isWaypoint(spot) && !(Number.isInteger(spot.visitMinutes) && spot.visitMinutes > 0)).map((spot) => spot.name || "Parada sin nombre");
     // The timeline still projects every enabled stop the dialog left out, so
@@ -854,6 +869,7 @@ async function calculateSimulation({ token, day, dayFingerprint, spots, sourceSp
         manualLegs: new Map(),
         establishedLegs,
         departureLegs,
+        linkedChains,
         visitedStops,
         unsimulatedStops,
         latestFinish,

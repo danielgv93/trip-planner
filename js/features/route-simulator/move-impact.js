@@ -66,13 +66,20 @@ function verdict(reverted, current, fromNow) {
 // conditions. Returns { byKey: Map(key → impact), groups } where an impact is
 // { kind: "reservation" | "limit" | "conflict" | "minutes" | "locked", ... }
 // and each group is { keys, ...verdict } for moves that only pay off together.
-export function moveImpacts(diff, { evaluate, lockedIndexes = [], fromNow = false } = {}) {
+// Stops in one of `chains` travel as a piece, so undoing a move takes back
+// every moved stop of its chain: half a ferry ride is not an order to price.
+export function moveImpacts(diff, { evaluate, lockedIndexes = [], chains = [], fromNow = false } = {}) {
     const byKey = new Map();
     const moved = diff.after.filter((entry) => entry.status === "moved").map((entry) => entry.key);
     if (!moved.length) return { byKey, groups: [] };
     const current = evaluate(diff.after.map((entry) => spotIndexOf(entry.key)));
+    const chainOf = new Map(chains.flatMap((chain) => chain.map((spotIndex) => [spotIndex, chain])));
+    const withChains = (keys) => [...new Set(keys.flatMap((key) => {
+        const chain = chainOf.get(spotIndexOf(key));
+        return chain ? moved.filter((other) => chain.includes(spotIndexOf(other))) : [key];
+    }))];
     const measure = (keys) => {
-        const order = revertedOrder(diff, keys);
+        const order = revertedOrder(diff, withChains(keys));
         if (!keepsLockedSlots(diff, order, lockedIndexes)) return { kind: "locked" };
         return verdict(evaluate(order.map(spotIndexOf)), current, fromNow);
     };
