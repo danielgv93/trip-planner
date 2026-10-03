@@ -186,10 +186,16 @@ export function moveTravelCard(key, toDay, beforeSpotId = null) {
         command: "move-travel-card",
         precondition: { expectedContainerId: sourceDay?.id },
         payload: { containerId: toDay, beforeId: beforeSpotId },
-    })).then(() => toast(
-        "Viaje movido con sus puntos de origen y destino.",
-        "success",
-    ));
+    })).then(
+        (result) => {
+            if (result?.noOp || result?.skipped) {
+                repaint({ persist: false });
+                return;
+            }
+            toast("Viaje movido con sus puntos de origen y destino.", "success");
+        },
+        () => repaint({ persist: false }),
+    );
     return true;
 }
 

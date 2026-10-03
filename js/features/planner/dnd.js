@@ -9,7 +9,7 @@ import { daysEl } from "../../shared/dom.js";
 import { dayBy, store } from "../../core/store.js";
 import { render } from "./render.js";
 import { moveDay, moveSpot, moveTravelCard } from "./commands.js";
-import { dropIndexBefore } from "./move-spot.js";
+import { dropBeforeSpotId, dropIndexBefore } from "./move-spot.js";
 import { toast } from "../../shared/notify.js";
 
 let dragEl = null,
@@ -243,19 +243,15 @@ function onUp(e) {
         followingItem = [...list.querySelectorAll(".spot")]
             .slice(rowIndex + 1)
             .find((item) => item.dataset.spot || item.dataset.travelLeg),
-        followingSpot = followingItem?.dataset.spot || followingItem?.dataset.travelLeg?.split(">")[0] || null,
+        following = followingItem && {
+            spotId: followingItem.dataset.spot,
+            travelLegKey: followingItem.dataset.travelLeg,
+        },
+        followingSpot = dropBeforeSpotId(store.travelLegs, following),
         // Backlog rows map 1:1 to stops; a day's travel cards do not.
         index = dayId === "backlog"
             ? rowIndex
-            : dropIndexBefore(
-                  dayBy(dayId)?.spots || [],
-                  store.travelLegs,
-                  spotId,
-                  followingItem && {
-                      spotId: followingItem.dataset.spot,
-                      travelLegKey: followingItem.dataset.travelLeg,
-                  },
-              );
+            : dropIndexBefore(dayBy(dayId)?.spots || [], store.travelLegs, spotId, following);
     settled = false;
     const commit = () => {
         if (settled) return;

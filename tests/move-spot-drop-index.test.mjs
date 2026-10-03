@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { dropIndexBefore } from "../js/features/planner/move-spot.js";
+import {
+    dropBeforeSpotId,
+    dropIndexBefore,
+    relocateTravelCard,
+} from "../js/features/planner/move-spot.js";
 
 // Rendered rows: [Kyoto → Hiroshima card], Shukkeien, Parque, Yokogawa, Hotel.
 // The card folds both stations, so it is one row for two stops.
@@ -42,4 +46,40 @@ test("dropIndexBefore lands before the card's first folded stop", () => {
 test("dropIndexBefore appends at the end of the day when nothing follows", () => {
     assert.equal(dropIndexBefore(spots, travelLegs, "shukkeien", null), 5);
     assert.equal(dropIndexBefore(spots, travelLegs, "shukkeien", { spotId: "missing" }), 5);
+});
+
+test("dropBeforeSpotId names the stop a card drop lands before", () => {
+    assert.equal(dropBeforeSpotId(travelLegs, { spotId: "parque" }), "parque");
+    assert.equal(dropBeforeSpotId(travelLegs, { travelLegKey: "kyoto>hiroshima" }), "kyoto");
+    assert.equal(dropBeforeSpotId(travelLegs, null), null);
+    assert.equal(dropBeforeSpotId(travelLegs, { travelLegKey: "malformed" }), null);
+});
+
+// Rows: Hotel, [Kyoto → Hiroshima card], Muelle, [→ Miyajima card]. The ferry
+// card folds only its arrival, so its origin pier keeps its own row above it.
+test("a travel card dropped before an arrival-only card lands after that card's origin", () => {
+    const plan = {
+        state: [{
+            id: "d1",
+            spots: [
+                { id: "hotel" },
+                { id: "kyoto", kind: "waypoint" },
+                { id: "hiroshima", kind: "waypoint" },
+                { id: "muelle", kind: "waypoint" },
+                { id: "miyajima", kind: "waypoint" },
+            ],
+        }],
+        backlog: [],
+        travelLegs: {
+            "kyoto>hiroshima": { mode: "train", embeddedEndpoints: ["from", "to"] },
+            "muelle>miyajima": { mode: "ferry", embeddedEndpoints: ["to"] },
+        },
+    };
+    const beforeId = dropBeforeSpotId(plan.travelLegs, { travelLegKey: "muelle>miyajima" });
+    assert.equal(beforeId, "miyajima");
+    assert.ok(relocateTravelCard(plan, "kyoto>hiroshima", "d1", beforeId));
+    assert.deepEqual(
+        plan.state[0].spots.map(({ id }) => id),
+        ["hotel", "muelle", "kyoto", "hiroshima", "miyajima"],
+    );
 });

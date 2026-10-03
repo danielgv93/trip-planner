@@ -17,17 +17,21 @@ function locateSpot(plan, spotId) {
 // row for two stops, so row positions drift from array indexes after each such
 // card. A drop is therefore resolved from the item it lands before: `following`
 // is { spotId } for a stop row, { travelLegKey } for a travel card, or null at
-// the end of the day. Returns the index in the day without the moving stop,
-// which is what moveSpot() expects.
+// the end of the day. Returns the id of the stop the drop lands before, or null.
+export function dropBeforeSpotId(travelLegs, following) {
+    if (!following?.travelLegKey) return following?.spotId ?? null;
+    const pair = parseTravelLegKey(following.travelLegKey);
+    if (!pair) return null;
+    // A card folding only its arrival sits right after the origin's row.
+    const embedsFrom = travelLegs?.[following.travelLegKey]?.embeddedEndpoints?.includes("from");
+    return embedsFrom ? pair.fromId : pair.toId;
+}
+
+// The same drop as an index in the day without the moving stop, which is what
+// moveSpot() expects.
 export function dropIndexBefore(spots, travelLegs, movingId, following) {
     const rest = spots.filter((spot) => String(spot.id) !== String(movingId));
-    let beforeId = following?.spotId ?? null;
-    if (following?.travelLegKey) {
-        const pair = parseTravelLegKey(following.travelLegKey);
-        // A card folding only its arrival sits right after the origin's row.
-        const embedsFrom = travelLegs?.[following.travelLegKey]?.embeddedEndpoints?.includes("from");
-        beforeId = pair ? (embedsFrom ? pair.fromId : pair.toId) : null;
-    }
+    const beforeId = dropBeforeSpotId(travelLegs, following);
     if (beforeId === null) return rest.length;
     const index = rest.findIndex((spot) => String(spot.id) === String(beforeId));
     return index === -1 ? rest.length : index;
