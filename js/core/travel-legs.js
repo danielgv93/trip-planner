@@ -98,6 +98,21 @@ export function disconnectedTravelLegs(travelLegs, days, enabled = (spot) => spo
     return Object.entries(travelLegs || {}).filter(([key]) => !applicable.has(key));
 }
 
+// A waypoint can be folded into a single travel card. Plain legs that merely
+// touch it, and stale legs whose stops are no longer consecutive, never block.
+export function embeddingTravelLegKey(travelLegs, days, spotId, exceptKey, enabled = (spot) => spot?.mapEnabled !== false) {
+    const disconnected = new Set(disconnectedTravelLegs(travelLegs, days, enabled).map(([key]) => key));
+    const id = String(spotId);
+    const match = Object.entries(travelLegs || {}).find(([key, leg]) => {
+        if (key === exceptKey || disconnected.has(key)) return false;
+        const pair = parseTravelLegKey(key);
+        const endpoints = leg?.embeddedEndpoints || [];
+        return (pair?.fromId === id && endpoints.includes("from"))
+            || (pair?.toId === id && endpoints.includes("to"));
+    });
+    return match ? match[0] : null;
+}
+
 export function travelLegCost(leg) {
     return Number.isFinite(leg?.cost) && leg.cost > 0 ? leg.cost : 0;
 }

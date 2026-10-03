@@ -9,6 +9,7 @@ import {
 import { isWaypoint } from "../../core/itinerary.js";
 import {
     AUTOMATIC_TRAVEL_MODES,
+    embeddingTravelLegKey,
     normalizeTravelLeg,
     travelLegKey,
 } from "../../core/travel-legs.js";
@@ -659,11 +660,9 @@ function syncTravelDurationControls() {
 function endpointEligibility(spot, currentKey) {
     if (!isWaypoint(spot))
         return { eligible: false, reason: "Solo los puntos de paso pueden agruparse en la tarjeta." };
-    const shared = Object.keys(store.travelLegs).some(
-        (key) => key !== currentKey && key.split(">").includes(String(spot.id)),
-    );
-    return shared
-        ? { eligible: false, reason: "Este punto de paso ya participa en otro trayecto." }
+    const conflict = embeddingTravelLegKey(store.travelLegs, store.state, spot.id, currentKey, spotIsEnabled);
+    return conflict
+        ? { eligible: false, reason: "Ya está agrupado en la tarjeta de otro trayecto." }
         : { eligible: true, reason: "" };
 }
 
@@ -678,10 +677,6 @@ function paintEndpointOptions() {
         if (!eligibility.eligible) checkbox.checked = false;
         $(`#travelEmbed${suffix}Name`).textContent = spot.name || "Parada sin nombre";
         reason.textContent = eligibility.reason;
-    });
-    travelAdvanced.hidden = !["From", "To"].some((suffix) => {
-        const checkbox = $(`#travelEmbed${suffix}`);
-        return !checkbox.disabled || checkbox.checked;
     });
 }
 

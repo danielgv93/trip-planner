@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
     applicableTravelLeg,
     disconnectedTravelLegs,
+    embeddingTravelLegKey,
     migrateLegacyTravelLegs,
     normalizeTravelLeg,
     parseTravelLegKey,
@@ -53,6 +54,29 @@ test("solo resuelve pares activos consecutivos y conserva desconectados", () => 
     assert.equal(applicableTravelLeg(legs, day, a, c), null);
     assert.deepEqual(disconnectedTravelLegs(legs, [day]), [["a>c", legs["a>c"]]]);
     assert.deepEqual(parseTravelLegKey("a>b"), { fromId: "a", toId: "b" });
+});
+
+test("un punto de paso solo choca con otra tarjeta activa que ya lo agrupa", () => {
+    const hotel = { id: "hotel" }, kyoto = { id: "kyoto", kind: "waypoint" };
+    const nishi = { id: "nishi", kind: "waypoint" }, miya = { id: "miya", kind: "waypoint" };
+    const days = [{ spots: [hotel, kyoto, nishi, miya] }];
+    const current = travelLegKey("kyoto", "nishi");
+    const legs = {
+        [travelLegKey("hotel", "kyoto")]: { mode: "train", durationMinutes: 30 },
+        [current]: { mode: "train", durationMinutes: 90 },
+        [travelLegKey("nishi", "miya")]: { mode: "train", durationMinutes: 20 },
+        [travelLegKey("kyoto", "miya")]: { mode: "train", embeddedEndpoints: ["from"] },
+    };
+    assert.equal(embeddingTravelLegKey(legs, days, "kyoto", current), null);
+    assert.equal(embeddingTravelLegKey(legs, days, "nishi", current), null);
+
+    legs[travelLegKey("nishi", "miya")].embeddedEndpoints = ["from"];
+    assert.equal(embeddingTravelLegKey(legs, days, "nishi", current), "nishi>miya");
+    legs[travelLegKey("nishi", "miya")].embeddedEndpoints = ["to"];
+    assert.equal(embeddingTravelLegKey(legs, days, "nishi", current), null);
+    legs[travelLegKey("hotel", "kyoto")].embeddedEndpoints = ["to"];
+    assert.equal(embeddingTravelLegKey(legs, days, "kyoto", current), "hotel>kyoto");
+    assert.equal(embeddingTravelLegKey(legs, days, "kyoto", "hotel>kyoto"), null);
 });
 
 test("clasifica duraciones automáticas, aproximadas y personalizadas", () => {
