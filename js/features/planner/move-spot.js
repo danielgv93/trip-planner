@@ -2,6 +2,7 @@ import {
     dayPositionConstraintViolation,
     spotPositionConstraint,
 } from "../../core/itinerary.js";
+import { parseTravelLegKey } from "../../core/travel-legs.js";
 
 function locateSpot(plan, spotId) {
     const backlogIndex = plan.backlog.findIndex((spot) => spot.id === spotId);
@@ -10,6 +11,26 @@ function locateSpot(plan, spotId) {
     const day = plan.state.find((candidate) => candidate.spots.some((spot) => spot.id === spotId));
     if (!day) return null;
     return { list: day.spots, index: day.spots.findIndex((spot) => spot.id === spotId), dayId: day.id };
+}
+
+// A day's rows are not its stops: a travel card folding both endpoints is one
+// row for two stops, so row positions drift from array indexes after each such
+// card. A drop is therefore resolved from the item it lands before: `following`
+// is { spotId } for a stop row, { travelLegKey } for a travel card, or null at
+// the end of the day. Returns the index in the day without the moving stop,
+// which is what moveSpot() expects.
+export function dropIndexBefore(spots, travelLegs, movingId, following) {
+    const rest = spots.filter((spot) => String(spot.id) !== String(movingId));
+    let beforeId = following?.spotId ?? null;
+    if (following?.travelLegKey) {
+        const pair = parseTravelLegKey(following.travelLegKey);
+        // A card folding only its arrival sits right after the origin's row.
+        const embedsFrom = travelLegs?.[following.travelLegKey]?.embeddedEndpoints?.includes("from");
+        beforeId = pair ? (embedsFrom ? pair.fromId : pair.toId) : null;
+    }
+    if (beforeId === null) return rest.length;
+    const index = rest.findIndex((spot) => String(spot.id) === String(beforeId));
+    return index === -1 ? rest.length : index;
 }
 
 export function relocationConstraintViolation(plan, spotId, toDay, at) {

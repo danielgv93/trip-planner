@@ -140,11 +140,18 @@ export function moveSpot(spotId, toDay, at, backlogGroupId) {
         ]?.id ?? null;
     }
     store.active = toDay;
+    // Drag-and-drop has already moved the row; a commit that changes nothing
+    // (or fails) never repaints, so restore the rendered order from the data.
     void derivedPlanOperation((document) => moveEntityIntent(
         document,
         { type: "spot", id: spotId },
         { containerId: toDay, beforeId, backlogGroupId },
-    ));
+    )).then(
+        (result) => {
+            if (result?.noOp || result?.skipped) repaint({ persist: false });
+        },
+        () => repaint({ persist: false }),
+    );
     return true;
 }
 

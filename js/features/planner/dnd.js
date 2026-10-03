@@ -6,9 +6,10 @@
 // This is a side-effect module: importing it wires the drag listeners on #days.
 
 import { daysEl } from "../../shared/dom.js";
-import { store } from "../../core/store.js";
+import { dayBy, store } from "../../core/store.js";
 import { render } from "./render.js";
 import { moveDay, moveSpot, moveTravelCard } from "./commands.js";
+import { dropIndexBefore } from "./move-spot.js";
 import { toast } from "../../shared/notify.js";
 
 let dragEl = null,
@@ -236,13 +237,25 @@ function onUp(e) {
         dayId = dragEl.closest(".day").dataset.day,
         backlogGroupId =
             dayId === "backlog" ? list.dataset.backlogGroup : undefined,
-        index = [...list.querySelectorAll(".spot")].indexOf(dragEl),
+        rowIndex = [...list.querySelectorAll(".spot")].indexOf(dragEl),
         spotId = dragSpotId,
         travelKey = dragTravelKey,
         followingItem = [...list.querySelectorAll(".spot")]
-            .slice(index + 1)
+            .slice(rowIndex + 1)
             .find((item) => item.dataset.spot || item.dataset.travelLeg),
-        followingSpot = followingItem?.dataset.spot || followingItem?.dataset.travelLeg?.split(">")[0] || null;
+        followingSpot = followingItem?.dataset.spot || followingItem?.dataset.travelLeg?.split(">")[0] || null,
+        // Backlog rows map 1:1 to stops; a day's travel cards do not.
+        index = dayId === "backlog"
+            ? rowIndex
+            : dropIndexBefore(
+                  dayBy(dayId)?.spots || [],
+                  store.travelLegs,
+                  spotId,
+                  followingItem && {
+                      spotId: followingItem.dataset.spot,
+                      travelLegKey: followingItem.dataset.travelLeg,
+                  },
+              );
     settled = false;
     const commit = () => {
         if (settled) return;
