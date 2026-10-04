@@ -1,0 +1,122 @@
+/* Desktop-only minimap of the day cards (js/features/workspace/cards-minimap.js).
+   --minimap-reveal (0..1) is set on .days-layout from the divider position. */
+.days-layout {
+    display: block;
+}
+.cards-minimap {
+    display: none;
+}
+
+@media (min-width: 961px) {
+    .days-layout {
+        --minimap-reveal: 0;
+        --minimap-max: 78px;
+        --minimap-gap: 6px;
+        display: grid;
+        grid-template-columns:
+            calc((var(--minimap-max) + var(--minimap-gap)) * var(--minimap-reveal))
+            minmax(0, 1fr);
+        align-items: start;
+    }
+    .days-layout > .days {
+        grid-column: 2;
+        grid-row: 1;
+    }
+    .cards-minimap {
+        grid-column: 1;
+        grid-row: 1;
+        position: sticky;
+        top: calc(var(--nav-height) + var(--tag-bar-height) + var(--date-strip-height) + var(--sticky-gap));
+        display: block;
+        /* Sticky makes this a stacking context, so the "Día N" pill that
+           overflows into #days must win here: above the sticky day headers
+           (.day-head, 12) and below open day menus (.day.menu-open, 20). */
+        z-index: 13;
+        /* Height is set by JS: the visible cards viewport, capped at the region. */
+        width: 100%;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    .cards-minimap[hidden] {
+        display: none;
+    }
+    .cards-minimap-clip {
+        position: relative;
+        width: calc(var(--minimap-max) * var(--minimap-reveal));
+        height: 100%;
+        overflow: hidden;
+        touch-action: none;
+        cursor: default;
+    }
+    .cards-minimap-canvas {
+        display: block;
+        width: var(--minimap-max);
+        height: 100%;
+        opacity: var(--minimap-reveal);
+        transform: translateX(calc((var(--minimap-reveal) - 1) * 24px));
+    }
+    .cards-minimap-slider {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 0;
+        border-radius: 2px;
+        background: color-mix(in srgb, var(--ink) 8%, transparent);
+        will-change: transform;
+    }
+    .cards-minimap-clip:hover .cards-minimap-slider {
+        background: color-mix(in srgb, var(--ink) 13%, transparent);
+    }
+    .cards-minimap.is-dragging .cards-minimap-slider {
+        background: color-mix(in srgb, var(--ink) 22%, transparent);
+    }
+    .cards-minimap.is-dragging .cards-minimap-clip {
+        cursor: grabbing;
+    }
+    .cards-minimap-label {
+        /* Sits inside the minimap, just above the pointer, so it only covers
+           the miniature and never the day cards next to it. JS flips it below
+           the pointer (.is-below) near the top edge. */
+        position: absolute;
+        left: 4px;
+        top: 0;
+        z-index: 30;
+        box-sizing: border-box;
+        width: calc(var(--minimap-max) - 8px);
+        padding: 4px 6px;
+        /* Dark tooltip: it floats over the light miniature, so a card-colored
+           pill would vanish against it. */
+        border-radius: 6px;
+        background: var(--ink);
+        color: var(--paper);
+        box-shadow: 0 3px 10px #1d273033;
+        font-size: 11px;
+        font-weight: 500;
+        line-height: 13px;
+        text-align: center;
+        pointer-events: none;
+        transform: translateY(calc(-100% - 10px));
+    }
+    /* The clamp lives on the inner span so the label's padding cannot leak a
+       third line below the second one. */
+    .cards-minimap-label-text {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+        overflow-wrap: break-word;
+    }
+    .cards-minimap-label.is-below {
+        transform: translateY(14px);
+    }
+    .cards-minimap-label[hidden] {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cards-minimap-canvas {
+        transform: none;
+    }
+}

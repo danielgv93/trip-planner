@@ -1,9 +1,12 @@
 @media (min-width: 961px) {
     .workspace {
+        /* Before workspace-resize.js runs, the shares come from the inline
+           script in index.html (saved split) or fall back to the default
+           60/40, which must match DEFAULT_SPLIT so the divider never jumps. */
         grid-template-columns:
-            minmax(450px, var(--planner-pane-width, 1.02fr))
+            minmax(450px, var(--planner-pane-width, var(--planner-share, 60fr)))
             23px
-            minmax(430px, 0.98fr);
+            minmax(240px, var(--map-share, 40fr));
         gap: 0;
     }
     .workspace-resize-handle {

@@ -4,14 +4,22 @@
 
 import { store, saveLocalPreferences } from "../../core/store.js";
 import { invalidateMainMap } from "../map/map.js";
+import {
+    revealForMapFraction,
+    mapFraction,
+    FULL_REVEAL_MAP_FRACTION,
+} from "./minimap-geometry.js";
+import { setMinimapReveal } from "./cards-minimap.js";
 
 const workspace = document.querySelector(".workspace");
 const handle = document.querySelector("#workspaceResizeHandle");
 const desktop = matchMedia("(min-width: 961px)");
 const HANDLE_WIDTH = 23;
 const MIN_PLANNER = 450;
-const MIN_MAP = 430;
-const DEFAULT_SPLIT = 0.51;
+const MIN_MAP = 240; // keep in sync with the minmax() in styles/layout/workspace-resize.css
+// Planner share of the split. Defaults to the exact point where the minimap is
+// fully revealed; users who want a wider map drag the handle towards the left.
+const DEFAULT_SPLIT = 1 - FULL_REVEAL_MAP_FRACTION;
 const KEYBOARD_STEP = 24;
 
 let resizeFrame = 0;
@@ -42,18 +50,43 @@ function repaintMap() {
     resizeFrame = requestAnimationFrame(invalidateMainMap);
 }
 
+// Single source of truth for how visible the itinerary minimap is (0..1).
+// Today it is derived from the divider position: the narrower the map, the more
+// the minimap shows. To make it always visible later (a user preference),
+// return 1 here (or `store.minimapAlwaysVisible ? 1 : ...`); nothing else
+// needs to change because every consumer reads this value.
+function minimapReveal(plannerWidth, available) {
+    if (!desktop.matches) return 0;
+    return revealForMapFraction(mapFraction(available - plannerWidth, available));
+}
+
 function applyWidth(requestedWidth) {
     const limits = bounds();
     const width = Math.min(limits.max, Math.max(limits.min, requestedWidth));
     workspace.style.setProperty("--planner-pane-width", `${width}px`);
     updateAccessibility(width, limits);
+    setMinimapReveal(minimapReveal(width, limits.available));
     repaintMap();
     return { width, available: limits.available };
+}
+
+// Mirrors the split into its own key so the inline script in index.html can
+// paint it before any module loads (store.workspaceSplit stays the source of
+// truth; a stale mirror only affects the first frame).
+const SPLIT_MIRROR_KEY = "trip-planner-workspace-split";
+function mirrorSplit() {
+    try {
+        if (store.workspaceSplit == null) localStorage.removeItem(SPLIT_MIRROR_KEY);
+        else localStorage.setItem(SPLIT_MIRROR_KEY, String(store.workspaceSplit));
+    } catch {
+        // Storage can be unavailable (private mode); the first frame then uses the CSS default.
+    }
 }
 
 function applyPreference() {
     if (!desktop.matches) {
         workspace.style.removeProperty("--planner-pane-width");
+        setMinimapReveal(0);
         repaintMap();
         return;
     }
@@ -64,6 +97,7 @@ function applyPreference() {
 function commit(width, available) {
     store.workspaceSplit = available > 0 ? width / available : null;
     saveLocalPreferences();
+    mirrorSplit();
 }
 
 handle.addEventListener("pointerdown", (event) => {
@@ -111,6 +145,7 @@ handle.addEventListener("keydown", (event) => {
 handle.addEventListener("dblclick", () => {
     store.workspaceSplit = null;
     saveLocalPreferences();
+    mirrorSplit();
     applyPreference();
 });
 
@@ -124,4 +159,6 @@ new ResizeObserver(([entry]) => {
     observedWorkspaceWidth = width;
     applyPreference();
 }).observe(workspace);
+// Seeds the mirror for users whose split predates it.
+mirrorSplit();
 applyPreference();

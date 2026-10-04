@@ -75,7 +75,7 @@ Module map (paths are relative to `js/`):
   `member-avatar.js`).
 - **`features/share/`** — public read-only share links: the owner's link dialog,
   the anonymous bootstrap, and the pure URL rules in `share-url.js`.
-- **`features/workspace/`** — persisted desktop workspace resizing.
+- **`features/workspace/`** — persisted desktop workspace resizing (the map may shrink to 240px) and the desktop-only cards minimap (`cards-minimap.js`; pure geometry in `minimap-geometry.js`). The minimap's visibility is a continuous `reveal` (0..1) derived from the divider position by `minimapReveal()` in `workspace-resize.js`; it tracks the window scroll, never changes `store.active`, and repaints on `planner-rendered` plus a ResizeObserver on `#days`.
 - **`app/main.js`** — imports side-effect modules, paints the initial UI/map, and starts background initialization.
 
 CSS has a single entry point at `styles/app.css`. It imports global rules from `styles/foundation/`, feature-owned rules from `styles/features/`, and workspace/responsive rules from `styles/layout/`. Its explicit import order preserves the established cascade; update it deliberately when adding styles.

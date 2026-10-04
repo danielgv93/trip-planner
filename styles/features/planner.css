@@ -27,7 +27,7 @@ main {
 .workspace {
     display: grid;
     grid-template-columns: minmax(450px, 1.02fr) minmax(
-            430px,
+            240px,
             0.98fr
         );
     gap: 23px;

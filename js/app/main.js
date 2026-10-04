@@ -18,6 +18,7 @@ import "../features/health/health.js";
 import "../features/route-simulator/route-simulator.js";
 import "../features/github/github.js";
 import "../features/finance/budget.js";
+import "../features/workspace/cards-minimap.js";
 import "../features/workspace/workspace-resize.js";
 import "../features/workspace/sticky-pane.js";
 import "../features/library/library.js";
