@@ -1,0 +1,83 @@
+/* Drop rail chrome: fixed panel shown while dragging a stop in a long day. */
+.drop-rail {
+    position: fixed;
+    z-index: 9000;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+    background: var(--card);
+    border: 1px solid #d44d4380;
+    border-radius: 8px;
+    box-shadow: 0 16px 40px #24323a2e;
+    overflow: hidden;
+    animation: drop-rail-in 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.drop-rail-head {
+    flex: none;
+    padding: 6px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--red-dark);
+    background: #d44d430d;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.drop-rail-head.is-target {
+    color: #fff;
+    background: var(--red);
+    letter-spacing: 0;
+    text-transform: none;
+}
+.drop-rail-body {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+.drop-rail-body::-webkit-scrollbar {
+    display: none;
+}
+.drop-rail-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -1px;
+    height: 2px;
+    background: var(--red);
+    box-shadow: 0 0 0 2px #d44d4326;
+    pointer-events: none;
+}
+.drop-rail-line::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: -3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--red);
+}
+@keyframes drop-rail-in {
+    from {
+        opacity: 0;
+        transform: translateX(16px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .drop-rail {
+        animation: none;
+    }
+}
+.spot-ghost.is-over-rail {
+    opacity: 0.55;
+    transition: opacity 0.12s ease;
+}

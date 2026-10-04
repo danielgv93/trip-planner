@@ -11,6 +11,12 @@ import { render } from "./render.js";
 import { moveDay, moveSpot, moveTravelCard } from "./commands.js";
 import { dropBeforeSpotId, dropIndexBefore } from "./move-spot.js";
 import { toast } from "../../shared/notify.js";
+import {
+    closeDropRail,
+    dropRailList,
+    openDropRail,
+    updateDropRail,
+} from "./drop-rail.js";
 
 let dragEl = null,
     ghost = null,
@@ -25,6 +31,8 @@ let dragEl = null,
     dragPointerId = null,
     cardW = 0,
     settled = false,
+    // Set while the pointer is over the drop rail: { before } in the rail's list.
+    railDrop = null,
     // Swallows the click that fires right after a drag so it isn't a tap.
     suppressClick = false;
 
@@ -131,6 +139,8 @@ function createGhost(element, className, width) {
 }
 
 function endCleanup() {
+    closeDropRail();
+    railDrop = null;
     ghost?.remove();
     ghost = null;
     dragEl?.classList.remove("dragging");
@@ -162,6 +172,7 @@ function onMove(e) {
             return;
         }
         ghost = createGhost(dragEl, "spot-ghost", cardW);
+        ghost.style.transformOrigin = `${grabDX}px ${grabDY}px`;
         // The connector rendered immediately after a stop is its outgoing
         // route. Keep that visual unit with the stop while the DOM is being
         // reordered; render() will replace it with the correct new pair on
@@ -178,9 +189,23 @@ function onMove(e) {
         document.body.style.webkitUserSelect = "none";
         getSelection()?.removeAllRanges();
         dragging = true;
+        if (dragEl.closest(".day")?.dataset.day !== "backlog")
+            openDropRail({ listEl: dragEl.parentElement, dragEl });
     }
     e.preventDefault();
-    ghost.style.transform = `translate(${e.clientX - grabDX}px,${e.clientY - grabDY}px) rotate(2.5deg) scale(1.04)`;
+    const railTarget = updateDropRail(e.clientX, e.clientY);
+    // Over the rail the ghost shrinks around the grab point so it does not
+    // cover the compact rows being aimed at.
+    ghost.classList.toggle("is-over-rail", Boolean(railTarget));
+    ghost.style.transform = `translate(${e.clientX - grabDX}px,${e.clientY - grabDY}px) rotate(2.5deg) scale(${railTarget ? 0.5 : 1.04})`;
+    if (railTarget) {
+        railDrop = railTarget;
+        document
+            .querySelectorAll(".spots")
+            .forEach((x) => x.classList.remove("drag-over"));
+        return;
+    }
+    railDrop = null;
     if (e.clientY < 60) window.scrollBy(0, -12);
     else if (e.clientY > innerHeight - 60) window.scrollBy(0, 12);
     const under = document.elementFromPoint(e.clientX, e.clientY),
@@ -233,6 +258,18 @@ function onUp(e) {
         return;
     }
     suppressClick = true;
+    const droppedOnRail = Boolean(railDrop);
+    if (railDrop) {
+        // The target row may be offscreen, so skip FLIP: only DOM order matters
+        // for the commit below.
+        const railList = dropRailList() || dragEl.parentElement;
+        const moving = document.createDocumentFragment();
+        moving.append(dragEl);
+        if (dragConnector) moving.append(dragConnector);
+        if (railDrop.before && railDrop.before.parentElement === railList)
+            railList.insertBefore(moving, railDrop.before);
+        else railList.append(moving);
+    }
     const list = dragEl.parentElement,
         dayId = dragEl.closest(".day").dataset.day,
         backlogGroupId =
@@ -260,11 +297,17 @@ function onUp(e) {
         if (travelKey) moveTravelCard(travelKey, dayId, followingSpot);
         else moveSpot(spotId, dayId, index, backlogGroupId);
     };
-    const r = dragEl.getBoundingClientRect();
-    ghost.style.transition = "transform .18s cubic-bezier(.2,.8,.2,1)";
-    ghost.style.transform = `translate(${r.left}px,${r.top}px) rotate(0deg) scale(1)`;
+    if (droppedOnRail) {
+        // The row may be offscreen: fade the ghost out instead of flying to it.
+        ghost.style.transition = "opacity .14s ease, transform .14s ease";
+        ghost.style.opacity = "0";
+    } else {
+        const r = dragEl.getBoundingClientRect();
+        ghost.style.transition = "transform .18s cubic-bezier(.2,.8,.2,1)";
+        ghost.style.transform = `translate(${r.left}px,${r.top}px) rotate(0deg) scale(1)`;
+    }
     ghost.addEventListener("transitionend", commit, { once: true });
-    setTimeout(commit, 220);
+    setTimeout(commit, droppedOnRail ? 180 : 220);
 }
 
 function onCancel(e) {
